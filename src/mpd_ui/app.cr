@@ -5,6 +5,7 @@ module MPDUI
     @settings : Settings
     @qt_app : Qt6::Application
     @window : Qt6::Widget?
+    @cover_label : Qt6::Label?
     @title_label : Qt6::Label?
     @subtitle_label : Qt6::Label?
     @status_label : Qt6::Label?
@@ -21,6 +22,8 @@ module MPDUI
     @repeat : Bool = false
     @syncing : Bool = false
     @syncing_progress : Bool = false
+    @dragging_progress : Bool = false
+    @current_file : String = ""
 
     def initialize
       @settings = Settings.load
@@ -37,8 +40,13 @@ module MPDUI
     end
 
     private def build_ui : Nil
-      window = Qt6.window(WINDOW_TITLE, 520, 180) do |widget|
+      window = Qt6.window(WINDOW_TITLE, 520, 320) do |widget|
         widget.vbox do |column|
+          cover_label = Qt6::Label.new("No Cover")
+          cover_label.set_fixed_size(160, 160)
+          cover_label.scaled_contents = true
+          cover_label.style_sheet = "background: #222; border: 1px solid #444;"
+
           title_label = Qt6::Label.new("Connecting...")
           title_label.style_sheet = "font-size: 18px; font-weight: bold;"
           title_label.word_wrap = true
@@ -55,9 +63,22 @@ module MPDUI
 
             time_label = Qt6::Label.new("0:00 / 0:00")
 
+            progress_slider.on_pressed do
+              @dragging_progress = true
+            end
+
             progress_slider.on_value_changed do |value|
               next if @syncing_progress || @duration <= 0
+              @dragging_progress = true
               target = @duration * value / 1000.0
+              @elapsed = target
+              @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
+            end
+
+            progress_slider.on_released do
+              next if @syncing_progress || @duration <= 0
+              @dragging_progress = false
+              target = @duration * progress_slider.value / 1000.0
               @elapsed = target
               update_progress
               mpd_action { |c| c.seekcur(target.to_i) }
@@ -101,12 +122,14 @@ module MPDUI
           status_label = Qt6::Label.new("Ready")
           status_label.word_wrap = true
 
+          column << cover_label
           column << title_label
           column << subtitle_label
           column << progress
           column << controls
           column << status_label
 
+          @cover_label = cover_label
           @title_label = title_label
           @subtitle_label = subtitle_label
           @status_label = status_label
@@ -172,7 +195,16 @@ module MPDUI
         @subtitle_label.try(&.text = subtitle.empty? ? " " : subtitle)
         @status_label.try(&.text = "State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = artist ? "#{artist} — #{title}" : title)
+
+        if file && file != @current_file
+          @current_file = file
+          load_cover_art(file)
+        elsif !file
+          clear_cover_art
+        end
       else
+        @current_file = ""
+        clear_cover_art
         @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
         @subtitle_label.try(&.text = "")
         @status_label.try(&.text = "Connected to #{@settings.host}:#{@settings.port}")
@@ -187,12 +219,51 @@ module MPDUI
     private def update_progress : Nil
       slider = @progress_slider
       return unless slider
+      return if @dragging_progress
 
       @syncing_progress = true
       pct = @duration > 0 ? ((@elapsed / @duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
       slider.value = pct
       @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
       @syncing_progress = false
+    end
+
+    private def load_cover_art(uri : String) : Nil
+      client = @client
+      return clear_cover_art unless client
+
+      response = begin
+        client.readpicture(uri)
+      rescue
+        nil
+      end
+      response ||= begin
+        client.albumart(uri)
+      rescue
+        nil
+      end
+
+      if response
+        _meta, io = response
+        io.rewind
+        pixmap = Qt6::QPixmap.from_data(io.to_slice)
+
+        if pixmap.null?
+          clear_cover_art
+        else
+          @cover_label.try(&.text = "")
+          @cover_label.try(&.pixmap = pixmap)
+        end
+      else
+        clear_cover_art
+      end
+    rescue
+      clear_cover_art
+    end
+
+    private def clear_cover_art : Nil
+      @cover_label.try(&.pixmap = nil)
+      @cover_label.try(&.text = "No Cover")
     end
 
     private def format_time(seconds : Float64) : String
