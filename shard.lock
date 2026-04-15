@@ -1,0 +1,10 @@
+version: 2.0
+shards:
+  crystal_mpd:
+    git: https://github.com/mamantoha/crystal_mpd.git
+    version: 1.0.2
+
+  qt6:
+    path: ../crystal-qt6
+    version: 0.4.0
+

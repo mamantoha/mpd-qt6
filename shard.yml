@@ -1,0 +1,21 @@
+name: mpd-qt6
+version: 0.1.0
+
+authors:
+  - mamantoha <anton.maminov@gmail.com>
+
+targets:
+  mpd-qt6:
+    main: src/mpd_ui.cr
+
+dependencies:
+  qt6:
+    # github: djberg96/crystal-qt6
+    # branch: main
+    path: ../crystal-qt6
+  crystal_mpd:
+    github: mamantoha/crystal_mpd
+
+crystal: '>= 1.19.1'
+
+license: MIT
