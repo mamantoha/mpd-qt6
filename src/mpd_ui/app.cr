@@ -8,14 +8,19 @@ module MPDUI
     @title_label : Qt6::Label?
     @subtitle_label : Qt6::Label?
     @status_label : Qt6::Label?
+    @time_label : Qt6::Label?
     @play_pause_button : Qt6::PushButton?
     @shuffle_button : Qt6::PushButton?
     @repeat_button : Qt6::PushButton?
+    @progress_slider : Qt6::Slider?
     @status_timer : Qt6::QTimer?
     @client : MPD::Client?
+    @elapsed : Float64 = 0.0
+    @duration : Float64 = 0.0
     @random : Bool = false
     @repeat : Bool = false
     @syncing : Bool = false
+    @syncing_progress : Bool = false
 
     def initialize
       @settings = Settings.load
@@ -40,6 +45,30 @@ module MPDUI
 
           subtitle_label = Qt6::Label.new("")
           subtitle_label.word_wrap = true
+
+          progress = Qt6::Widget.new(widget)
+          progress.hbox do |row|
+            progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
+            progress_slider.set_range(0, 1000)
+            progress_slider.value = 0
+            progress_slider.minimum_width = 320
+
+            time_label = Qt6::Label.new("0:00 / 0:00")
+
+            progress_slider.on_value_changed do |value|
+              next if @syncing_progress || @duration <= 0
+              target = @duration * value / 1000.0
+              @elapsed = target
+              update_progress
+              mpd_action { |c| c.seekcur(target.to_i) }
+            end
+
+            row << progress_slider
+            row << time_label
+
+            @progress_slider = progress_slider
+            @time_label = time_label
+          end
 
           controls = Qt6::Widget.new(widget)
           controls.hbox do |row|
@@ -74,6 +103,7 @@ module MPDUI
 
           column << title_label
           column << subtitle_label
+          column << progress
           column << controls
           column << status_label
 
@@ -122,11 +152,14 @@ module MPDUI
       song = client.currentsong
 
       state = status.try(&.fetch("state", "stop")) || "stop"
+      @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
+      @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
       @random = status.try(&.[]?("random")) == "1"
       @repeat = status.try(&.[]?("repeat")) == "1"
 
       @play_pause_button.try(&.text = state == "play" ? "Pause" : "Play")
       sync_toggle_buttons
+      update_progress
 
       if song
         file = song["file"]?
@@ -149,6 +182,22 @@ module MPDUI
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
       @status_label.try(&.text = "MPD request failed")
+    end
+
+    private def update_progress : Nil
+      slider = @progress_slider
+      return unless slider
+
+      @syncing_progress = true
+      pct = @duration > 0 ? ((@elapsed / @duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
+      slider.value = pct
+      @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
+      @syncing_progress = false
+    end
+
+    private def format_time(seconds : Float64) : String
+      t = seconds.to_i
+      "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
     end
 
     private def sync_toggle_buttons : Nil
