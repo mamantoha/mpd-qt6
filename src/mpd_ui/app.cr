@@ -16,6 +16,8 @@ module MPDUI
     @progress_slider : Qt6::Slider?
     @status_timer : Qt6::QTimer?
     @client : MPD::Client?
+    @play_icon : Qt6::QIcon?
+    @pause_icon : Qt6::QIcon?
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @random : Bool = false
@@ -93,11 +95,52 @@ module MPDUI
 
           controls = Qt6::Widget.new(widget)
           controls.hbox do |row|
-            prev_button = Qt6::PushButton.new("Previous")
-            play_pause_button = Qt6::PushButton.new("Play")
-            next_button = Qt6::PushButton.new("Next")
-            shuffle_button = Qt6::PushButton.new("Shuffle")
-            repeat_button = Qt6::PushButton.new("Repeat")
+            prev_button = Qt6::PushButton.new("")
+            play_pause_button = Qt6::PushButton.new("")
+            next_button = Qt6::PushButton.new("")
+            shuffle_button = Qt6::PushButton.new("")
+            repeat_button = Qt6::PushButton.new("")
+
+            play_icon = Qt6::QIcon.from_theme("media-playback-start")
+            pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
+            prev_icon = Qt6::QIcon.from_theme("media-skip-backward")
+            next_icon = Qt6::QIcon.from_theme("media-skip-forward")
+            shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
+            repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
+
+            toggle_button_style = <<-CSS
+              QPushButton {
+                padding: 6px;
+                border-width: 1px;
+              }
+              QPushButton:checked {
+                border: 2px solid #4ea1ff;
+                background-color: rgba(78, 161, 255, 0.18);
+              }
+            CSS
+
+            prev_button.icon = prev_icon
+            play_pause_button.icon = play_icon
+            next_button.icon = next_icon
+            shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
+            repeat_button.icon = repeat_icon unless repeat_icon.null?
+            prev_button.icon_size = Qt6::Size.new(22, 22)
+            play_pause_button.icon_size = Qt6::Size.new(22, 22)
+            next_button.icon_size = Qt6::Size.new(22, 22)
+            shuffle_button.icon_size = Qt6::Size.new(22, 22)
+            repeat_button.icon_size = Qt6::Size.new(22, 22)
+            shuffle_button.style_sheet = toggle_button_style
+            repeat_button.style_sheet = toggle_button_style
+            prev_button.fixed_width = 44
+            play_pause_button.fixed_width = 44
+            next_button.fixed_width = 44
+            shuffle_button.fixed_width = 44
+            repeat_button.fixed_width = 44
+            prev_button.tool_tip = "Previous"
+            play_pause_button.tool_tip = "Play/Pause"
+            next_button.tool_tip = "Next"
+            shuffle_button.tool_tip = "Shuffle"
+            repeat_button.tool_tip = "Repeat"
 
             shuffle_button.checkable = true
             repeat_button.checkable = true
@@ -117,6 +160,8 @@ module MPDUI
             @play_pause_button = play_pause_button
             @shuffle_button = shuffle_button
             @repeat_button = repeat_button
+            @play_icon = play_icon
+            @pause_icon = pause_icon
           end
 
           status_label = Qt6::Label.new("Ready")
@@ -180,7 +225,11 @@ module MPDUI
       @random = status.try(&.[]?("random")) == "1"
       @repeat = status.try(&.[]?("repeat")) == "1"
 
-      @play_pause_button.try(&.text = state == "play" ? "Pause" : "Play")
+      if button = @play_pause_button
+        if icon = (state == "play" ? @pause_icon : @play_icon)
+          button.icon = icon
+        end
+      end
       sync_toggle_buttons
       update_progress
 
