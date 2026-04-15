@@ -9,8 +9,8 @@ module MPDUI
     @subtitle_label : Qt6::Label?
     @status_label : Qt6::Label?
     @play_pause_button : Qt6::PushButton?
-    @shuffle_box : Qt6::CheckBox?
-    @repeat_box : Qt6::CheckBox?
+    @shuffle_button : Qt6::PushButton?
+    @repeat_button : Qt6::PushButton?
     @status_timer : Qt6::QTimer?
     @client : MPD::Client?
     @random : Bool = false
@@ -46,24 +46,27 @@ module MPDUI
             prev_button = Qt6::PushButton.new("Previous")
             play_pause_button = Qt6::PushButton.new("Play")
             next_button = Qt6::PushButton.new("Next")
-            shuffle_box = Qt6::CheckBox.new("Shuffle")
-            repeat_box = Qt6::CheckBox.new("Repeat")
+            shuffle_button = Qt6::PushButton.new("Shuffle")
+            repeat_button = Qt6::PushButton.new("Repeat")
+
+            shuffle_button.checkable = true
+            repeat_button.checkable = true
 
             prev_button.on_clicked { mpd_action { |c| c.previous } }
             play_pause_button.on_clicked { toggle_play_pause }
             next_button.on_clicked { mpd_action { |c| c.next } }
-            shuffle_box.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
-            repeat_box.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
+            shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
+            repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
 
             row << prev_button
             row << play_pause_button
             row << next_button
-            row << shuffle_box
-            row << repeat_box
+            row << shuffle_button
+            row << repeat_button
 
             @play_pause_button = play_pause_button
-            @shuffle_box = shuffle_box
-            @repeat_box = repeat_box
+            @shuffle_button = shuffle_button
+            @repeat_button = repeat_button
           end
 
           status_label = Qt6::Label.new("Ready")
@@ -150,8 +153,8 @@ module MPDUI
 
     private def sync_toggle_buttons : Nil
       @syncing = true
-      @shuffle_box.try(&.checked = @random)
-      @repeat_box.try(&.checked = @repeat)
+      @shuffle_button.try(&.checked = @random)
+      @repeat_button.try(&.checked = @repeat)
       @syncing = false
     end
 
