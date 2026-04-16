@@ -1,6 +1,6 @@
 # Crystal MPD
 
-A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://crystal-lang.org/) using [Qt6](https://github.com/djberg96/crystal-qt6) bindings.
+A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://crystal-lang.org/) using a forked [Qt6](https://github.com/mamantoha/crystal-qt6) shard.
 
 ## Screenshots
 
@@ -41,8 +41,23 @@ shards build --release
 
 | Shard | Purpose |
 |---|---|
-| [djberg96/crystal-qt6](https://github.com/djberg96/crystal-qt6) | Qt6 bindings for Crystal |
+| [mamantoha/crystal-qt6](https://github.com/mamantoha/crystal-qt6) | Forked Qt6 bindings for Crystal used by this app |
 | [mamantoha/crystal_mpd](https://github.com/mamantoha/crystal_mpd) | MPD protocol client |
+
+## Forked Qt6 shard
+
+This project currently uses a forked version of crystal-qt6 through a local path dependency during development.
+
+### Features implemented in the fork
+
+The custom additions include:
+
+- main-thread invocation support via Qt meta-object dispatch
+- loading icons from the active desktop theme
+- slider pressed and released callbacks
+- setting images on labels
+- table widget item double-click callbacks
+- table widget item icon support
 
 ## Platform support
 
