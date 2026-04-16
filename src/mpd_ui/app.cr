@@ -1,4 +1,50 @@
 module MPDUI
+  class EventBridge
+    getter refresh_requested : Qt6::Signal() = Qt6::Signal().new
+    getter progress_requested : Qt6::Signal(Float64) = Qt6::Signal(Float64).new
+    getter random_changed : Qt6::Signal(Bool) = Qt6::Signal(Bool).new
+    getter repeat_changed : Qt6::Signal(Bool) = Qt6::Signal(Bool).new
+
+    @refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
+    @progress_pending : Atomic(Bool) = Atomic(Bool).new(false)
+    @elapsed_millis : Atomic(Int64) = Atomic(Int64).new(0_i64)
+
+    def initialize(@app : Qt6::Application)
+    end
+
+    def reset : Nil
+      @refresh_pending.set(false)
+      @progress_pending.set(false)
+    end
+
+    def request_refresh : Nil
+      return if @refresh_pending.swap(true)
+
+      @app.invoke_later do
+        @refresh_pending.set(false)
+        @refresh_requested.emit
+      end
+    end
+
+    def request_progress(elapsed : Float64) : Nil
+      @elapsed_millis.set((elapsed * 1000.0).round.to_i64)
+      return if @progress_pending.swap(true)
+
+      @app.invoke_later do
+        @progress_pending.set(false)
+        @progress_requested.emit(@elapsed_millis.get / 1000.0)
+      end
+    end
+
+    def update_random(enabled : Bool) : Nil
+      @app.invoke_later { @random_changed.emit(enabled) }
+    end
+
+    def update_repeat(enabled : Bool) : Nil
+      @app.invoke_later { @repeat_changed.emit(enabled) }
+    end
+  end
+
   class App
     WINDOW_TITLE = "Crystal MPD"
 
@@ -14,10 +60,12 @@ module MPDUI
     @shuffle_button : Qt6::PushButton?
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
-    @status_timer : Qt6::QTimer?
     @client : MPD::Client?
+    @callback_client : MPD::Client?
+    @event_bridge : EventBridge
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
+    @state : String = "stop"
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @random : Bool = false
@@ -31,14 +79,36 @@ module MPDUI
       @settings = Settings.load
       @qt_app = Qt6.application
       @qt_app.name = WINDOW_TITLE
+      @event_bridge = EventBridge.new(@qt_app)
+      bind_event_bridge
     end
 
     def run : Nil
       build_ui
       connect
-      start_status_timer
       @window.try(&.show)
       exit(@qt_app.run)
+    end
+
+    private def bind_event_bridge : Nil
+      @event_bridge.refresh_requested.connect do
+        refresh_status
+      end
+
+      @event_bridge.progress_requested.connect do |elapsed|
+        @elapsed = elapsed
+        update_progress
+      end
+
+      @event_bridge.random_changed.connect do |enabled|
+        @random = enabled
+        sync_toggle_buttons
+      end
+
+      @event_bridge.repeat_changed.connect do |enabled|
+        @repeat = enabled
+        sync_toggle_buttons
+      end
     end
 
     private def build_ui : Nil
@@ -184,16 +254,13 @@ module MPDUI
       @window = window
     end
 
-    private def start_status_timer : Nil
-      timer = Qt6::QTimer.new
-      timer.on_timeout { refresh_status }
-      timer.start(1000)
-      @status_timer = timer
-    end
-
     private def connect : Nil
       @client.try(&.disconnect)
+      @callback_client.try(&.disconnect)
+
       @client = MPD::Client.new(@settings.host, @settings.port)
+      @event_bridge.reset
+      start_callback_listener
       refresh_status
     rescue ex
       @title_label.try(&.text = "Connection failed")
@@ -212,6 +279,36 @@ module MPDUI
       end
     end
 
+    private def start_callback_listener : Nil
+      host = @settings.host
+      port = @settings.port
+
+      Thread.new do
+        cb = MPD::Client.new(host, port, with_callbacks: true)
+        cb.callbacks_timeout = 200.milliseconds
+
+        cb.on_callback do |event, value|
+          case event
+          when .elapsed?
+            if elapsed = value.to_f?
+              @event_bridge.request_progress(elapsed)
+            end
+          when .random?
+            @event_bridge.update_random(value == "1")
+          when .repeat?
+            @event_bridge.update_repeat(value == "1")
+          when .song?, .state?, .playlist?, .duration?
+            @event_bridge.request_refresh
+          end
+        end
+
+        @callback_client = cb
+        loop { sleep 1.second }
+      rescue
+        @event_bridge.request_refresh
+      end
+    end
+
     private def refresh_status : Nil
       client = @client
       return unless client
@@ -220,6 +317,7 @@ module MPDUI
       song = client.currentsong
 
       state = status.try(&.fetch("state", "stop")) || "stop"
+      @state = state
       @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
       @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
       @random = status.try(&.[]?("random")) == "1"
