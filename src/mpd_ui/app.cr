@@ -188,12 +188,19 @@ module MPDUI
             shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
             repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
 
+            left_spacer = Qt6::Widget.new(controls)
+            right_spacer = Qt6::Widget.new(controls)
+            left_spacer.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Preferred)
+            right_spacer.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Preferred)
+
+            row << left_spacer
             row << prev_button
             row << play_pause_button
             row << next_button
             row << shuffle_button
             row << repeat_button
             row << settings_button
+            row << right_spacer
 
             @play_pause_button = play_pause_button
             @shuffle_button = shuffle_button
