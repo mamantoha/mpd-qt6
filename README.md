@@ -56,6 +56,8 @@ The custom additions include:
 - loading icons from the active desktop theme
 - slider pressed and released callbacks
 - setting images on labels
+- label alignment support
+- pixmap scaling with aspect-ratio preservation
 - table widget item double-click callbacks
 - table widget item icon support
 - native add_stretch support for box layouts

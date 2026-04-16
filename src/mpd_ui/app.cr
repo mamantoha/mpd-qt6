@@ -75,7 +75,8 @@ module MPDUI
         widget.vbox do |column|
           cover_label = Qt6::Label.new("No Cover")
           cover_label.set_fixed_size(160, 160)
-          cover_label.scaled_contents = true
+          cover_label.scaled_contents = false
+          cover_label.alignment = Qt6::AlignmentFlag::Center
           cover_label.style_sheet = "background: #222; border: 1px solid #444;"
 
           title_label = Qt6::Label.new("Connecting...")
@@ -534,8 +535,9 @@ module MPDUI
         if pixmap.null?
           clear_cover_art
         else
+          scaled = pixmap.scaled(160, 160, keep_aspect_ratio: true, smooth: true)
           @cover_label.try(&.text = "")
-          @cover_label.try(&.pixmap = pixmap)
+          @cover_label.try(&.pixmap = scaled)
         end
       else
         clear_cover_art
