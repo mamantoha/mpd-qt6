@@ -66,6 +66,7 @@ module MPDUI
     @event_bridge : EventBridge
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
+    @stop_icon : Qt6::QIcon?
     @state : String = "stop"
     @current_song_pos : Int32? = nil
     @playlist_positions : Array(Int32) = [] of Int32
@@ -176,6 +177,7 @@ module MPDUI
 
             play_icon = Qt6::QIcon.from_theme("media-playback-start")
             pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
+            stop_icon = Qt6::QIcon.from_theme("media-playback-stop")
             prev_icon = Qt6::QIcon.from_theme("media-skip-backward")
             next_icon = Qt6::QIcon.from_theme("media-skip-forward")
             shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
@@ -235,6 +237,7 @@ module MPDUI
             @repeat_button = repeat_button
             @play_icon = play_icon
             @pause_icon = pause_icon
+            @stop_icon = stop_icon
           end
 
           playlist_table = build_playlist(widget)
@@ -263,10 +266,11 @@ module MPDUI
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
       table = Qt6::TableWidget.new(parent)
-      table.column_count = 2
+      table.column_count = 3
       table.row_count = 0
-      table.set_horizontal_header_label(0, "Track")
-      table.set_horizontal_header_label(1, "Time")
+      table.set_horizontal_header_label(0, "")
+      table.set_horizontal_header_label(1, "Track")
+      table.set_horizontal_header_label(2, "Time")
       table.selection_mode = Qt6::ItemSelectionMode::SingleSelection
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
@@ -288,8 +292,10 @@ module MPDUI
       CSS
 
       table.horizontal_header.fixed_height = 0
-      table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Stretch)
-      table.horizontal_header.set_section_resize_mode(1, Qt6::HeaderResizeMode::ResizeToContents)
+      table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Fixed)
+      table.horizontal_header.set_section_resize_mode(1, Qt6::HeaderResizeMode::Stretch)
+      table.horizontal_header.set_section_resize_mode(2, Qt6::HeaderResizeMode::ResizeToContents)
+      table.horizontal_header.resize_section(0, 18)
       table.vertical_header.fixed_width = 0
 
       table.on_item_double_clicked do |_item|
@@ -439,19 +445,25 @@ module MPDUI
         pos = song["Pos"]?.try(&.to_i?) || row
         @playlist_positions << pos
 
-        title_item = Qt6::TableWidgetItem.new(playlist_title(song, pos == @current_song_pos))
+        indicator_icon = playlist_indicator_icon(pos)
+        indicator_item = Qt6::TableWidgetItem.new("")
+        indicator_item.flags = flags
+        indicator_item.icon = indicator_icon.not_nil! if indicator_icon && !indicator_icon.not_nil!.null?
+
+        title_item = Qt6::TableWidgetItem.new(playlist_title(song))
         title_item.flags = flags
 
         time_item = Qt6::TableWidgetItem.new(playlist_duration(song))
         time_item.flags = flags
 
-        table.set_item(row, 0, title_item)
-        table.set_item(row, 1, time_item)
+        table.set_item(row, 0, indicator_item)
+        table.set_item(row, 1, title_item)
+        table.set_item(row, 2, time_item)
       end
 
       if current_pos = @current_song_pos
         if current_row = @playlist_positions.index(current_pos)
-          table.set_current_cell(current_row, 0)
+          table.set_current_cell(current_row, 1)
         end
       end
     ensure
@@ -473,13 +485,25 @@ module MPDUI
       mpd_action { |c| c.play(pos) }
     end
 
-    private def playlist_title(song : Hash(String, String), current : Bool) : String
+    private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
+      return nil unless pos == @current_song_pos
+
+      case @state
+      when "play"
+        @play_icon
+      when "pause"
+        @pause_icon
+      else
+        @stop_icon
+      end
+    end
+
+    private def playlist_title(song : Hash(String, String)) : String
       file = song["file"]?
       title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
       artist = song["Artist"]?
       text = [artist, title].compact.join(" — ")
-      text = title if text.empty?
-      current ? "▶ #{text}" : text
+      text.empty? ? title : text
     end
 
     private def playlist_duration(song : Hash(String, String)) : String
