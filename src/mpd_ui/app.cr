@@ -278,8 +278,7 @@ module MPDUI
       table.minimum_height = 320
       table.style_sheet = <<-CSS
         QTableWidget {
-          background-color: #0f1217;
-          border: 1px solid #2b3038;
+          border: 1px solid;
         }
         QTableWidget::item {
           padding: 4px 6px;
@@ -292,10 +291,9 @@ module MPDUI
       CSS
 
       table.horizontal_header.fixed_height = 0
-      table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Fixed)
+      table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::ResizeToContents)
       table.horizontal_header.set_section_resize_mode(1, Qt6::HeaderResizeMode::Stretch)
       table.horizontal_header.set_section_resize_mode(2, Qt6::HeaderResizeMode::ResizeToContents)
-      table.horizontal_header.resize_section(0, 18)
       table.vertical_header.fixed_width = 0
 
       table.on_item_double_clicked do |_item|
