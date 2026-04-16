@@ -292,7 +292,7 @@ module MPDUI
       table.horizontal_header.set_section_resize_mode(1, Qt6::HeaderResizeMode::ResizeToContents)
       table.vertical_header.fixed_width = 0
 
-      table.on_current_cell_changed do
+      table.on_item_double_clicked do |_item|
         play_selected_playlist_row
       end
 
@@ -469,7 +469,6 @@ module MPDUI
 
       pos = @playlist_positions[row]?
       return unless pos
-      return if pos == @current_song_pos
 
       mpd_action { |c| c.play(pos) }
     end
