@@ -5,6 +5,6 @@ shards:
     version: 1.0.2
 
   qt6:
-    path: ../crystal-qt6
-    version: 0.4.0
+    git: https://github.com/mamantoha/crystal-qt6.git
+    version: 0.4.0+git.commit.feab9cbe69e3734f4eaf7975e8398a4af39be803
 
