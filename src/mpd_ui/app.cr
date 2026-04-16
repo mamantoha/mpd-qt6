@@ -343,63 +343,7 @@ module MPDUI
       parent = @window
       return unless parent
 
-      dialog = Qt6::Dialog.new(parent)
-      dialog.window_title = "Connection Settings"
-      dialog.resize(360, 150)
-
-      host_edit = Qt6::LineEdit.new(@settings.host, dialog)
-      host_edit.placeholder_text = "localhost"
-
-      port_spin = Qt6::SpinBox.new(dialog)
-      port_spin.set_range(1, 65_535)
-      port_spin.value = @settings.port
-
-      dialog.vbox do |column|
-        host_row = Qt6::Widget.new(dialog)
-        host_row.hbox do |row|
-          row << Qt6::Label.new("Host")
-          row << host_edit
-        end
-
-        port_row = Qt6::Widget.new(dialog)
-        port_row.hbox do |row|
-          row << Qt6::Label.new("Port")
-          row << port_spin
-        end
-
-        button_row = Qt6::Widget.new(dialog)
-        button_row.hbox do |row|
-          cancel_button = Qt6::PushButton.new("Cancel")
-          save_button = Qt6::PushButton.new("Save")
-
-          cancel_button.on_clicked { dialog.reject }
-          save_button.on_clicked do
-            host = host_edit.text.strip
-
-            if host.empty?
-              Qt6::MessageBox.warning(dialog, title: "Invalid settings", text: "Host cannot be empty")
-            else
-              @settings.host = host
-              @settings.port = port_spin.value
-              @settings.save
-              dialog.accept
-            end
-          end
-
-          row << cancel_button
-          row << save_button
-        end
-
-        column << host_row
-        column << port_row
-        column << button_row
-      end
-
-      if dialog.exec == Qt6::DialogCode::Accepted
-        connect
-      end
-    ensure
-      dialog.try(&.release)
+      connect if SettingsDialog.edit(parent, @settings)
     end
 
     private def start_callback_listener(generation : Int32) : Nil
