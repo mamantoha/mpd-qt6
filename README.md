@@ -9,10 +9,15 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 ## Features
 
 - Playback controls: play/pause, previous, next
+- Interactive progress slider with elapsed and total time display
 - Shuffle and repeat toggles
-- Live track title and subtitle display
+- Live title, artist, and album metadata updates
 - Window title updates to reflect the current track
-- Simple Qt6 foundation for the upcoming playlist and cover art UI
+- Album art loading when available from MPD
+- Playlist view with current-track indicator icons
+- Double-click a playlist row to start playback
+- Connection settings dialog for MPD host and port
+- Settings are saved in the user config directory
 
 ## Requirements
 
@@ -45,9 +50,10 @@ Tested on Linux with Qt6. macOS and Windows are untested.
 
 ## Architecture notes
 
-- A single `MPD::Client` handles commands and periodic status refresh
-- A `Qt6::QTimer` polls MPD once per second to keep the UI in sync
-- Playback controls are implemented with `Qt6::PushButton` and `Qt6::CheckBox`
+- One MPD client handles commands and status reads
+- A separate callback-enabled MPD listener pushes live updates from the server
+- UI updates are marshalled safely onto the Qt main thread through a signal-style bridge
+- Playback and playlist controls are built with Qt widgets such as push buttons, sliders, and table views
 
 ## License
 
