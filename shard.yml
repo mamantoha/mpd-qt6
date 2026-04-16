@@ -12,9 +12,9 @@ dependencies:
   qt6:
     # github: djberg96/crystal-qt6
     # branch: main
-    github: mamantoha/crystal-qt6
-    branch: develop
-    # path: ../crystal-qt6
+    # github: mamantoha/crystal-qt6
+    # branch: develop
+    path: ../crystal-qt6
   crystal_mpd:
     github: mamantoha/crystal_mpd
 
