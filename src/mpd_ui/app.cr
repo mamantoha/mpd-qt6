@@ -64,6 +64,7 @@ module MPDUI
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
+    @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
     @stop_icon : Qt6::QIcon?
@@ -174,6 +175,7 @@ module MPDUI
             next_button = Qt6::PushButton.new("")
             shuffle_button = Qt6::PushButton.new("")
             repeat_button = Qt6::PushButton.new("")
+            settings_button = Qt6::PushButton.new("")
 
             play_icon = Qt6::QIcon.from_theme("media-playback-start")
             pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
@@ -182,6 +184,7 @@ module MPDUI
             next_icon = Qt6::QIcon.from_theme("media-skip-forward")
             shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
             repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
+            settings_icon = Qt6::QIcon.from_theme("preferences-system")
 
             toggle_button_style = <<-CSS
               QPushButton {
@@ -199,11 +202,13 @@ module MPDUI
             next_button.icon = next_icon
             shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
             repeat_button.icon = repeat_icon unless repeat_icon.null?
+            settings_button.icon = settings_icon unless settings_icon.null?
             prev_button.icon_size = Qt6::Size.new(22, 22)
             play_pause_button.icon_size = Qt6::Size.new(22, 22)
             next_button.icon_size = Qt6::Size.new(22, 22)
             shuffle_button.icon_size = Qt6::Size.new(22, 22)
             repeat_button.icon_size = Qt6::Size.new(22, 22)
+            settings_button.icon_size = Qt6::Size.new(20, 20)
             shuffle_button.style_sheet = toggle_button_style
             repeat_button.style_sheet = toggle_button_style
             prev_button.fixed_width = 44
@@ -211,11 +216,13 @@ module MPDUI
             next_button.fixed_width = 44
             shuffle_button.fixed_width = 44
             repeat_button.fixed_width = 44
+            settings_button.fixed_width = 44
             prev_button.tool_tip = "Previous"
             play_pause_button.tool_tip = "Play/Pause"
             next_button.tool_tip = "Next"
             shuffle_button.tool_tip = "Shuffle"
             repeat_button.tool_tip = "Repeat"
+            settings_button.tool_tip = "Connection Settings"
 
             shuffle_button.checkable = true
             repeat_button.checkable = true
@@ -223,6 +230,7 @@ module MPDUI
             prev_button.on_clicked { mpd_action { |c| c.previous } }
             play_pause_button.on_clicked { toggle_play_pause }
             next_button.on_clicked { mpd_action { |c| c.next } }
+            settings_button.on_clicked { open_settings_dialog }
             shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
             repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
 
@@ -231,6 +239,7 @@ module MPDUI
             row << next_button
             row << shuffle_button
             row << repeat_button
+            row << settings_button
 
             @play_pause_button = play_pause_button
             @shuffle_button = shuffle_button
@@ -309,7 +318,9 @@ module MPDUI
 
       @client = MPD::Client.new(@settings.host, @settings.port)
       @event_bridge.reset
-      start_callback_listener
+      generation = @callback_generation.get + 1
+      @callback_generation.set(generation)
+      start_callback_listener(generation)
       refresh_status
     rescue ex
       @title_label.try(&.text = "Connection failed")
@@ -328,7 +339,70 @@ module MPDUI
       end
     end
 
-    private def start_callback_listener : Nil
+    private def open_settings_dialog : Nil
+      parent = @window
+      return unless parent
+
+      dialog = Qt6::Dialog.new(parent)
+      dialog.window_title = "Connection Settings"
+      dialog.resize(360, 150)
+
+      host_edit = Qt6::LineEdit.new(@settings.host, dialog)
+      host_edit.placeholder_text = "localhost"
+
+      port_spin = Qt6::SpinBox.new(dialog)
+      port_spin.set_range(1, 65_535)
+      port_spin.value = @settings.port
+
+      dialog.vbox do |column|
+        host_row = Qt6::Widget.new(dialog)
+        host_row.hbox do |row|
+          row << Qt6::Label.new("Host")
+          row << host_edit
+        end
+
+        port_row = Qt6::Widget.new(dialog)
+        port_row.hbox do |row|
+          row << Qt6::Label.new("Port")
+          row << port_spin
+        end
+
+        button_row = Qt6::Widget.new(dialog)
+        button_row.hbox do |row|
+          cancel_button = Qt6::PushButton.new("Cancel")
+          save_button = Qt6::PushButton.new("Save")
+
+          cancel_button.on_clicked { dialog.reject }
+          save_button.on_clicked do
+            host = host_edit.text.strip
+
+            if host.empty?
+              Qt6::MessageBox.warning(dialog, title: "Invalid settings", text: "Host cannot be empty")
+            else
+              @settings.host = host
+              @settings.port = port_spin.value
+              @settings.save
+              dialog.accept
+            end
+          end
+
+          row << cancel_button
+          row << save_button
+        end
+
+        column << host_row
+        column << port_row
+        column << button_row
+      end
+
+      if dialog.exec == Qt6::DialogCode::Accepted
+        connect
+      end
+    ensure
+      dialog.try(&.release)
+    end
+
+    private def start_callback_listener(generation : Int32) : Nil
       host = @settings.host
       port = @settings.port
 
@@ -337,6 +411,8 @@ module MPDUI
         cb.callbacks_timeout = 200.milliseconds
 
         cb.on_callback do |event, value|
+          next unless @callback_generation.get == generation
+
           case event
           when .elapsed?
             if elapsed = value.to_f?
@@ -351,10 +427,16 @@ module MPDUI
           end
         end
 
-        @callback_client = cb
-        loop { sleep 1.second }
+        @callback_client = cb if @callback_generation.get == generation
+
+        loop do
+          break unless @callback_generation.get == generation
+          sleep 1.second
+        end
+
+        cb.disconnect
       rescue
-        @event_bridge.request_refresh
+        @event_bridge.request_refresh if @callback_generation.get == generation
       end
     end
 
