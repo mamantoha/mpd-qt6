@@ -60,12 +60,15 @@ module MPDUI
     @shuffle_button : Qt6::PushButton?
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
+    @playlist_table : Qt6::TableWidget?
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
     @state : String = "stop"
+    @current_song_pos : Int32? = nil
+    @playlist_positions : Array(Int32) = [] of Int32
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @random : Bool = false
@@ -112,7 +115,7 @@ module MPDUI
     end
 
     private def build_ui : Nil
-      window = Qt6.window(WINDOW_TITLE, 520, 320) do |widget|
+      window = Qt6.window(WINDOW_TITLE, 700, 720) do |widget|
         widget.vbox do |column|
           cover_label = Qt6::Label.new("No Cover")
           cover_label.set_fixed_size(160, 160)
@@ -234,6 +237,8 @@ module MPDUI
             @pause_icon = pause_icon
           end
 
+          playlist_table = build_playlist(widget)
+
           status_label = Qt6::Label.new("Ready")
           status_label.word_wrap = true
 
@@ -243,15 +248,55 @@ module MPDUI
           column << progress
           column << controls
           column << status_label
+          column << playlist_table
 
           @cover_label = cover_label
           @title_label = title_label
           @subtitle_label = subtitle_label
           @status_label = status_label
+          @playlist_table = playlist_table
         end
       end
 
       @window = window
+    end
+
+    private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
+      table = Qt6::TableWidget.new(parent)
+      table.column_count = 2
+      table.row_count = 0
+      table.set_horizontal_header_label(0, "Track")
+      table.set_horizontal_header_label(1, "Time")
+      table.selection_mode = Qt6::ItemSelectionMode::SingleSelection
+      table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
+      table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
+      table.show_grid = false
+      table.minimum_height = 320
+      table.style_sheet = <<-CSS
+        QTableWidget {
+          background-color: #0f1217;
+          border: 1px solid #2b3038;
+        }
+        QTableWidget::item {
+          padding: 4px 6px;
+          border: none;
+        }
+        QTableWidget::item:selected {
+          background-color: #4ea1ff;
+          color: white;
+        }
+      CSS
+
+      table.horizontal_header.fixed_height = 0
+      table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Stretch)
+      table.horizontal_header.set_section_resize_mode(1, Qt6::HeaderResizeMode::ResizeToContents)
+      table.vertical_header.fixed_width = 0
+
+      table.on_current_cell_changed do
+        play_selected_playlist_row
+      end
+
+      table
     end
 
     private def connect : Nil
@@ -318,6 +363,7 @@ module MPDUI
 
       state = status.try(&.fetch("state", "stop")) || "stop"
       @state = state
+      @current_song_pos = status.try(&.[]?("song")).try(&.to_i?)
       @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
       @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
       @random = status.try(&.[]?("random")) == "1"
@@ -330,6 +376,7 @@ module MPDUI
       end
       sync_toggle_buttons
       update_progress
+      refresh_playlist
 
       if song
         file = song["file"]?
@@ -373,6 +420,77 @@ module MPDUI
       slider.value = pct
       @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
       @syncing_progress = false
+    end
+
+    private def refresh_playlist : Nil
+      client = @client
+      table = @playlist_table
+      return unless client && table
+
+      songs = client.playlistinfo || [] of MPD::Object
+      flags = Qt6::ItemFlag::Selectable | Qt6::ItemFlag::Enabled
+
+      @syncing = true
+      @playlist_positions.clear
+      table.clear_contents
+      table.row_count = songs.size
+
+      songs.each_with_index do |song, row|
+        pos = song["Pos"]?.try(&.to_i?) || row
+        @playlist_positions << pos
+
+        title_item = Qt6::TableWidgetItem.new(playlist_title(song, pos == @current_song_pos))
+        title_item.flags = flags
+
+        time_item = Qt6::TableWidgetItem.new(playlist_duration(song))
+        time_item.flags = flags
+
+        table.set_item(row, 0, title_item)
+        table.set_item(row, 1, time_item)
+      end
+
+      if current_pos = @current_song_pos
+        if current_row = @playlist_positions.index(current_pos)
+          table.set_current_cell(current_row, 0)
+        end
+      end
+    ensure
+      @syncing = false
+    end
+
+    private def play_selected_playlist_row : Nil
+      return if @syncing
+
+      table = @playlist_table
+      return unless table
+
+      row = table.current_row
+      return if row < 0
+
+      pos = @playlist_positions[row]?
+      return unless pos
+      return if pos == @current_song_pos
+
+      mpd_action { |c| c.play(pos) }
+    end
+
+    private def playlist_title(song : Hash(String, String), current : Bool) : String
+      file = song["file"]?
+      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
+      artist = song["Artist"]?
+      text = [artist, title].compact.join(" — ")
+      text = title if text.empty?
+      current ? "▶ #{text}" : text
+    end
+
+    private def playlist_duration(song : Hash(String, String)) : String
+      if seconds = song["Time"]?.try(&.to_i?)
+        format_time(seconds.to_f)
+      elsif seconds = song["duration"]?.try(&.to_f?)
+        format_time(seconds)
+      else
+        ""
+      end
     end
 
     private def load_cover_art(uri : String) : Nil
