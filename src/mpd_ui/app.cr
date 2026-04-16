@@ -32,7 +32,6 @@ module MPDUI
     @syncing : Bool = false
     @syncing_progress : Bool = false
     @dragging_progress : Bool = false
-    @reconnecting : Bool = false
     @current_file : String = ""
 
     def initialize
@@ -270,9 +269,6 @@ module MPDUI
     end
 
     private def connect : Nil
-      return if @reconnecting
-
-      @reconnecting = true
       Log.info { "mpd_ui: reconnecting to #{@settings.host}:#{@settings.port}" }
 
       @client.try(&.disconnect)
@@ -291,8 +287,6 @@ module MPDUI
       @title_label.try(&.text = "Connection failed")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
       @status_label.try(&.text = "Unable to connect to #{@settings.host}:#{@settings.port}")
-    ensure
-      @reconnecting = false
     end
 
     private def toggle_play_pause : Nil
@@ -311,13 +305,6 @@ module MPDUI
       return unless parent
 
       connect if SettingsDialog.edit(parent, @settings)
-    end
-
-    private def recover_connection(reason : String) : Nil
-      return if @reconnecting
-
-      Log.info { "mpd_ui: forcing reconnect due to #{reason}" }
-      connect
     end
 
     private def start_callback_listener(generation : Int32) : Nil
@@ -366,7 +353,6 @@ module MPDUI
       unless status
         Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
         @status_label.try(&.text = "Reconnecting to #{@settings.host}:#{@settings.port}…")
-        recover_connection("status unavailable")
         return
       end
 
@@ -581,7 +567,6 @@ module MPDUI
       yield client
       refresh_status
     rescue ex
-      recover_connection(ex.message || ex.to_s) if ex.is_a?(IO::Error) || (ex.message || "").downcase.includes?("broken pipe")
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
     end

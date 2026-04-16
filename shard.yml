@@ -17,6 +17,7 @@ dependencies:
     path: ../crystal-qt6
   crystal_mpd:
     github: mamantoha/crystal_mpd
+    # path: ../crystal_mpd
 
 crystal: '>= 1.19.1'
 
