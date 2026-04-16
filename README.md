@@ -58,6 +58,7 @@ The custom additions include:
 - setting images on labels
 - table widget item double-click callbacks
 - table widget item icon support
+- native add_stretch support for box layouts
 
 ## Platform support
 
