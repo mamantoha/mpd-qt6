@@ -267,16 +267,20 @@ module MPDUI
     end
 
     private def connect : Nil
+      Log.info { "mpd_ui: reconnecting to #{@settings.host}:#{@settings.port}" }
+
       @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
 
       @client = MPD::Client.new(@settings.host, @settings.port)
+      Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
       @event_bridge.reset
       generation = @callback_generation.get + 1
       @callback_generation.set(generation)
       start_callback_listener(generation)
       refresh_status
     rescue ex
+      Log.error { "mpd_ui: failed to connect to #{@settings.host}:#{@settings.port}: #{ex.message || ex}" }
       @title_label.try(&.text = "Connection failed")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
       @status_label.try(&.text = "Unable to connect to #{@settings.host}:#{@settings.port}")
@@ -343,15 +347,21 @@ module MPDUI
       return unless client
 
       status = client.status
+      unless status
+        Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
+        @status_label.try(&.text = "Reconnecting to #{@settings.host}:#{@settings.port}…")
+        return
+      end
+
       song = client.currentsong
 
-      state = status.try(&.fetch("state", "stop")) || "stop"
+      state = status.fetch("state", "stop")
       @state = state
-      @current_song_pos = status.try(&.[]?("song")).try(&.to_i?)
-      @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
-      @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
-      @random = status.try(&.[]?("random")) == "1"
-      @repeat = status.try(&.[]?("repeat")) == "1"
+      @current_song_pos = status["song"]?.try(&.to_i?)
+      @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
+      @duration = status["duration"]?.try(&.to_f?) || @duration
+      @random = status["random"]? == "1"
+      @repeat = status["repeat"]? == "1"
 
       if button = @play_pause_button
         if icon = (state == "play" ? @pause_icon : @play_icon)
@@ -380,13 +390,15 @@ module MPDUI
         elsif !file
           clear_cover_art
         end
-      else
+      elsif state == "stop"
         @current_file = ""
         clear_cover_art
-        @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
+        @title_label.try(&.text = "Stopped")
         @subtitle_label.try(&.text = "")
         @status_label.try(&.text = "Connected to #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = WINDOW_TITLE)
+      else
+        @status_label.try(&.text = "State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
       end
     rescue ex
       @title_label.try(&.text = "Error")
@@ -411,7 +423,9 @@ module MPDUI
       table = @playlist_table
       return unless client && table
 
-      songs = client.playlistinfo || [] of MPD::Object
+      songs = client.playlistinfo
+      return unless songs
+
       flags = Qt6::ItemFlag::Selectable | Qt6::ItemFlag::Enabled
 
       @syncing = true
