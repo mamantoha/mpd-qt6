@@ -229,7 +229,30 @@ module MPDUI
               database_column << database_browser
             end
 
-            queue_panel = Qt6::Widget.new(widget)
+            queue_panel = Qt6::EventWidget.new(widget)
+            queue_panel.accept_drops = true
+            queue_panel.tool_tip = "Drop songs, albums, or artists here to append them to the queue"
+            queue_panel.on_drag_enter do |event|
+              if selected_database_uris.any?
+                event.accept_proposed_action
+              else
+                event.ignore
+              end
+            end
+            queue_panel.on_drag_move do |event|
+              if selected_database_uris.any?
+                event.accept_proposed_action
+              else
+                event.ignore
+              end
+            end
+            queue_panel.on_drop do |event|
+              if append_selected_database_to_queue
+                event.accept_proposed_action
+              else
+                event.ignore
+              end
+            end
             queue_panel.vbox do |queue_column|
               queue_column << Qt6::Label.new("Queue")
               queue_column << playlist_table
@@ -274,6 +297,8 @@ module MPDUI
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       table.show_grid = false
+      table.accept_drops = false
+      table.drag_drop_mode = Qt6::ItemViewDragDropMode::NoDragDrop
       table.minimum_height = 320
       table.style_sheet = <<-CSS
         QTableWidget {
@@ -318,6 +343,10 @@ module MPDUI
       tree.selection_mode = Qt6::ItemSelectionMode::SingleSelection
       tree.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       tree.alternating_row_colors = true
+      tree.drag_enabled = true
+      tree.drag_drop_mode = Qt6::ItemViewDragDropMode::DragOnly
+      tree.default_drop_action = Qt6::DropAction::CopyAction
+      tree.drop_indicator_shown = true
       tree.minimum_height = 320
 
       tree.style_sheet = <<-CSS
@@ -740,66 +769,102 @@ module MPDUI
     end
 
     private def selected_database_song_uri : String?
+      selected_database_uris.first?
+    end
+
+    private def selected_database_uris : Array(String)
       tree = @database_tree
       model = @database_model
-      return unless tree && model
+      return [] of String unless tree && model
 
       index = tree.current_index
-      return unless index.valid?
+      return [] of String unless index.valid?
 
       item = model.item_from_index(index)
-      return unless item
+      return [] of String unless item
 
-      data = item.data(Qt6::ItemDataRole::User)
-      case data
+      uris = [] of String
+      collect_database_uris(item, uris)
+      uris.uniq!
+      uris
+    end
+
+    private def collect_database_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
+      case data = item.data(Qt6::ItemDataRole::User)
       when String
-        data.empty? ? nil : data
-      else
-        nil
+        uris << data unless data.empty?
       end
+
+      item.row_count.times do |row|
+        child = item.child(row)
+        collect_database_uris(child, uris) if child
+      end
+    end
+
+    private def database_drop_available?(event : Qt6::DropEvent) : Bool
+      !!event.mime_data && selected_database_uris.any?
+    end
+
+    private def append_selected_database_to_queue : Bool
+      uris = selected_database_uris
+      return false if uris.empty?
+
+      mpd_action do |client|
+        uris.each { |uri| client.add(uri) }
+      end
+      suffix = uris.size == 1 ? "song" : "songs"
+      @status_label.try(&.text = "Added #{uris.size} #{suffix} from Database")
+      true
+    rescue ex
+      @title_label.try(&.text = "Error")
+      @subtitle_label.try(&.text = (ex.message || ex.to_s))
+      false
     end
 
     private def add_selected_database_song : Nil
-      uri = selected_database_song_uri
-      unless uri
-        @status_label.try(&.text = "Select a song in the Database tab")
-        return
+      unless append_selected_database_to_queue
+        @status_label.try(&.text = "Select a song, album, or artist in the Database view")
       end
-
-      mpd_action do |c|
-        c.add(uri)
-      end
-      @status_label.try(&.text = "Added song from Database")
     end
 
     private def play_selected_database_song : Nil
-      uri = selected_database_song_uri
-      unless uri
-        @status_label.try(&.text = "Select a song in the Database tab")
+      uris = selected_database_uris
+      if uris.empty?
+        @status_label.try(&.text = "Select a song, album, or artist in the Database view")
         return
       end
 
       client = @client
       return unless client
 
-      added = client.addid(uri)
+      first = uris.first
+      rest = uris[1..]
+
+      added = client.addid(first)
+      rest.each { |uri| client.add(uri) }
+
       if added && (songid = added["Id"]?.try(&.to_i?))
         client.playid(songid)
       else
         client.play
       end
       refresh_status
-      @status_label.try(&.text = "Playing song from Database")
+      suffix = uris.size == 1 ? "song" : "selection"
+      @status_label.try(&.text = "Playing #{suffix} from Database")
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
     end
 
     private def update_database_selection_status : Nil
-      uri = selected_database_song_uri
-      return unless uri
+      uris = selected_database_uris
+      return if uris.empty?
 
-      @status_label.try(&.text = "Selected: #{File.basename(uri)}")
+      if uris.size == 1
+        @status_label.try(&.text = "Selected: #{File.basename(uris.first)}")
+      else
+        @status_label.try(&.text = "Selected #{uris.size} songs from Database")
+      end
     end
 
     private def load_cover_art(uri : String) : Nil
