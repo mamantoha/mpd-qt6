@@ -810,7 +810,9 @@ module MPDUI
       return false if uris.empty?
 
       mpd_action do |client|
-        uris.each { |uri| client.add(uri) }
+        client.with_command_list do
+          uris.each { |uri| client.add(uri) }
+        end
       end
       suffix = uris.size == 1 ? "song" : "songs"
       @status_label.try(&.text = "Added #{uris.size} #{suffix} from Database")
