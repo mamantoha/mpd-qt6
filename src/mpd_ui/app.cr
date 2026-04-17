@@ -19,7 +19,9 @@ module MPDUI
     @database_model : Qt6::StandardItemModel?
     @database_loaded : Bool = false
     @database_loading : Bool = false
+    @database_drag_filter : Qt6::EventFilter?
     @queue_drop_filter : Qt6::EventFilter?
+    @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
     @client : MPD::Client?
     @callback_client : MPD::Client?
@@ -278,9 +280,11 @@ module MPDUI
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       table.show_grid = false
+      table.drag_enabled = true
       table.accept_drops = true
-      table.drag_drop_mode = Qt6::ItemViewDragDropMode::DropOnly
-      table.default_drop_action = Qt6::DropAction::CopyAction
+      table.drag_drop_mode = Qt6::ItemViewDragDropMode::DragDrop
+      table.drag_drop_overwrite_mode = false
+      table.default_drop_action = Qt6::DropAction::MoveAction
       table.drop_indicator_shown = true
       table.minimum_height = 320
       table.style_sheet = <<-CSS
@@ -345,6 +349,7 @@ module MPDUI
       add_button.on_clicked { add_selected_database_song }
       play_button.on_clicked { play_selected_database_song }
       tree.on_current_index_changed do
+        @playlist_drag_source_row = nil
         @dragged_database_uris = selected_database_uris
         update_database_selection_status
       end
@@ -364,8 +369,23 @@ module MPDUI
 
       @database_tree = tree
       @database_model = model
+      setup_database_drag_source(tree)
       show_database_message("Open the Database tab to load your library")
       container
+    end
+
+    private def setup_database_drag_source(tree : Qt6::TreeView) : Nil
+      viewport = tree.viewport
+      filter = Qt6::EventFilter.new(viewport)
+      filter.on_event do |_watched, event|
+        if event.type == Qt6::EventType::MouseButtonPress
+          @playlist_drag_source_row = nil
+        end
+        false
+      end
+
+      viewport.install_event_filter(filter)
+      @database_drag_filter = filter
     end
 
     private def setup_queue_drop_target(table : Qt6::TableWidget) : Nil
@@ -374,30 +394,51 @@ module MPDUI
 
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
-        case event.type_value
-        when 60, 61 # DragEnter, DragMove
+        case event.type
+        when Qt6::EventType::MouseButtonPress
+          row = table.current_row
+          @playlist_drag_source_row = row >= 0 ? row : nil
+          @dragged_database_uris.clear
+          false
+        when Qt6::EventType::DragEnter, Qt6::EventType::DragMove
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          if database_drop_available?(drop_event)
-            @dragged_database_uris = selected_database_uris
+          if playlist_reorder_available?(drop_event) || database_drop_available?(drop_event)
+            @dragged_database_uris = selected_database_uris if selected_database_uris.any?
             drop_event.accept_proposed_action
           end
           false
-        when 63 # Drop
+        when Qt6::EventType::DragLeave
+          @playlist_drag_source_row = nil
+          false
+        when Qt6::EventType::Drop
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          if database_drop_available?(drop_event) && append_selected_database_to_queue(queue_drop_row_for(drop_event))
+          handled = if playlist_reorder_available?(drop_event)
+                      move_playlist_row(@playlist_drag_source_row.not_nil!, queue_drop_row_for(drop_event))
+                    else
+                      database_drop_available?(drop_event) && append_selected_database_to_queue(queue_drop_row_for(drop_event))
+                    end
+
+          if handled
             drop_event.accept_proposed_action
           else
             drop_event.ignore
           end
+
+          @playlist_drag_source_row = nil
           true
         else
-          # 62 - DragLeave
           false
         end
       end
 
       viewport.install_event_filter(filter)
       @queue_drop_filter = filter
+    end
+
+    private def playlist_reorder_available?(event : Qt6::DropEvent) : Bool
+      table = @playlist_table
+      row = @playlist_drag_source_row
+      !!event.mime_data && !!table && !row.nil? && table.row_count > 1
     end
 
     private def queue_drop_row_for(event : Qt6::DropEvent) : Int32
@@ -419,6 +460,26 @@ module MPDUI
       index.release
 
       y < rect.y + rect.height / 2.0 ? row : row + 1
+    end
+
+    private def move_playlist_row(source_row : Int32, insert_row : Int32) : Bool
+      source_pos = @playlist_positions[source_row]?
+      return false unless source_pos
+
+      target_row = insert_row.clamp(0, @playlist_positions.size)
+      target_row -= 1 if target_row > source_row
+      return true if target_row == source_row
+
+      mpd_action do |client|
+        client.move(source_pos, target_row)
+      end
+
+      @status_label.try(&.text = "Queue order updated")
+      true
+    rescue ex
+      @title_label.try(&.text = "Error")
+      @subtitle_label.try(&.text = (ex.message || ex.to_s))
+      false
     end
 
     private def connect : Nil
@@ -592,7 +653,7 @@ module MPDUI
       songs = client.playlistinfo
       return unless songs
 
-      flags = Qt6::ItemFlag::Selectable | Qt6::ItemFlag::Enabled
+      flags = Qt6::ItemFlag::Selectable | Qt6::ItemFlag::Enabled | Qt6::ItemFlag::DragEnabled
 
       @syncing = true
       @playlist_positions.clear
