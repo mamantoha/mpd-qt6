@@ -8,16 +8,21 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 
 ## Features
 
-- Playback controls: play/pause, previous, next
+- Playback controls for play, pause, previous, and next
 - Interactive progress slider with elapsed and total time display
 - Shuffle and repeat toggles
-- Live title, artist, and album metadata updates
-- Window title updates to reflect the current track
-- Album art loading when available from MPD
-- Playlist view with current-track indicator icons
-- Double-click a playlist row to start playback
+- Live track, artist, and album metadata updates
+- Window title updates to reflect the current song
+- Album art loading from MPD when available
+- Queue view with current-track state icons
+- Double-click a queue row to start playback instantly
+- Clear queue button
+- Database browser grouped as artist → album → songs
+- Add or play songs directly from the database browser
+- Drag and drop songs, albums, or artists from the database into the queue
+- Drop-position queue insertion for fast playlist building
 - Connection settings dialog for MPD host and port
-- Settings are saved in the user config directory
+- Settings persisted in the user config directory
 
 ## Requirements
 
