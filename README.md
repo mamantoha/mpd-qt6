@@ -50,17 +50,22 @@ This project currently uses a forked version of crystal-qt6 through a local path
 
 ### Features implemented in the fork
 
-The custom additions include:
+The local Qt6 fork includes several additions that are used by this application:
 
 - main-thread invocation support via Qt meta-object dispatch
 - loading icons from the active desktop theme
 - slider pressed and released callbacks
-- setting images on labels
-- label alignment support
+- label pixmap support and alignment helpers
 - pixmap scaling with aspect-ratio preservation
 - table widget item double-click callbacks
 - table widget item icon support
 - native add_stretch support for box layouts
+- improved model and item-view drag-and-drop configuration
+- item-view viewport access for native drop handling
+- hit-testing helpers to resolve the row under the cursor
+- visual-rectangle queries for accurate native drop indicator placement
+
+These additions are what make the queue and database browser integration possible without falling back to a fully custom drag-and-drop overlay.
 
 ## Platform support
 
