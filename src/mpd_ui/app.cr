@@ -19,6 +19,8 @@ module MPDUI
     @database_model : Qt6::StandardItemModel?
     @database_loaded : Bool = false
     @database_loading : Bool = false
+    @queue_drop_filter : Qt6::EventFilter?
+    @dragged_database_uris : Array(String) = [] of String
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
@@ -219,6 +221,7 @@ module MPDUI
           end
 
           playlist_table = build_playlist(widget)
+          setup_queue_drop_target(playlist_table)
           database_browser = build_database_browser(widget)
 
           browsers = Qt6::Widget.new(widget)
@@ -229,30 +232,8 @@ module MPDUI
               database_column << database_browser
             end
 
-            queue_panel = Qt6::EventWidget.new(widget)
-            queue_panel.accept_drops = true
-            queue_panel.tool_tip = "Drop songs, albums, or artists here to append them to the queue"
-            queue_panel.on_drag_enter do |event|
-              if selected_database_uris.any?
-                event.accept_proposed_action
-              else
-                event.ignore
-              end
-            end
-            queue_panel.on_drag_move do |event|
-              if selected_database_uris.any?
-                event.accept_proposed_action
-              else
-                event.ignore
-              end
-            end
-            queue_panel.on_drop do |event|
-              if append_selected_database_to_queue
-                event.accept_proposed_action
-              else
-                event.ignore
-              end
-            end
+            queue_panel = Qt6::Widget.new(widget)
+            queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
             queue_panel.vbox do |queue_column|
               queue_column << Qt6::Label.new("Queue")
               queue_column << playlist_table
@@ -297,8 +278,10 @@ module MPDUI
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       table.show_grid = false
-      table.accept_drops = false
-      table.drag_drop_mode = Qt6::ItemViewDragDropMode::NoDragDrop
+      table.accept_drops = true
+      table.drag_drop_mode = Qt6::ItemViewDragDropMode::DropOnly
+      table.default_drop_action = Qt6::DropAction::CopyAction
+      table.drop_indicator_shown = true
       table.minimum_height = 320
       table.style_sheet = <<-CSS
         QTableWidget {
@@ -361,7 +344,10 @@ module MPDUI
       reload_button.on_clicked { ensure_database_loaded(force: true) }
       add_button.on_clicked { add_selected_database_song }
       play_button.on_clicked { play_selected_database_song }
-      tree.on_current_index_changed { update_database_selection_status }
+      tree.on_current_index_changed do
+        @dragged_database_uris = selected_database_uris
+        update_database_selection_status
+      end
 
       container.vbox do |column|
         toolbar = Qt6::Widget.new(container)
@@ -380,6 +366,58 @@ module MPDUI
       @database_model = model
       show_database_message("Open the Database tab to load your library")
       container
+    end
+
+    private def setup_queue_drop_target(table : Qt6::TableWidget) : Nil
+      viewport = table.viewport
+      viewport.accept_drops = true
+
+      filter = Qt6::EventFilter.new(viewport)
+      filter.on_event do |_watched, event|
+        case event.type_value
+        when 60, 61
+          drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          if database_drop_available?(drop_event)
+            @dragged_database_uris = selected_database_uris
+            drop_event.accept_proposed_action
+          end
+          false
+        when 63
+          drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          if database_drop_available?(drop_event) && append_selected_database_to_queue(queue_drop_row_for(drop_event))
+            drop_event.accept_proposed_action
+          else
+            drop_event.ignore
+          end
+          true
+        else
+          false
+        end
+      end
+
+      viewport.install_event_filter(filter)
+      @queue_drop_filter = filter
+    end
+
+    private def queue_drop_row_for(event : Qt6::DropEvent) : Int32
+      table = @playlist_table
+      return 0 unless table
+      return 0 if table.row_count <= 0
+
+      y = event.position.y
+      return 0 if y <= 4.0
+
+      index = table.index_at(event.position)
+      unless index.valid?
+        index.release
+        return table.row_count
+      end
+
+      rect = table.visual_rect(index)
+      row = index.row
+      index.release
+
+      y < rect.y + rect.height / 2.0 ? row : row + 1
     end
 
     private def connect : Nil
@@ -802,20 +840,29 @@ module MPDUI
     end
 
     private def database_drop_available?(event : Qt6::DropEvent) : Bool
-      !!event.mime_data && selected_database_uris.any?
+      !!event.mime_data && (@dragged_database_uris.any? || selected_database_uris.any?)
     end
 
-    private def append_selected_database_to_queue : Bool
-      uris = selected_database_uris
+    private def append_selected_database_to_queue(insert_row : Int32? = nil) : Bool
+      uris = @dragged_database_uris.empty? ? selected_database_uris : @dragged_database_uris.dup
       return false if uris.empty?
 
       mpd_action do |client|
         client.with_command_list do
-          uris.each { |uri| client.add(uri) }
+          if insert_row && insert_row < @playlist_positions.size
+            base_position = @playlist_positions[insert_row]? || insert_row
+            uris.each_with_index do |uri, offset|
+              client.addid(uri, base_position + offset)
+            end
+          else
+            uris.each { |uri| client.add(uri) }
+          end
         end
       end
       suffix = uris.size == 1 ? "song" : "songs"
-      @status_label.try(&.text = "Added #{uris.size} #{suffix} from Database")
+      action = insert_row ? "Inserted" : "Added"
+      @status_label.try(&.text = "#{action} #{uris.size} #{suffix} from Database")
+      @dragged_database_uris.clear
       true
     rescue ex
       @title_label.try(&.text = "Error")
