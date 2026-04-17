@@ -375,14 +375,14 @@ module MPDUI
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
         case event.type_value
-        when 60, 61
+        when 60, 61 # DragEnter, DragMove
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           if database_drop_available?(drop_event)
             @dragged_database_uris = selected_database_uris
             drop_event.accept_proposed_action
           end
           false
-        when 63
+        when 63 # Drop
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           if database_drop_available?(drop_event) && append_selected_database_to_queue(queue_drop_row_for(drop_event))
             drop_event.accept_proposed_action
@@ -391,6 +391,7 @@ module MPDUI
           end
           true
         else
+          # 62 - DragLeave
           false
         end
       end
