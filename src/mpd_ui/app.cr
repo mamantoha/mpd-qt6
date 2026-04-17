@@ -15,6 +15,10 @@ module MPDUI
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
     @playlist_table : Qt6::TableWidget?
+    @database_tree : Qt6::TreeView?
+    @database_model : Qt6::StandardItemModel?
+    @database_loaded : Bool = false
+    @database_loading : Bool = false
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
@@ -207,6 +211,27 @@ module MPDUI
           end
 
           playlist_table = build_playlist(widget)
+          database_browser = build_database_browser(widget)
+
+          browsers = Qt6::Widget.new(widget)
+          browsers.hbox do |row|
+            database_panel = Qt6::Widget.new(widget)
+            database_panel.vbox do |database_column|
+              database_column << Qt6::Label.new("Database")
+              database_column << database_browser
+            end
+
+            queue_panel = Qt6::Widget.new(widget)
+            queue_panel.vbox do |queue_column|
+              queue_column << Qt6::Label.new("Queue")
+              queue_column << playlist_table
+            end
+
+            row << database_panel
+            row << queue_panel
+          end
+
+          ensure_database_loaded
 
           status_label = Qt6::Label.new("Ready")
           status_label.word_wrap = true
@@ -217,7 +242,7 @@ module MPDUI
           column << progress
           column << controls
           column << status_label
-          column << playlist_table
+          column << browsers
 
           @cover_label = cover_label
           @title_label = title_label
@@ -269,6 +294,57 @@ module MPDUI
       table
     end
 
+    private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
+      container = Qt6::Widget.new(parent)
+      tree = Qt6::TreeView.new(container)
+      model = Qt6::StandardItemModel.new(tree)
+      reload_button = Qt6::PushButton.new("Reload")
+      add_button = Qt6::PushButton.new("Add Song")
+      play_button = Qt6::PushButton.new("Play Song")
+
+      model.set_horizontal_header_label(0, "Database")
+      tree.model = model
+      tree.header_hidden = true
+      tree.root_is_decorated = true
+      tree.uniform_row_heights = true
+      tree.selection_mode = Qt6::ItemSelectionMode::SingleSelection
+      tree.edit_triggers = Qt6::EditTrigger::NoEditTriggers
+      tree.alternating_row_colors = true
+      tree.minimum_height = 320
+
+      tree.style_sheet = <<-CSS
+        QTreeView {
+          border: 1px solid;
+        }
+        QTreeView::item {
+          padding: 4px 6px;
+        }
+      CSS
+
+      reload_button.on_clicked { ensure_database_loaded(force: true) }
+      add_button.on_clicked { add_selected_database_song }
+      play_button.on_clicked { play_selected_database_song }
+      tree.on_current_index_changed { update_database_selection_status }
+
+      container.vbox do |column|
+        toolbar = Qt6::Widget.new(container)
+        toolbar.hbox do |row|
+          row << reload_button
+          row << add_button
+          row << play_button
+          row.add_stretch
+        end
+
+        column << toolbar
+        column << tree
+      end
+
+      @database_tree = tree
+      @database_model = model
+      show_database_message("Open the Database tab to load your library")
+      container
+    end
+
     private def connect : Nil
       Log.info { "mpd_ui: reconnecting to #{@settings.host}:#{@settings.port}" }
 
@@ -278,6 +354,9 @@ module MPDUI
 
       @client = MPD::Client.new(@settings.host, @settings.port)
       Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
+      @database_loaded = false
+      @database_loading = false
+      show_database_message("Open the Database tab to load your library")
       @event_bridge.reset
       generation = @callback_generation.get + 1
       @callback_generation.set(generation)
@@ -510,6 +589,202 @@ module MPDUI
       else
         ""
       end
+    end
+
+    private def ensure_database_loaded(*, force : Bool = false) : Nil
+      return if @database_loading
+      return if @database_loaded && !force
+
+      @database_loading = true
+      show_database_message("Loading database…")
+      @status_label.try(&.text = "Loading database from #{@settings.host}:#{@settings.port}…")
+
+      host = @settings.host
+      port = @settings.port
+
+      Thread.new do
+        begin
+          db_client = MPD::Client.new(host, port)
+          raw_entries = db_client.listallinfo
+          songs = database_song_entries(raw_entries)
+          library = build_database_library(songs)
+          db_client.disconnect
+
+          @qt_app.invoke_later do
+            populate_database_tree(library)
+            @database_loaded = true
+            @database_loading = false
+            @status_label.try(&.text = "Database loaded • #{songs.size} songs")
+          end
+        rescue ex
+          @qt_app.invoke_later do
+            @database_loaded = false
+            @database_loading = false
+            show_database_message("Failed to load database")
+            @status_label.try(&.text = "Database load failed: #{ex.message || ex}")
+          end
+        end
+      end
+    end
+
+    private def show_database_message(message : String) : Nil
+      model = @database_model
+      return unless model
+
+      model.clear
+      model.set_horizontal_header_label(0, "Database")
+      model << Qt6::StandardItem.new(message)
+    end
+
+    private def database_song_entries(entries : MPD::Object | MPD::Objects | Nil) : Array(Hash(String, String))
+      return [] of Hash(String, String) unless entries
+
+      case entries
+      when Array
+        entries.select { |entry| !!entry["file"]? }
+      else
+        entries["file"]? ? [entries] : [] of Hash(String, String)
+      end
+    end
+
+    private def build_database_library(songs : Array(Hash(String, String))) : Hash(String, Hash(String, Array(Hash(String, String))))
+      library = Hash(String, Hash(String, Array(Hash(String, String)))).new do |artists, artist|
+        artists[artist] = Hash(String, Array(Hash(String, String))).new do |albums, album|
+          albums[album] = [] of Hash(String, String)
+        end
+      end
+
+      songs.each do |song|
+        artist = display_name(song["Artist"]?, "[Unknown Artist]")
+        album = display_name(song["Album"]?, "[Unknown Album]")
+        library[artist][album] << song
+      end
+
+      library
+    end
+
+    private def populate_database_tree(library : Hash(String, Hash(String, Array(Hash(String, String))))) : Nil
+      model = @database_model
+      return unless model
+
+      model.clear
+      model.set_horizontal_header_label(0, "Database")
+
+      if library.empty?
+        model << Qt6::StandardItem.new("Database is empty")
+        return
+      end
+
+      library.keys.sort.each do |artist|
+        artist_item = Qt6::StandardItem.new(artist)
+
+        library[artist].keys.sort.each do |album|
+          album_songs = library[artist][album]
+          album_item = Qt6::StandardItem.new("#{album} (#{album_songs.size})")
+
+          album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
+            song_item = Qt6::StandardItem.new(database_song_label(song))
+            if file = song["file"]?
+              song_item.set_data(file, Qt6::ItemDataRole::User)
+            end
+            album_item << song_item
+          end
+
+          artist_item << album_item
+        end
+
+        model << artist_item
+      end
+    end
+
+    private def display_name(value : String?, fallback : String) : String
+      if value && !value.strip.empty?
+        value
+      else
+        fallback
+      end
+    end
+
+    private def database_song_label(song : Hash(String, String)) : String
+      file = song["file"]?
+      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
+      track = song["Track"]?.try(&.split('/').first)
+      duration = playlist_duration(song)
+
+      base = if track && !track.empty?
+               "#{track.rjust(2, '0')}. #{title}"
+             else
+               title
+             end
+
+      duration.empty? ? base : "#{base} • #{duration}"
+    end
+
+    private def track_number(song : Hash(String, String)) : Int32
+      song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
+    end
+
+    private def selected_database_song_uri : String?
+      tree = @database_tree
+      model = @database_model
+      return unless tree && model
+
+      index = tree.current_index
+      return unless index.valid?
+
+      item = model.item_from_index(index)
+      return unless item
+
+      data = item.data(Qt6::ItemDataRole::User)
+      case data
+      when String
+        data.empty? ? nil : data
+      else
+        nil
+      end
+    end
+
+    private def add_selected_database_song : Nil
+      uri = selected_database_song_uri
+      unless uri
+        @status_label.try(&.text = "Select a song in the Database tab")
+        return
+      end
+
+      mpd_action do |c|
+        c.add(uri)
+      end
+      @status_label.try(&.text = "Added song from Database")
+    end
+
+    private def play_selected_database_song : Nil
+      uri = selected_database_song_uri
+      unless uri
+        @status_label.try(&.text = "Select a song in the Database tab")
+        return
+      end
+
+      client = @client
+      return unless client
+
+      added = client.addid(uri)
+      if added && (songid = added["Id"]?.try(&.to_i?))
+        client.playid(songid)
+      else
+        client.play
+      end
+      refresh_status
+      @status_label.try(&.text = "Playing song from Database")
+    rescue ex
+      @title_label.try(&.text = "Error")
+      @subtitle_label.try(&.text = (ex.message || ex.to_s))
+    end
+
+    private def update_database_selection_status : Nil
+      uri = selected_database_song_uri
+      return unless uri
+
+      @status_label.try(&.text = "Selected: #{File.basename(uri)}")
     end
 
     private def load_cover_art(uri : String) : Nil
