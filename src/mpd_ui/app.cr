@@ -401,6 +401,9 @@ module MPDUI
           @dragged_database_uris.clear
           false
         when Qt6::EventType::DragEnter, Qt6::EventType::DragMove
+          row = table.current_row
+          @playlist_drag_source_row = row >= 0 ? row : nil
+
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           if playlist_reorder_available?(drop_event) || database_drop_available?(drop_event)
             @dragged_database_uris = selected_database_uris if selected_database_uris.any?
