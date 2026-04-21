@@ -313,6 +313,10 @@ module MPDUI
         play_selected_playlist_row
       end
 
+      # table.on_current_cell_changed do
+      #   row = table.current_row
+      # end
+
       table
     end
 
