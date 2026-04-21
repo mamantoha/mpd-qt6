@@ -23,6 +23,8 @@ module MPDUI
     @queue_drop_filter : Qt6::EventFilter?
     @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
+    # Track drag source: :playlist, :database, or nil
+    @drag_source_type : Symbol? = nil
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
@@ -378,8 +380,14 @@ module MPDUI
       viewport = tree.viewport
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
-        if event.type == Qt6::EventType::MouseButtonPress
+        case event.type
+        when Qt6::EventType::MouseButtonPress
           @playlist_drag_source_row = nil
+          @drag_source_type = :database
+        when Qt6::EventType::DragEnter
+          @drag_source_type = :database
+        when Qt6::EventType::DragLeave, Qt6::EventType::Drop
+          @drag_source_type = nil
         end
         false
       end
@@ -399,27 +407,37 @@ module MPDUI
           row = table.current_row
           @playlist_drag_source_row = row >= 0 ? row : nil
           @dragged_database_uris.clear
+          @drag_source_type = :playlist
           false
-        when Qt6::EventType::DragEnter, Qt6::EventType::DragMove
+        when Qt6::EventType::DragEnter
+          # Determine drag source if not already set (external drags)
+          @drag_source_type ||= :playlist
+          false
+        when Qt6::EventType::DragMove
           row = table.current_row
           @playlist_drag_source_row = row >= 0 ? row : nil
 
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          if playlist_reorder_available?(drop_event) || database_drop_available?(drop_event)
+          # Accept if either operation is available
+          if drag_is_playlist_reorder?(drop_event)
+            drop_event.accept_proposed_action
+          elsif drag_is_database_drop?(drop_event)
             @dragged_database_uris = selected_database_uris if selected_database_uris.any?
             drop_event.accept_proposed_action
           end
           false
         when Qt6::EventType::DragLeave
           @playlist_drag_source_row = nil
+          @drag_source_type = nil
           false
         when Qt6::EventType::Drop
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          handled = if playlist_reorder_available?(drop_event)
-                      move_playlist_row(@playlist_drag_source_row.not_nil!, queue_drop_row_for(drop_event))
-                    else
-                      database_drop_available?(drop_event) && append_selected_database_to_queue(queue_drop_row_for(drop_event))
-                    end
+          handled = false
+          if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
+            handled = move_playlist_row(@playlist_drag_source_row.not_nil!, queue_drop_row_for(drop_event))
+          elsif @drag_source_type == :database && drag_is_database_drop?(drop_event)
+            handled = append_selected_database_to_queue(queue_drop_row_for(drop_event))
+          end
 
           if handled
             drop_event.accept_proposed_action
@@ -428,6 +446,7 @@ module MPDUI
           end
 
           @playlist_drag_source_row = nil
+          @drag_source_type = nil
           true
         else
           false
@@ -438,10 +457,16 @@ module MPDUI
       @queue_drop_filter = filter
     end
 
-    private def playlist_reorder_available?(event : Qt6::DropEvent) : Bool
+    # Helper: is this drag a playlist reorder?
+    private def drag_is_playlist_reorder?(event : Qt6::DropEvent) : Bool
       table = @playlist_table
       row = @playlist_drag_source_row
-      !!event.mime_data && !!table && !row.nil? && table.row_count > 1
+      @drag_source_type == :playlist && !!event.mime_data && !!table && !row.nil? && table.row_count > 1
+    end
+
+    # Helper: is this drag a database drop?
+    private def drag_is_database_drop?(event : Qt6::DropEvent) : Bool
+      @drag_source_type == :database && !!event.mime_data && (@dragged_database_uris.any? || selected_database_uris.any?)
     end
 
     private def queue_drop_row_for(event : Qt6::DropEvent) : Int32
