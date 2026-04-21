@@ -35,6 +35,7 @@ module MPDUI
     @state : String = "stop"
     @current_song_pos : Int32? = nil
     @playlist_positions : Array(Int32) = [] of Int32
+    @just_moved_pos : Int32? = nil
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @random : Bool = false
@@ -506,6 +507,7 @@ module MPDUI
         client.move(source_pos, target_row)
       end
 
+      @just_moved_pos = target_row
       @status_label.try(&.text = "Queue order updated")
       true
     rescue ex
@@ -710,6 +712,11 @@ module MPDUI
         table.set_item(row, 0, indicator_item)
         table.set_item(row, 1, title_item)
         table.set_item(row, 2, time_item)
+      end
+
+      if @just_moved_pos && (row = @playlist_positions.index(@just_moved_pos))
+        table.set_current_cell(row, 1)
+        @just_moved_pos = nil
       end
     ensure
       @syncing = false
