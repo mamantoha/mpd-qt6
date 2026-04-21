@@ -707,12 +707,6 @@ module MPDUI
         table.set_item(row, 1, title_item)
         table.set_item(row, 2, time_item)
       end
-
-      if current_pos = @current_song_pos
-        if current_row = @playlist_positions.index(current_pos)
-          table.set_current_cell(current_row, 1)
-        end
-      end
     ensure
       @syncing = false
     end
