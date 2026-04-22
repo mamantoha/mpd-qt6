@@ -229,24 +229,25 @@ module MPDUI
           setup_queue_drop_target(playlist_table)
           database_browser = build_database_browser(widget)
 
-          browsers = Qt6::Widget.new(widget)
-          browsers.hbox do |row|
-            database_panel = Qt6::Widget.new(widget)
-            database_panel.vbox do |database_column|
-              database_column << Qt6::Label.new("Database")
-              database_column << database_browser
-            end
+          browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, widget)
 
-            queue_panel = Qt6::Widget.new(widget)
-            queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
-            queue_panel.vbox do |queue_column|
-              queue_column << Qt6::Label.new("Queue")
-              queue_column << playlist_table
-            end
-
-            row << database_panel
-            row << queue_panel
+          database_panel = Qt6::Widget.new(widget)
+          database_panel.minimum_width = 220
+          database_panel.vbox do |database_column|
+            database_column << Qt6::Label.new("Database")
+            database_column << database_browser
           end
+
+          queue_panel = Qt6::Widget.new(widget)
+          queue_panel.minimum_width = 220
+          queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
+          queue_panel.vbox do |queue_column|
+            queue_column << Qt6::Label.new("Queue")
+            queue_column << playlist_table
+          end
+
+          browsers << database_panel
+          browsers << queue_panel
 
           ensure_database_loaded
 
