@@ -1035,7 +1035,12 @@ module MPDUI
         if pixmap.null?
           clear_cover_art
         else
-          scaled = pixmap.scaled(160, 160, keep_aspect_ratio: true, smooth: true)
+          scaled = pixmap.scaled(
+            160,
+            160,
+            Qt6::AspectRatioMode::Keep,
+            Qt6::TransformationMode::Smooth
+          )
           @cover_label.try(&.text = "")
           @cover_label.try(&.pixmap = scaled)
         end
