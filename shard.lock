@@ -6,5 +6,5 @@ shards:
 
   qt6:
     path: ../crystal-qt6
-    version: 0.5.0
+    version: 0.6.0
 
