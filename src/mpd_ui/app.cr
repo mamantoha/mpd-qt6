@@ -4,11 +4,11 @@ module MPDUI
 
     @settings : Settings
     @qt_app : Qt6::Application
-    @window : Qt6::Widget?
+    @window : Qt6::MainWindow?
     @cover_label : Qt6::Label?
     @title_label : Qt6::Label?
     @subtitle_label : Qt6::Label?
-    @status_label : Qt6::Label?
+    @status_bar : Qt6::StatusBar?
     @time_label : Qt6::Label?
     @play_pause_button : Qt6::PushButton?
     @shuffle_button : Qt6::PushButton?
@@ -83,8 +83,14 @@ module MPDUI
     end
 
     private def build_ui : Nil
-      window = Qt6.window(WINDOW_TITLE, 700, 720) do |widget|
-        widget.vbox do |column|
+      window = Qt6::MainWindow.new
+      window.window_title = WINDOW_TITLE
+      window.resize(700, 720)
+      status_bar = window.status_bar
+      status_bar.show_message("Ready")
+
+      central = Qt6::Widget.new(window)
+      central.vbox do |column|
           cover_label = Qt6::Label.new("No Cover")
           cover_label.set_fixed_size(160, 160)
           cover_label.scaled_contents = false
@@ -98,7 +104,7 @@ module MPDUI
           subtitle_label = Qt6::Label.new("")
           subtitle_label.word_wrap = true
 
-          progress = Qt6::Widget.new(widget)
+          progress = Qt6::Widget.new(central)
           progress.hbox do |row|
             progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
             progress_slider.set_range(0, 1000)
@@ -136,7 +142,7 @@ module MPDUI
             @time_label = time_label
           end
 
-          controls = Qt6::Widget.new(widget)
+          controls = Qt6::Widget.new(central)
           controls.hbox do |row|
             prev_button = Qt6::PushButton.new("")
             play_pause_button = Qt6::PushButton.new("")
@@ -227,20 +233,20 @@ module MPDUI
             @stop_icon = stop_icon
           end
 
-          playlist_table = build_playlist(widget)
+          playlist_table = build_playlist(central)
           setup_queue_drop_target(playlist_table)
-          database_browser = build_database_browser(widget)
+          database_browser = build_database_browser(central)
 
-          browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, widget)
+          browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
 
-          database_panel = Qt6::Widget.new(widget)
+          database_panel = Qt6::Widget.new(central)
           database_panel.minimum_width = 220
           database_panel.vbox do |database_column|
             database_column << Qt6::Label.new("Database")
             database_column << database_browser
           end
 
-          queue_panel = Qt6::Widget.new(widget)
+          queue_panel = Qt6::Widget.new(central)
           queue_panel.minimum_width = 220
           queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
           queue_panel.vbox do |queue_column|
@@ -253,26 +259,22 @@ module MPDUI
 
           ensure_database_loaded
 
-          status_label = Qt6::Label.new("Ready")
-          status_label.word_wrap = true
-
           column << cover_label
           column << title_label
           column << subtitle_label
           column << progress
           column << controls
-          column << status_label
           column << browsers
 
           @cover_label = cover_label
           @title_label = title_label
           @subtitle_label = subtitle_label
-          @status_label = status_label
           @playlist_table = playlist_table
-        end
       end
 
+      window.central_widget = central
       @window = window
+      @status_bar = status_bar
     end
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
@@ -520,7 +522,7 @@ module MPDUI
       end
 
       @just_moved_pos = target_row
-      @status_label.try(&.text = "Queue order updated")
+      set_status("Queue order updated")
       true
     rescue ex
       @title_label.try(&.text = "Error")
@@ -549,7 +551,7 @@ module MPDUI
       Log.error { "mpd_ui: failed to connect to #{@settings.host}:#{@settings.port}: #{ex.message || ex}" }
       @title_label.try(&.text = "Connection failed")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      @status_label.try(&.text = "Unable to connect to #{@settings.host}:#{@settings.port}")
+      set_status("Unable to connect to #{@settings.host}:#{@settings.port}")
     end
 
     private def toggle_play_pause : Nil
@@ -574,7 +576,7 @@ module MPDUI
       mpd_action do |client|
         client.clear
       end
-      @status_label.try(&.text = "Queue cleared")
+      set_status("Queue cleared")
     end
 
     private def start_callback_listener(generation : Int32) : Nil
@@ -622,7 +624,7 @@ module MPDUI
       status = client.status
       unless status
         Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
-        @status_label.try(&.text = "Reconnecting to #{@settings.host}:#{@settings.port}…")
+        set_status("Reconnecting to #{@settings.host}:#{@settings.port}…")
         return
       end
 
@@ -654,7 +656,7 @@ module MPDUI
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle.empty? ? " " : subtitle)
-        @status_label.try(&.text = "State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
+        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = artist ? "#{artist} — #{title}" : title)
 
         if file && file != @current_file
@@ -668,15 +670,15 @@ module MPDUI
         clear_cover_art
         @title_label.try(&.text = "Stopped")
         @subtitle_label.try(&.text = "")
-        @status_label.try(&.text = "Connected to #{@settings.host}:#{@settings.port}")
+        set_status("Connected to #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = WINDOW_TITLE)
       else
-        @status_label.try(&.text = "State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
+        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
       end
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      @status_label.try(&.text = "MPD request failed")
+      set_status("MPD request failed")
     end
 
     private def update_progress : Nil
@@ -762,7 +764,7 @@ module MPDUI
       return unless pos
 
       mpd_action { |c| c.delete(pos) }
-      @status_label.try(&.text = "Removed song from Queue")
+      set_status("Removed song from Queue")
     end
 
     private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
@@ -802,7 +804,7 @@ module MPDUI
 
       @database_loading = true
       show_database_message("Loading database…")
-      @status_label.try(&.text = "Loading database from #{@settings.host}:#{@settings.port}…")
+      set_status("Loading database from #{@settings.host}:#{@settings.port}…")
 
       host = @settings.host
       port = @settings.port
@@ -819,14 +821,14 @@ module MPDUI
             populate_database_tree(library)
             @database_loaded = true
             @database_loading = false
-            @status_label.try(&.text = "Database loaded • #{songs.size} songs")
+            set_status("Database loaded • #{songs.size} songs")
           end
         rescue ex
           @qt_app.invoke_later do
             @database_loaded = false
             @database_loading = false
             show_database_message("Failed to load database")
-            @status_label.try(&.text = "Database load failed: #{ex.message || ex}")
+            set_status("Database load failed: #{ex.message || ex}")
           end
         end
       end
@@ -984,7 +986,7 @@ module MPDUI
       end
       suffix = uris.size == 1 ? "song" : "songs"
       action = insert_row ? "Inserted" : "Added"
-      @status_label.try(&.text = "#{action} #{uris.size} #{suffix} from Database")
+      set_status("#{action} #{uris.size} #{suffix} from Database")
       @dragged_database_uris.clear
       true
     rescue ex
@@ -995,14 +997,14 @@ module MPDUI
 
     private def add_selected_database_song : Nil
       unless append_selected_database_to_queue
-        @status_label.try(&.text = "Select a song, album, or artist in the Database view")
+        set_status("Select a song, album, or artist in the Database view")
       end
     end
 
     private def play_selected_database_song : Nil
       uris = selected_database_uris
       if uris.empty?
-        @status_label.try(&.text = "Select a song, album, or artist in the Database view")
+        set_status("Select a song, album, or artist in the Database view")
         return
       end
 
@@ -1022,7 +1024,7 @@ module MPDUI
       end
       refresh_status
       suffix = uris.size == 1 ? "song" : "selection"
-      @status_label.try(&.text = "Playing #{suffix} from Database")
+      set_status("Playing #{suffix} from Database")
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
@@ -1033,10 +1035,14 @@ module MPDUI
       return if uris.empty?
 
       if uris.size == 1
-        @status_label.try(&.text = "Selected: #{File.basename(uris.first)}")
+        set_status("Selected: #{File.basename(uris.first)}")
       else
-        @status_label.try(&.text = "Selected #{uris.size} songs from Database")
+        set_status("Selected #{uris.size} songs from Database")
       end
+    end
+
+    private def set_status(message : String) : Nil
+      @status_bar.try(&.show_message(message))
     end
 
     private def load_cover_art(uri : String) : Nil
