@@ -15,6 +15,7 @@ module MPDUI
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
     @playlist_table : Qt6::TableWidget?
+    @delete_queue_action : Qt6::Action?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
     @database_loaded : Bool = false
@@ -315,6 +316,15 @@ module MPDUI
       table.on_item_double_clicked do |_item|
         play_selected_playlist_row
       end
+
+      delete_action = Qt6::Action.new("Remove from Queue", table)
+      delete_action.shortcut = "Delete"
+      delete_action.on_triggered do
+        next unless table.has_focus? || table.viewport.has_focus?
+        delete_selected_playlist_row
+      end
+      table.add_action(delete_action)
+      @delete_queue_action = delete_action
 
       # table.on_current_cell_changed do
       #   row = table.current_row
@@ -737,6 +747,22 @@ module MPDUI
       return unless pos
 
       mpd_action { |c| c.play(pos) }
+    end
+
+    private def delete_selected_playlist_row : Nil
+      return if @syncing
+
+      table = @playlist_table
+      return unless table
+
+      row = table.current_row
+      return if row < 0
+
+      pos = @playlist_positions[row]?
+      return unless pos
+
+      mpd_action { |c| c.delete(pos) }
+      @status_label.try(&.text = "Removed song from Queue")
     end
 
     private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
