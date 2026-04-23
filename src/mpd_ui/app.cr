@@ -103,6 +103,7 @@ module MPDUI
             progress_slider.set_range(0, 1000)
             progress_slider.value = 0
             progress_slider.minimum_width = 320
+            progress_slider.click_to_position = true
 
             time_label = Qt6::Label.new("0:00 / 0:00")
 
