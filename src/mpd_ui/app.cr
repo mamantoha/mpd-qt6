@@ -240,7 +240,6 @@ module MPDUI
         database_panel.vbox do |database_column|
           database_column.spacing = 4
           database_column.set_contents_margins(0, 0, 0, 0)
-          database_column << Qt6::Label.new("Database")
           database_column << database_browser
         end
 
@@ -251,7 +250,6 @@ module MPDUI
         queue_panel.vbox do |queue_column|
           queue_column.spacing = 4
           queue_column.set_contents_margins(0, 0, 0, 0)
-          queue_column << Qt6::Label.new("Queue")
           queue_column << playlist_table
         end
 
