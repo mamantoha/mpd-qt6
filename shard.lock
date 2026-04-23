@@ -1,10 +1,11 @@
+# NOTICE: This lockfile contains some overrides from shard.override.yml
 version: 2.0
 shards:
   crystal_mpd:
     git: https://github.com/mamantoha/crystal_mpd.git
     version: 1.0.3
 
-  qt6:
-    git: https://github.com/djberg96/crystal-qt6.git
-    version: 0.6.0+git.commit.9adcdc049cabaa8adf76643b9db0cd430bc2dea2
+  qt6: # Overridden
+    path: ../crystal-qt6
+    version: 0.6.0
 
