@@ -16,7 +16,6 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Album art loading from MPD when available
 - Queue view with current-track state icons
 - Double-click a queue row to start playback instantly
-- Clear queue button
 - Database browser grouped as artist → album → songs
 - Drag and drop songs, albums, or artists from the database into the queue
 - Drop-position queue insertion for fast playlist building

@@ -164,7 +164,6 @@ module MPDUI
           next_button = Qt6::PushButton.new("")
           shuffle_button = Qt6::PushButton.new("")
           repeat_button = Qt6::PushButton.new("")
-          clear_button = Qt6::PushButton.new("")
 
           play_icon = Qt6::QIcon.from_theme("media-playback-start")
           pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
@@ -180,25 +179,21 @@ module MPDUI
           next_button.icon = next_icon
           shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
           repeat_button.icon = repeat_icon unless repeat_icon.null?
-          clear_button.icon = clear_icon unless clear_icon.null?
           prev_button.icon_size = Qt6::Size.new(22, 22)
           play_pause_button.icon_size = Qt6::Size.new(22, 22)
           next_button.icon_size = Qt6::Size.new(22, 22)
           shuffle_button.icon_size = Qt6::Size.new(22, 22)
           repeat_button.icon_size = Qt6::Size.new(22, 22)
-          clear_button.icon_size = Qt6::Size.new(22, 22)
           prev_button.fixed_width = 44
           play_pause_button.fixed_width = 44
           next_button.fixed_width = 44
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
-          clear_button.fixed_width = 44
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
           shuffle_button.tool_tip = "Shuffle"
           repeat_button.tool_tip = "Repeat"
-          clear_button.tool_tip = "Clear Queue"
 
           shuffle_button.checkable = true
           repeat_button.checkable = true
@@ -206,7 +201,6 @@ module MPDUI
           prev_button.on_clicked { mpd_action { |c| c.previous } }
           play_pause_button.on_clicked { toggle_play_pause }
           next_button.on_clicked { mpd_action { |c| c.next } }
-          clear_button.on_clicked { clear_queue }
           shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
           repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
 
@@ -216,7 +210,6 @@ module MPDUI
           row << next_button
           row << shuffle_button
           row << repeat_button
-          row << clear_button
           row.add_stretch
 
           @play_pause_button = play_pause_button
