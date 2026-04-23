@@ -321,6 +321,7 @@ module MPDUI
       table.set_horizontal_header_label(0, "")
       table.set_horizontal_header_label(1, "Track")
       table.set_horizontal_header_label(2, "Time")
+      table.alternating_row_colors = true
       table.selection_mode = Qt6::ItemSelectionMode::SingleSelection
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
