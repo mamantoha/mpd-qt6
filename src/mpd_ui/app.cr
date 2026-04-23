@@ -1197,7 +1197,6 @@ module MPDUI
       client = @client
       return unless client
       yield client
-      refresh_status
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
