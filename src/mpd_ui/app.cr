@@ -175,17 +175,6 @@ module MPDUI
           repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
           clear_icon = Qt6::QIcon.from_theme("edit-clear")
 
-          toggle_button_style = <<-CSS
-            QPushButton {
-              padding: 6px;
-              border-width: 1px;
-            }
-            QPushButton:checked {
-              border: 2px solid #4ea1ff;
-              background-color: rgba(78, 161, 255, 0.18);
-            }
-          CSS
-
           prev_button.icon = prev_icon
           play_pause_button.icon = play_icon
           next_button.icon = next_icon
@@ -198,8 +187,6 @@ module MPDUI
           shuffle_button.icon_size = Qt6::Size.new(22, 22)
           repeat_button.icon_size = Qt6::Size.new(22, 22)
           clear_button.icon_size = Qt6::Size.new(22, 22)
-          shuffle_button.style_sheet = toggle_button_style
-          repeat_button.style_sheet = toggle_button_style
           prev_button.fixed_width = 44
           play_pause_button.fixed_width = 44
           next_button.fixed_width = 44
@@ -347,19 +334,6 @@ module MPDUI
       table.default_drop_action = Qt6::DropAction::MoveAction
       table.drop_indicator_shown = true
       table.minimum_height = 320
-      table.style_sheet = <<-CSS
-        QTableWidget {
-          border: 1px solid;
-        }
-        QTableWidget::item {
-          padding: 4px 6px;
-          border: none;
-        }
-        QTableWidget::item:selected {
-          background-color: #4ea1ff;
-          color: white;
-        }
-      CSS
 
       table.horizontal_header.fixed_height = 0
       table.horizontal_header.set_section_resize_mode(0, Qt6::HeaderResizeMode::ResizeToContents)
