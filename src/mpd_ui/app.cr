@@ -340,8 +340,6 @@ module MPDUI
       tree = Qt6::TreeView.new(container)
       model = Qt6::StandardItemModel.new(tree)
       reload_button = Qt6::PushButton.new("Reload")
-      add_button = Qt6::PushButton.new("Add Song")
-      play_button = Qt6::PushButton.new("Play Song")
 
       model.set_horizontal_header_label(0, "Database")
       tree.model = model
@@ -367,20 +365,15 @@ module MPDUI
       CSS
 
       reload_button.on_clicked { ensure_database_loaded(force: true) }
-      add_button.on_clicked { add_selected_database_song }
-      play_button.on_clicked { play_selected_database_song }
       tree.on_current_index_changed do
         @playlist_drag_source_row = nil
         @dragged_database_uris = selected_database_uris
-        update_database_selection_status
       end
 
       container.vbox do |column|
         toolbar = Qt6::Widget.new(container)
         toolbar.hbox do |row|
           row << reload_button
-          row << add_button
-          row << play_button
           row.add_stretch
         end
 
@@ -945,10 +938,6 @@ module MPDUI
       song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
     end
 
-    private def selected_database_song_uri : String?
-      selected_database_uris.first?
-    end
-
     private def selected_database_uris : Array(String)
       tree = @database_tree
       model = @database_model
@@ -978,10 +967,6 @@ module MPDUI
       end
     end
 
-    private def database_drop_available?(event : Qt6::DropEvent) : Bool
-      !!event.mime_data && (@dragged_database_uris.any? || selected_database_uris.any?)
-    end
-
     private def append_selected_database_to_queue(insert_row : Int32? = nil) : Bool
       uris = @dragged_database_uris.empty? ? selected_database_uris : @dragged_database_uris.dup
       return false if uris.empty?
@@ -1007,52 +992,6 @@ module MPDUI
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
       false
-    end
-
-    private def add_selected_database_song : Nil
-      unless append_selected_database_to_queue
-        set_status("Select a song, album, or artist in the Database view")
-      end
-    end
-
-    private def play_selected_database_song : Nil
-      uris = selected_database_uris
-      if uris.empty?
-        set_status("Select a song, album, or artist in the Database view")
-        return
-      end
-
-      client = @client
-      return unless client
-
-      first = uris.first
-      rest = uris[1..]
-
-      added = client.addid(first)
-      rest.each { |uri| client.add(uri) }
-
-      if added && (songid = added["Id"]?.try(&.to_i?))
-        client.playid(songid)
-      else
-        client.play
-      end
-      refresh_status
-      suffix = uris.size == 1 ? "song" : "selection"
-      set_status("Playing #{suffix} from Database")
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
-    end
-
-    private def update_database_selection_status : Nil
-      uris = selected_database_uris
-      return if uris.empty?
-
-      if uris.size == 1
-        set_status("Selected: #{File.basename(uris.first)}")
-      else
-        set_status("Selected #{uris.size} songs from Database")
-      end
     end
 
     private def set_status(message : String) : Nil
