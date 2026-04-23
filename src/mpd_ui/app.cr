@@ -91,185 +91,185 @@ module MPDUI
 
       central = Qt6::Widget.new(window)
       central.vbox do |column|
-          cover_label = Qt6::Label.new("No Cover")
-          cover_label.set_fixed_size(160, 160)
-          cover_label.scaled_contents = false
-          cover_label.alignment = Qt6::AlignmentFlag::Center
-          cover_label.style_sheet = "background: #222; border: 1px solid #444;"
+        cover_label = Qt6::Label.new("No Cover")
+        cover_label.set_fixed_size(160, 160)
+        cover_label.scaled_contents = false
+        cover_label.alignment = Qt6::AlignmentFlag::Center
+        cover_label.style_sheet = "background: #222; border: 1px solid #444;"
 
-          title_label = Qt6::Label.new("Connecting...")
-          title_label.style_sheet = "font-size: 18px; font-weight: bold;"
-          title_label.word_wrap = true
+        title_label = Qt6::Label.new("Connecting...")
+        title_label.style_sheet = "font-size: 18px; font-weight: bold;"
+        title_label.word_wrap = true
 
-          subtitle_label = Qt6::Label.new("")
-          subtitle_label.word_wrap = true
+        subtitle_label = Qt6::Label.new("")
+        subtitle_label.word_wrap = true
 
-          progress = Qt6::Widget.new(central)
-          progress.hbox do |row|
-            progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
-            progress_slider.set_range(0, 1000)
-            progress_slider.value = 0
-            progress_slider.minimum_width = 320
-            progress_slider.click_to_position = true
+        progress = Qt6::Widget.new(central)
+        progress.hbox do |row|
+          progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
+          progress_slider.set_range(0, 1000)
+          progress_slider.value = 0
+          progress_slider.minimum_width = 320
+          progress_slider.click_to_position = true
 
-            time_label = Qt6::Label.new("0:00 / 0:00")
+          time_label = Qt6::Label.new("0:00 / 0:00")
 
-            progress_slider.on_pressed do
-              @dragging_progress = true
-            end
-
-            progress_slider.on_value_changed do |value|
-              next if @syncing_progress || @duration <= 0
-              @dragging_progress = true
-              target = @duration * value / 1000.0
-              @elapsed = target
-              @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
-            end
-
-            progress_slider.on_released do
-              next if @syncing_progress || @duration <= 0
-              @dragging_progress = false
-              target = @duration * progress_slider.value / 1000.0
-              @elapsed = target
-              update_progress
-              mpd_action { |c| c.seekcur(target.to_i) }
-            end
-
-            row << progress_slider
-            row << time_label
-
-            @progress_slider = progress_slider
-            @time_label = time_label
+          progress_slider.on_pressed do
+            @dragging_progress = true
           end
 
-          controls = Qt6::Widget.new(central)
-          controls.hbox do |row|
-            prev_button = Qt6::PushButton.new("")
-            play_pause_button = Qt6::PushButton.new("")
-            next_button = Qt6::PushButton.new("")
-            shuffle_button = Qt6::PushButton.new("")
-            repeat_button = Qt6::PushButton.new("")
-            clear_button = Qt6::PushButton.new("")
-            settings_button = Qt6::PushButton.new("")
-
-            play_icon = Qt6::QIcon.from_theme("media-playback-start")
-            pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
-            stop_icon = Qt6::QIcon.from_theme("media-playback-stop")
-            prev_icon = Qt6::QIcon.from_theme("media-skip-backward")
-            next_icon = Qt6::QIcon.from_theme("media-skip-forward")
-            shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
-            repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
-            clear_icon = Qt6::QIcon.from_theme("edit-clear")
-            settings_icon = Qt6::QIcon.from_theme("preferences-system")
-
-            toggle_button_style = <<-CSS
-              QPushButton {
-                padding: 6px;
-                border-width: 1px;
-              }
-              QPushButton:checked {
-                border: 2px solid #4ea1ff;
-                background-color: rgba(78, 161, 255, 0.18);
-              }
-            CSS
-
-            prev_button.icon = prev_icon
-            play_pause_button.icon = play_icon
-            next_button.icon = next_icon
-            shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
-            repeat_button.icon = repeat_icon unless repeat_icon.null?
-            clear_button.icon = clear_icon unless clear_icon.null?
-            settings_button.icon = settings_icon unless settings_icon.null?
-            prev_button.icon_size = Qt6::Size.new(22, 22)
-            play_pause_button.icon_size = Qt6::Size.new(22, 22)
-            next_button.icon_size = Qt6::Size.new(22, 22)
-            shuffle_button.icon_size = Qt6::Size.new(22, 22)
-            repeat_button.icon_size = Qt6::Size.new(22, 22)
-            clear_button.icon_size = Qt6::Size.new(22, 22)
-            settings_button.icon_size = Qt6::Size.new(20, 20)
-            shuffle_button.style_sheet = toggle_button_style
-            repeat_button.style_sheet = toggle_button_style
-            prev_button.fixed_width = 44
-            play_pause_button.fixed_width = 44
-            next_button.fixed_width = 44
-            shuffle_button.fixed_width = 44
-            repeat_button.fixed_width = 44
-            clear_button.fixed_width = 44
-            settings_button.fixed_width = 44
-            prev_button.tool_tip = "Previous"
-            play_pause_button.tool_tip = "Play/Pause"
-            next_button.tool_tip = "Next"
-            shuffle_button.tool_tip = "Shuffle"
-            repeat_button.tool_tip = "Repeat"
-            clear_button.tool_tip = "Clear Queue"
-            settings_button.tool_tip = "Connection Settings"
-
-            shuffle_button.checkable = true
-            repeat_button.checkable = true
-
-            prev_button.on_clicked { mpd_action { |c| c.previous } }
-            play_pause_button.on_clicked { toggle_play_pause }
-            next_button.on_clicked { mpd_action { |c| c.next } }
-            clear_button.on_clicked { clear_queue }
-            settings_button.on_clicked { open_settings_dialog }
-            shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
-            repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
-
-            row.add_stretch
-            row << prev_button
-            row << play_pause_button
-            row << next_button
-            row << shuffle_button
-            row << repeat_button
-            row << clear_button
-            row << settings_button
-            row.add_stretch
-
-            @play_pause_button = play_pause_button
-            @shuffle_button = shuffle_button
-            @repeat_button = repeat_button
-            @play_icon = play_icon
-            @pause_icon = pause_icon
-            @stop_icon = stop_icon
+          progress_slider.on_value_changed do |value|
+            next if @syncing_progress || @duration <= 0
+            @dragging_progress = true
+            target = @duration * value / 1000.0
+            @elapsed = target
+            @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
           end
 
-          playlist_table = build_playlist(central)
-          setup_queue_drop_target(playlist_table)
-          database_browser = build_database_browser(central)
-
-          browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
-
-          database_panel = Qt6::Widget.new(central)
-          database_panel.minimum_width = 220
-          database_panel.vbox do |database_column|
-            database_column << Qt6::Label.new("Database")
-            database_column << database_browser
+          progress_slider.on_released do
+            next if @syncing_progress || @duration <= 0
+            @dragging_progress = false
+            target = @duration * progress_slider.value / 1000.0
+            @elapsed = target
+            update_progress
+            mpd_action { |c| c.seekcur(target.to_i) }
           end
 
-          queue_panel = Qt6::Widget.new(central)
-          queue_panel.minimum_width = 220
-          queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
-          queue_panel.vbox do |queue_column|
-            queue_column << Qt6::Label.new("Queue")
-            queue_column << playlist_table
-          end
+          row << progress_slider
+          row << time_label
 
-          browsers << database_panel
-          browsers << queue_panel
+          @progress_slider = progress_slider
+          @time_label = time_label
+        end
 
-          ensure_database_loaded
+        controls = Qt6::Widget.new(central)
+        controls.hbox do |row|
+          prev_button = Qt6::PushButton.new("")
+          play_pause_button = Qt6::PushButton.new("")
+          next_button = Qt6::PushButton.new("")
+          shuffle_button = Qt6::PushButton.new("")
+          repeat_button = Qt6::PushButton.new("")
+          clear_button = Qt6::PushButton.new("")
+          settings_button = Qt6::PushButton.new("")
 
-          column << cover_label
-          column << title_label
-          column << subtitle_label
-          column << progress
-          column << controls
-          column << browsers
+          play_icon = Qt6::QIcon.from_theme("media-playback-start")
+          pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
+          stop_icon = Qt6::QIcon.from_theme("media-playback-stop")
+          prev_icon = Qt6::QIcon.from_theme("media-skip-backward")
+          next_icon = Qt6::QIcon.from_theme("media-skip-forward")
+          shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
+          repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
+          clear_icon = Qt6::QIcon.from_theme("edit-clear")
+          settings_icon = Qt6::QIcon.from_theme("preferences-system")
 
-          @cover_label = cover_label
-          @title_label = title_label
-          @subtitle_label = subtitle_label
-          @playlist_table = playlist_table
+          toggle_button_style = <<-CSS
+            QPushButton {
+              padding: 6px;
+              border-width: 1px;
+            }
+            QPushButton:checked {
+              border: 2px solid #4ea1ff;
+              background-color: rgba(78, 161, 255, 0.18);
+            }
+          CSS
+
+          prev_button.icon = prev_icon
+          play_pause_button.icon = play_icon
+          next_button.icon = next_icon
+          shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
+          repeat_button.icon = repeat_icon unless repeat_icon.null?
+          clear_button.icon = clear_icon unless clear_icon.null?
+          settings_button.icon = settings_icon unless settings_icon.null?
+          prev_button.icon_size = Qt6::Size.new(22, 22)
+          play_pause_button.icon_size = Qt6::Size.new(22, 22)
+          next_button.icon_size = Qt6::Size.new(22, 22)
+          shuffle_button.icon_size = Qt6::Size.new(22, 22)
+          repeat_button.icon_size = Qt6::Size.new(22, 22)
+          clear_button.icon_size = Qt6::Size.new(22, 22)
+          settings_button.icon_size = Qt6::Size.new(20, 20)
+          shuffle_button.style_sheet = toggle_button_style
+          repeat_button.style_sheet = toggle_button_style
+          prev_button.fixed_width = 44
+          play_pause_button.fixed_width = 44
+          next_button.fixed_width = 44
+          shuffle_button.fixed_width = 44
+          repeat_button.fixed_width = 44
+          clear_button.fixed_width = 44
+          settings_button.fixed_width = 44
+          prev_button.tool_tip = "Previous"
+          play_pause_button.tool_tip = "Play/Pause"
+          next_button.tool_tip = "Next"
+          shuffle_button.tool_tip = "Shuffle"
+          repeat_button.tool_tip = "Repeat"
+          clear_button.tool_tip = "Clear Queue"
+          settings_button.tool_tip = "Connection Settings"
+
+          shuffle_button.checkable = true
+          repeat_button.checkable = true
+
+          prev_button.on_clicked { mpd_action { |c| c.previous } }
+          play_pause_button.on_clicked { toggle_play_pause }
+          next_button.on_clicked { mpd_action { |c| c.next } }
+          clear_button.on_clicked { clear_queue }
+          settings_button.on_clicked { open_settings_dialog }
+          shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
+          repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
+
+          row.add_stretch
+          row << prev_button
+          row << play_pause_button
+          row << next_button
+          row << shuffle_button
+          row << repeat_button
+          row << clear_button
+          row << settings_button
+          row.add_stretch
+
+          @play_pause_button = play_pause_button
+          @shuffle_button = shuffle_button
+          @repeat_button = repeat_button
+          @play_icon = play_icon
+          @pause_icon = pause_icon
+          @stop_icon = stop_icon
+        end
+
+        playlist_table = build_playlist(central)
+        setup_queue_drop_target(playlist_table)
+        database_browser = build_database_browser(central)
+
+        browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
+
+        database_panel = Qt6::Widget.new(central)
+        database_panel.minimum_width = 220
+        database_panel.vbox do |database_column|
+          database_column << Qt6::Label.new("Database")
+          database_column << database_browser
+        end
+
+        queue_panel = Qt6::Widget.new(central)
+        queue_panel.minimum_width = 220
+        queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
+        queue_panel.vbox do |queue_column|
+          queue_column << Qt6::Label.new("Queue")
+          queue_column << playlist_table
+        end
+
+        browsers << database_panel
+        browsers << queue_panel
+
+        ensure_database_loaded
+
+        column << cover_label
+        column << title_label
+        column << subtitle_label
+        column << progress
+        column << controls
+        column << browsers
+
+        @cover_label = cover_label
+        @title_label = title_label
+        @subtitle_label = subtitle_label
+        @playlist_table = playlist_table
       end
 
       window.central_widget = central
