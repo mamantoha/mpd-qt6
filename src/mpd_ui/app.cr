@@ -92,21 +92,31 @@ module MPDUI
 
       central = Qt6::Widget.new(window)
       central.vbox do |column|
+        column.spacing = 6
+        column.set_contents_margins(8, 8, 8, 8)
+
         cover_label = Qt6::Label.new("No Cover")
         cover_label.set_fixed_size(160, 160)
         cover_label.scaled_contents = false
         cover_label.alignment = Qt6::AlignmentFlag::Center
         cover_label.style_sheet = "background: #222; border: 1px solid #444;"
+        cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
 
         title_label = Qt6::Label.new("Connecting...")
         title_label.style_sheet = "font-size: 18px; font-weight: bold;"
         title_label.word_wrap = true
+        title_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
 
         subtitle_label = Qt6::Label.new("")
         subtitle_label.word_wrap = true
+        subtitle_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
 
         progress = Qt6::Widget.new(central)
+        progress.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         progress.hbox do |row|
+          row.spacing = 6
+          row.set_contents_margins(0, 0, 0, 0)
+
           progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
           progress_slider.set_range(0, 1000)
           progress_slider.value = 0
@@ -144,7 +154,11 @@ module MPDUI
         end
 
         controls = Qt6::Widget.new(central)
+        controls.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         controls.hbox do |row|
+          row.spacing = 6
+          row.set_contents_margins(0, 0, 0, 0)
+
           prev_button = Qt6::PushButton.new("")
           play_pause_button = Qt6::PushButton.new("")
           next_button = Qt6::PushButton.new("")
@@ -231,10 +245,14 @@ module MPDUI
         database_browser = build_database_browser(central)
 
         browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
+        browsers.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Expanding)
 
         database_panel = Qt6::Widget.new(central)
         database_panel.minimum_width = 220
+        database_panel.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Expanding)
         database_panel.vbox do |database_column|
+          database_column.spacing = 4
+          database_column.set_contents_margins(0, 0, 0, 0)
           database_column << Qt6::Label.new("Database")
           database_column << database_browser
         end
@@ -242,7 +260,10 @@ module MPDUI
         queue_panel = Qt6::Widget.new(central)
         queue_panel.minimum_width = 220
         queue_panel.tool_tip = "Drop songs, albums, or artists here to insert them into the queue"
+        queue_panel.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Expanding)
         queue_panel.vbox do |queue_column|
+          queue_column.spacing = 4
+          queue_column.set_contents_margins(0, 0, 0, 0)
           queue_column << Qt6::Label.new("Queue")
           queue_column << playlist_table
         end
