@@ -86,6 +86,7 @@ module MPDUI
       window = Qt6::MainWindow.new
       window.window_title = WINDOW_TITLE
       window.resize(700, 720)
+      build_menu(window)
       status_bar = window.status_bar
       status_bar.show_message("Ready")
 
@@ -150,7 +151,6 @@ module MPDUI
           shuffle_button = Qt6::PushButton.new("")
           repeat_button = Qt6::PushButton.new("")
           clear_button = Qt6::PushButton.new("")
-          settings_button = Qt6::PushButton.new("")
 
           play_icon = Qt6::QIcon.from_theme("media-playback-start")
           pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
@@ -160,7 +160,6 @@ module MPDUI
           shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
           repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
           clear_icon = Qt6::QIcon.from_theme("edit-clear")
-          settings_icon = Qt6::QIcon.from_theme("preferences-system")
 
           toggle_button_style = <<-CSS
             QPushButton {
@@ -179,14 +178,12 @@ module MPDUI
           shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
           repeat_button.icon = repeat_icon unless repeat_icon.null?
           clear_button.icon = clear_icon unless clear_icon.null?
-          settings_button.icon = settings_icon unless settings_icon.null?
           prev_button.icon_size = Qt6::Size.new(22, 22)
           play_pause_button.icon_size = Qt6::Size.new(22, 22)
           next_button.icon_size = Qt6::Size.new(22, 22)
           shuffle_button.icon_size = Qt6::Size.new(22, 22)
           repeat_button.icon_size = Qt6::Size.new(22, 22)
           clear_button.icon_size = Qt6::Size.new(22, 22)
-          settings_button.icon_size = Qt6::Size.new(20, 20)
           shuffle_button.style_sheet = toggle_button_style
           repeat_button.style_sheet = toggle_button_style
           prev_button.fixed_width = 44
@@ -195,14 +192,12 @@ module MPDUI
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
           clear_button.fixed_width = 44
-          settings_button.fixed_width = 44
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
           shuffle_button.tool_tip = "Shuffle"
           repeat_button.tool_tip = "Repeat"
           clear_button.tool_tip = "Clear Queue"
-          settings_button.tool_tip = "Connection Settings"
 
           shuffle_button.checkable = true
           repeat_button.checkable = true
@@ -211,7 +206,6 @@ module MPDUI
           play_pause_button.on_clicked { toggle_play_pause }
           next_button.on_clicked { mpd_action { |c| c.next } }
           clear_button.on_clicked { clear_queue }
-          settings_button.on_clicked { open_settings_dialog }
           shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
           repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
 
@@ -222,7 +216,6 @@ module MPDUI
           row << shuffle_button
           row << repeat_button
           row << clear_button
-          row << settings_button
           row.add_stretch
 
           @play_pause_button = play_pause_button
@@ -275,6 +268,38 @@ module MPDUI
       window.central_widget = central
       @window = window
       @status_bar = status_bar
+    end
+
+    private def build_menu(window : Qt6::MainWindow) : Nil
+      menu_bar = window.menu_bar
+
+      app_menu = menu_bar.add_menu("&App")
+      settings_action = Qt6::Action.new("Settings", window)
+      settings_action.shortcut = "Ctrl+,"
+      settings_action.status_tip = "Open connection settings"
+      settings_action.on_triggered { open_settings_dialog }
+      app_menu.add_action(settings_action)
+      app_menu.add_separator
+
+      quit_action = Qt6::Action.new("Quit", window)
+      quit_action.shortcut = "Ctrl+Q"
+      quit_action.status_tip = "Quit the application"
+      quit_action.on_triggered { @qt_app.quit }
+      app_menu.add_action(quit_action)
+
+      library_menu = menu_bar.add_menu("&Library")
+      reload_action = Qt6::Action.new("Reload Database", window)
+      reload_action.shortcut = "F5"
+      reload_action.status_tip = "Reload the music database from MPD"
+      reload_action.on_triggered { ensure_database_loaded(force: true) }
+      library_menu.add_action(reload_action)
+
+      queue_menu = menu_bar.add_menu("&Queue")
+      clear_action = Qt6::Action.new("Clear Queue", window)
+      clear_action.shortcut = "Ctrl+L"
+      clear_action.status_tip = "Remove all songs from the queue"
+      clear_action.on_triggered { clear_queue }
+      queue_menu.add_action(clear_action)
     end
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
@@ -339,7 +364,6 @@ module MPDUI
       container = Qt6::Widget.new(parent)
       tree = Qt6::TreeView.new(container)
       model = Qt6::StandardItemModel.new(tree)
-      reload_button = Qt6::PushButton.new("Reload")
 
       model.set_horizontal_header_label(0, "Database")
       tree.model = model
@@ -364,20 +388,12 @@ module MPDUI
         }
       CSS
 
-      reload_button.on_clicked { ensure_database_loaded(force: true) }
       tree.on_current_index_changed do
         @playlist_drag_source_row = nil
         @dragged_database_uris = selected_database_uris
       end
 
       container.vbox do |column|
-        toolbar = Qt6::Widget.new(container)
-        toolbar.hbox do |row|
-          row << reload_button
-          row.add_stretch
-        end
-
-        column << toolbar
         column << tree
       end
 
