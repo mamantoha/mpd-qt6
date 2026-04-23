@@ -631,6 +631,7 @@ module MPDUI
       song = client.currentsong
 
       state = status.fetch("state", "stop")
+      previous_song_pos = @current_song_pos
       @state = state
       @current_song_pos = status["song"]?.try(&.to_i?)
       @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
@@ -645,7 +646,7 @@ module MPDUI
       end
       sync_toggle_buttons
       update_progress
-      refresh_playlist
+      refresh_playlist(song_changed: previous_song_pos != @current_song_pos)
 
       if song
         file = song["file"]?
@@ -693,7 +694,7 @@ module MPDUI
       @syncing_progress = false
     end
 
-    private def refresh_playlist : Nil
+    private def refresh_playlist(*, song_changed : Bool = false) : Nil
       client = @client
       table = @playlist_table
       return unless client && table
@@ -731,9 +732,22 @@ module MPDUI
       if @just_moved_pos && (row = @playlist_positions.index(@just_moved_pos))
         table.set_current_cell(row, 1)
         @just_moved_pos = nil
+      elsif song_changed
+        scroll_playlist_to_current_song
       end
     ensure
       @syncing = false
+    end
+
+    private def scroll_playlist_to_current_song : Nil
+      table = @playlist_table
+      current_song_pos = @current_song_pos
+      return unless table && current_song_pos
+
+      row = @playlist_positions.index(current_song_pos)
+      return unless row
+
+      table.set_current_cell(row, 1)
     end
 
     private def play_selected_playlist_row : Nil
