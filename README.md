@@ -50,7 +50,7 @@ shards build --release
 
 ## Platform support
 
-Tested on Linux and mcOS with Qt6. Windows are untested.
+Tested on Linux and macOS with Qt6. Windows are untested.
 
 ## Architecture notes
 
