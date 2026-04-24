@@ -433,24 +433,33 @@ module MPDUI
 
       menu = Qt6::Menu.new("Tray", window)
       toggle_action = Qt6::Action.new("Hide", window)
+      show_icon = Qt6::QIcon.from_theme("window")
+      toggle_action.icon = show_icon unless show_icon.null?
       toggle_action.on_triggered { toggle_main_window_visibility }
       menu.add_action(toggle_action)
       menu.add_separator
 
       play_pause_action = Qt6::Action.new("Play/Pause", window)
+      play_pause_action.icon = @play_icon.not_nil! if @play_icon && !@play_icon.not_nil!.null?
       play_pause_action.on_triggered { toggle_play_pause }
       menu.add_action(play_pause_action)
 
       previous_action = Qt6::Action.new("Previous", window)
+      previous_icon = Qt6::QIcon.from_theme("media-skip-backward")
+      previous_action.icon = previous_icon unless previous_icon.null?
       previous_action.on_triggered { mpd_action { |c| c.previous } }
       menu.add_action(previous_action)
 
       next_action = Qt6::Action.new("Next", window)
+      next_icon = Qt6::QIcon.from_theme("media-skip-forward")
+      next_action.icon = next_icon unless next_icon.null?
       next_action.on_triggered { mpd_action { |c| c.next } }
       menu.add_action(next_action)
       menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)
+      quit_icon = Qt6::QIcon.from_theme("application-exit")
+      quit_action.icon = quit_icon unless quit_icon.null?
       quit_action.on_triggered { quit_application }
       menu.add_action(quit_action)
 
@@ -537,6 +546,9 @@ module MPDUI
       return unless action
 
       action.text = @window.try(&.visible?) ? "Hide" : "Show"
+      icon_name = @window.try(&.visible?) ? "window-close" : "window"
+      icon = Qt6::QIcon.from_theme(icon_name)
+      action.icon = icon unless icon.null?
     end
 
     private def update_tray_tooltip(title : String, subtitle : String = "") : Nil
