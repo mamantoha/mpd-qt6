@@ -1,7 +1,10 @@
-require "json"
-
 module MPDUI
   class Settings
+    ORGANIZATION = "mamantoha"
+    APPLICATION  = "mpd-qt6"
+    HOST_KEY     = "mpd/host"
+    PORT_KEY     = "mpd/port"
+
     property host : String
     property port : Int32
 
@@ -10,36 +13,38 @@ module MPDUI
       @port = 6600
     end
 
-    def self.settings_path : String
-      config_home = ENV["XDG_CONFIG_HOME"]?
-      if config_home && !config_home.empty?
-        return File.join(config_home, "mpd-qt6", "settings.json")
-      end
-
-      home = ENV["HOME"]? || "."
-      File.join(home, ".config", "mpd-qt6", "settings.json")
-    end
-
     def self.load : Settings
-      path = settings_path
-      return new unless File.exists?(path)
-
-      parsed = JSON.parse(File.read(path)).as_h
+      store = settings_store
       settings = new
-      settings.host = parsed["host"]?.try(&.as_s) || settings.host
-      settings.port = parsed["port"]?.try(&.as_i) || settings.port
+      settings.host = store.value(HOST_KEY, settings.host).as?(String) || settings.host
+      settings.port = read_port(store, settings.port)
       settings
     rescue
       new
     end
 
     def save : Nil
-      path = self.class.settings_path
-      dir = File.dirname(path)
-      Dir.mkdir_p(dir) unless Dir.exists?(dir)
-      File.write(path, {host: @host, port: @port}.to_json)
+      store = self.class.settings_store
+      store.set_value(HOST_KEY, @host)
+      store.set_value(PORT_KEY, @port)
+      store.sync
     rescue
       nil
+    end
+
+    def self.settings_store : Qt6::QSettings
+      Qt6::QSettings.for_application(ORGANIZATION, APPLICATION)
+    end
+
+    private def self.read_port(store : Qt6::QSettings, default_port : Int32) : Int32
+      case value = store.value(PORT_KEY, default_port)
+      when Int32
+        value
+      when String
+        value.to_i? || default_port
+      else
+        default_port
+      end
     end
   end
 end
