@@ -49,9 +49,9 @@ module MPDUI
     @current_file : String = ""
 
     def initialize
-      @settings = Settings.load
       @qt_app = Qt6.application
       @qt_app.name = WINDOW_TITLE
+      @settings = Settings.load
       @event_bridge = EventBridge.new(@qt_app)
       bind_event_bridge
     end
