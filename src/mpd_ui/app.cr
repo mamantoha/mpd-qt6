@@ -16,6 +16,8 @@ module MPDUI
     @progress_slider : Qt6::Slider?
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
+    @show_library_action : Qt6::Action?
+    @database_panel : Qt6::Widget?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
     @database_loaded : Bool = false
@@ -261,6 +263,7 @@ module MPDUI
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
+        @database_panel = database_panel
         @playlist_table = playlist_table
       end
 
@@ -293,11 +296,20 @@ module MPDUI
       app_menu.add_action(quit_action)
 
       library_menu = menu_bar.add_menu("&Library")
+      show_library_action = Qt6::Action.new("Show Library", window)
+      show_library_action.checkable = true
+      show_library_action.checked = true
+      show_library_action.status_tip = "Show or hide the library panel"
+      show_library_action.on_toggled { |checked| set_library_panel_visible(checked) }
+      library_menu.add_action(show_library_action)
+      library_menu.add_separator
+
       reload_action = Qt6::Action.new("Reload Database", window)
       reload_action.shortcut = "F5"
       reload_action.status_tip = "Reload the music database from MPD"
       reload_action.on_triggered { ensure_database_loaded(force: true) }
       library_menu.add_action(reload_action)
+      @show_library_action = show_library_action
 
       queue_menu = menu_bar.add_menu("&Queue")
       clear_action = Qt6::Action.new("Clear Queue", window)
@@ -305,6 +317,13 @@ module MPDUI
       clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
       queue_menu.add_action(clear_action)
+    end
+
+    private def set_library_panel_visible(visible : Bool) : Nil
+      @database_panel.try(&.visible = visible)
+
+      action = @show_library_action
+      action.checked = visible if action && action.checked? != visible
     end
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
