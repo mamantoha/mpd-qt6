@@ -297,6 +297,8 @@ module MPDUI
 
       app_menu = menu_bar.add_menu("&App")
       about_action = Qt6::Action.new("About", window)
+      about_icon = Qt6::QIcon.from_theme("help-about")
+      about_action.icon = about_icon unless about_icon.null?
       about_action.status_tip = "Show application and MPD server information"
       about_action.on_triggered { open_about_dialog }
       app_menu.add_action(about_action)
@@ -313,6 +315,8 @@ module MPDUI
       app_menu.add_separator
 
       settings_action = Qt6::Action.new("Settings", window)
+      settings_icon = Qt6::QIcon.from_theme("preferences-system")
+      settings_action.icon = settings_icon unless settings_icon.null?
       settings_action.shortcut = "Ctrl+,"
       settings_action.status_tip = "Open connection settings"
       settings_action.on_triggered { open_settings_dialog }
@@ -320,6 +324,8 @@ module MPDUI
       app_menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)
+      quit_icon = Qt6::QIcon.from_theme("application-exit")
+      quit_action.icon = quit_icon unless quit_icon.null?
       quit_action.shortcut = "Ctrl+Q"
       quit_action.status_tip = "Quit the application"
       quit_action.on_triggered { quit_application }
@@ -328,6 +334,8 @@ module MPDUI
 
       library_menu = menu_bar.add_menu("&Library")
       show_library_action = Qt6::Action.new("Show Library", window)
+      library_icon = Qt6::QIcon.from_theme("view-list-tree")
+      show_library_action.icon = library_icon unless library_icon.null?
       show_library_action.checkable = true
       show_library_action.checked = @settings.show_library
       show_library_action.status_tip = "Show or hide the library panel"
@@ -336,6 +344,8 @@ module MPDUI
       library_menu.add_separator
 
       reload_action = Qt6::Action.new("Reload Database", window)
+      reload_icon = Qt6::QIcon.from_theme("view-refresh")
+      reload_action.icon = reload_icon unless reload_icon.null?
       reload_action.shortcut = "F5"
       reload_action.status_tip = "Reload the music database from MPD"
       reload_action.on_triggered { ensure_database_loaded(force: true) }
@@ -344,6 +354,8 @@ module MPDUI
 
       queue_menu = menu_bar.add_menu("&Queue")
       clear_action = Qt6::Action.new("Clear Queue", window)
+      clear_icon = Qt6::QIcon.from_theme("edit-clear")
+      clear_action.icon = clear_icon unless clear_icon.null?
       clear_action.shortcut = "Ctrl+L"
       clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
