@@ -21,6 +21,8 @@ module MPDUI
     @toggle_window_action : Qt6::Action?
     @browsers : Qt6::Splitter?
     @compact_spacer : Qt6::Widget?
+    @expanded_interface_window_minimum_size : Qt6::Size?
+    @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
@@ -342,12 +344,47 @@ module MPDUI
     end
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
+      if visible
+        restore_expanded_interface_window_resize_limits
+      end
+
       @browsers.try(&.visible = visible)
       @compact_spacer.try(&.visible = !visible)
       @window.try(&.adjust_size)
 
+      unless visible
+        lock_minimal_window_height
+      end
+
       action = @expanded_interface_action
       action.checked = visible if action && action.checked? != visible
+    end
+
+    private def lock_minimal_window_height : Nil
+      window = @window
+      return unless window
+
+      @expanded_interface_window_minimum_size = window.minimum_size
+      @expanded_interface_window_maximum_size = window.maximum_size
+
+      size = window.size
+      minimum_size = @expanded_interface_window_minimum_size.not_nil!
+      maximum_size = @expanded_interface_window_maximum_size.not_nil!
+      window.set_minimum_size(minimum_size.width, size.height)
+      window.set_maximum_size(maximum_size.width, size.height)
+    end
+
+    private def restore_expanded_interface_window_resize_limits : Nil
+      window = @window
+      return unless window
+
+      if minimum_size = @expanded_interface_window_minimum_size
+        window.set_minimum_size(minimum_size.width, minimum_size.height)
+      end
+
+      if maximum_size = @expanded_interface_window_maximum_size
+        window.set_maximum_size(maximum_size.width, maximum_size.height)
+      end
     end
 
     private def set_library_panel_visible(visible : Bool) : Nil
