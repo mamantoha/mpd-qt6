@@ -20,6 +20,7 @@ module MPDUI
     @show_library_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
     @browsers : Qt6::Splitter?
+    @compact_spacer : Qt6::Widget?
     @database_panel : Qt6::Widget?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
@@ -254,6 +255,10 @@ module MPDUI
         browsers << database_panel
         browsers << queue_panel
 
+        compact_spacer = Qt6::Widget.new(central)
+        compact_spacer.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Expanding)
+        compact_spacer.visible = false
+
         ensure_database_loaded
 
         column << cover_label
@@ -262,11 +267,13 @@ module MPDUI
         column << progress
         column << controls
         column << browsers
+        column << compact_spacer
 
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
         @browsers = browsers
+        @compact_spacer = compact_spacer
         @database_panel = database_panel
         @playlist_table = playlist_table
       end
@@ -336,6 +343,7 @@ module MPDUI
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
       @browsers.try(&.visible = visible)
+      @compact_spacer.try(&.visible = !visible)
       @window.try(&.adjust_size)
 
       action = @expanded_interface_action
