@@ -24,12 +24,15 @@ module MPDUI
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
+    @tray_icon : Qt6::SystemTrayIcon?
+    @tray_menu : Qt6::Menu?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
     @queue_drop_filter : Qt6::EventFilter?
+    @window_event_filter : Qt6::EventFilter?
     @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
     # Track drag source: :playlist, :database, or nil
@@ -53,6 +56,8 @@ module MPDUI
     @syncing_progress : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
+    @quitting : Bool = false
+    @tray_message_shown : Bool = false
 
     def initialize
       @qt_app = Qt6.application
@@ -228,6 +233,7 @@ module MPDUI
           @stop_icon = stop_icon
         end
 
+        setup_system_tray(window)
         playlist_table = build_playlist(central)
         setup_queue_drop_target(playlist_table)
         database_browser = build_database_browser(central)
@@ -316,7 +322,7 @@ module MPDUI
       quit_action = Qt6::Action.new("Quit", window)
       quit_action.shortcut = "Ctrl+Q"
       quit_action.status_tip = "Quit the application"
-      quit_action.on_triggered { @qt_app.quit }
+      quit_action.on_triggered { quit_application }
       app_menu.add_action(quit_action)
       @expanded_interface_action = expanded_interface_action
 
@@ -414,6 +420,137 @@ module MPDUI
         @settings.show_library = visible
         @settings.save
       end
+    end
+
+    private def setup_system_tray(window : Qt6::MainWindow) : Nil
+      return unless Qt6::SystemTrayIcon.system_tray_available?
+
+      tray = Qt6::SystemTrayIcon.new(window)
+      tray_icon = Qt6::QIcon.from_theme("audio-x-generic")
+      tray_icon = @play_icon.not_nil! if tray_icon.null? && @play_icon
+      tray.icon = tray_icon unless tray_icon.null?
+      tray.tool_tip = WINDOW_TITLE
+
+      menu = Qt6::Menu.new("Tray", window)
+      toggle_action = Qt6::Action.new("Hide", window)
+      toggle_action.on_triggered { toggle_main_window_visibility }
+      menu.add_action(toggle_action)
+      menu.add_separator
+
+      play_pause_action = Qt6::Action.new("Play/Pause", window)
+      play_pause_action.on_triggered { toggle_play_pause }
+      menu.add_action(play_pause_action)
+
+      previous_action = Qt6::Action.new("Previous", window)
+      previous_action.on_triggered { mpd_action { |c| c.previous } }
+      menu.add_action(previous_action)
+
+      next_action = Qt6::Action.new("Next", window)
+      next_action.on_triggered { mpd_action { |c| c.next } }
+      menu.add_action(next_action)
+      menu.add_separator
+
+      quit_action = Qt6::Action.new("Quit", window)
+      quit_action.on_triggered { quit_application }
+      menu.add_action(quit_action)
+
+      tray.context_menu = menu
+      tray.on_activated do |reason|
+        case reason
+        when .trigger?, .double_click?
+          toggle_main_window_visibility
+        end
+      end
+      tray.on_message_clicked { show_main_window }
+      tray.show
+
+      @tray_icon = tray
+      @tray_menu = menu
+      @toggle_window_action = toggle_action
+      install_window_tray_filter(window)
+      sync_tray_state
+    end
+
+    private def install_window_tray_filter(window : Qt6::MainWindow) : Nil
+      filter = Qt6::EventFilter.new(window)
+      filter.on_event do |_watched, event|
+        case event.type
+        when Qt6::EventType::Close
+          if @quitting || !@tray_icon
+            false
+          else
+            event.ignore
+            hide_main_window_to_tray
+            true
+          end
+        when Qt6::EventType::Hide, Qt6::EventType::Show
+          sync_tray_state
+          false
+        else
+          false
+        end
+      end
+
+      window.install_event_filter(filter)
+      @window_event_filter = filter
+    end
+
+    private def toggle_main_window_visibility : Nil
+      window = @window
+      return unless window
+
+      if window.visible?
+        hide_main_window_to_tray
+      else
+        show_main_window
+      end
+    end
+
+    private def hide_main_window_to_tray : Nil
+      @window.try(&.hide)
+      maybe_show_tray_message
+      sync_tray_state
+    end
+
+    private def show_main_window : Nil
+      window = @window
+      return unless window
+
+      window.show
+      window.raise_to_front
+      window.set_focus
+      sync_tray_state
+    end
+
+    private def maybe_show_tray_message : Nil
+      tray = @tray_icon
+      return unless tray
+      return if @tray_message_shown
+      return unless tray.supports_messages?
+
+      tray.show_message(WINDOW_TITLE, "The app is still running in the system tray.", timeout: 2500)
+      @tray_message_shown = true
+    end
+
+    private def sync_tray_state : Nil
+      action = @toggle_window_action
+      return unless action
+
+      action.text = @window.try(&.visible?) ? "Hide" : "Show"
+    end
+
+    private def update_tray_tooltip(title : String, subtitle : String = "") : Nil
+      tray = @tray_icon
+      return unless tray
+
+      tooltip = subtitle.empty? ? "#{WINDOW_TITLE}\n#{title}" : "#{WINDOW_TITLE}\n#{title}\n#{subtitle}"
+      tray.tool_tip = tooltip
+    end
+
+    private def quit_application : Nil
+      @quitting = true
+      @tray_icon.try(&.hide)
+      @qt_app.quit
     end
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
@@ -773,6 +910,7 @@ module MPDUI
       unless status
         Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
         set_status("Reconnecting to #{@settings.host}:#{@settings.port}…")
+        update_tray_tooltip("Reconnecting", "#{@settings.host}:#{@settings.port}")
         return
       end
 
@@ -807,6 +945,7 @@ module MPDUI
         @subtitle_label.try(&.text = subtitle.empty? ? " " : subtitle)
         set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = artist ? "#{artist} — #{title}" : title)
+        update_tray_tooltip(title, subtitle)
 
         if file && file != @current_file
           @current_file = file
@@ -821,13 +960,16 @@ module MPDUI
         @subtitle_label.try(&.text = "")
         set_status("Connected to #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = WINDOW_TITLE)
+        update_tray_tooltip("Stopped", "#{@settings.host}:#{@settings.port}")
       else
         set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
+        update_tray_tooltip("State: #{state.capitalize}", "#{@settings.host}:#{@settings.port}")
       end
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
       set_status("MPD request failed")
+      update_tray_tooltip("Error", ex.message || ex.to_s)
     end
 
     private def update_progress : Nil
