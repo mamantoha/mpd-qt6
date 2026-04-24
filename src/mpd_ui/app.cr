@@ -540,6 +540,7 @@ module MPDUI
       window.show
       window.raise_to_front
       window.set_focus
+      @tray_message_shown = false
       sync_tray_state
     end
 
