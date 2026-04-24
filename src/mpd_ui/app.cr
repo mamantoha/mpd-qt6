@@ -305,6 +305,8 @@ module MPDUI
       app_menu.add_separator
 
       expanded_interface_action = Qt6::Action.new("Expanded Interface", window)
+      expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
+      expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
       expanded_interface_action.checkable = true
       expanded_interface_action.checked = @settings.expanded_interface
       expanded_interface_action.status_tip = "Show or hide the library and queue panels"
