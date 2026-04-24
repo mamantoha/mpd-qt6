@@ -451,22 +451,23 @@ module MPDUI
       menu.add_action(toggle_action)
       menu.add_separator
 
-      play_pause_action = Qt6::Action.new("Play/Pause", window)
-      play_pause_action.icon = @play_icon.not_nil! if @play_icon && !@play_icon.not_nil!.null?
-      play_pause_action.on_triggered { toggle_play_pause }
-      menu.add_action(play_pause_action)
-
       previous_action = Qt6::Action.new("Previous", window)
       previous_icon = Qt6::QIcon.from_theme("media-skip-backward")
       previous_action.icon = previous_icon unless previous_icon.null?
       previous_action.on_triggered { mpd_action { |c| c.previous } }
       menu.add_action(previous_action)
 
+      play_pause_action = Qt6::Action.new("Play/Pause", window)
+      play_pause_action.icon = @play_icon.not_nil! if @play_icon && !@play_icon.not_nil!.null?
+      play_pause_action.on_triggered { toggle_play_pause }
+      menu.add_action(play_pause_action)
+
       next_action = Qt6::Action.new("Next", window)
       next_icon = Qt6::QIcon.from_theme("media-skip-forward")
       next_action.icon = next_icon unless next_icon.null?
       next_action.on_triggered { mpd_action { |c| c.next } }
       menu.add_action(next_action)
+
       menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)
