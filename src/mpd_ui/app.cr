@@ -16,7 +16,13 @@ module MPDUI
     @progress_slider : Qt6::Slider?
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
+    @expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
+    @toggle_window_action : Qt6::Action?
+    @browsers : Qt6::Splitter?
+    @compact_spacer : Qt6::Widget?
+    @expanded_interface_window_minimum_size : Qt6::Size?
+    @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
@@ -251,6 +257,10 @@ module MPDUI
         browsers << database_panel
         browsers << queue_panel
 
+        compact_spacer = Qt6::Widget.new(central)
+        compact_spacer.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Expanding)
+        compact_spacer.visible = false
+
         ensure_database_loaded
 
         column << cover_label
@@ -259,10 +269,13 @@ module MPDUI
         column << progress
         column << controls
         column << browsers
+        column << compact_spacer
 
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
+        @browsers = browsers
+        @compact_spacer = compact_spacer
         @database_panel = database_panel
         @playlist_table = playlist_table
       end
@@ -282,6 +295,16 @@ module MPDUI
       app_menu.add_action(about_action)
       app_menu.add_separator
 
+      expanded_interface_action = Qt6::Action.new("Expanded Interface", window)
+      expanded_interface_icon = Qt6::QIcon.from_theme("view-split-left-right")
+      expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
+      expanded_interface_action.checkable = true
+      expanded_interface_action.checked = true
+      expanded_interface_action.status_tip = "Show or hide the library and queue panels"
+      expanded_interface_action.on_toggled { |checked| set_expanded_interface_visible(checked) }
+      app_menu.add_action(expanded_interface_action)
+      app_menu.add_separator
+
       settings_action = Qt6::Action.new("Settings", window)
       settings_action.shortcut = "Ctrl+,"
       settings_action.status_tip = "Open connection settings"
@@ -294,6 +317,7 @@ module MPDUI
       quit_action.status_tip = "Quit the application"
       quit_action.on_triggered { @qt_app.quit }
       app_menu.add_action(quit_action)
+      @expanded_interface_action = expanded_interface_action
 
       library_menu = menu_bar.add_menu("&Library")
       show_library_action = Qt6::Action.new("Show Library", window)
@@ -317,6 +341,50 @@ module MPDUI
       clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
       queue_menu.add_action(clear_action)
+    end
+
+    private def set_expanded_interface_visible(visible : Bool) : Nil
+      if visible
+        restore_expanded_interface_window_resize_limits
+      end
+
+      @browsers.try(&.visible = visible)
+      @compact_spacer.try(&.visible = !visible)
+      @window.try(&.adjust_size)
+
+      unless visible
+        lock_minimal_window_height
+      end
+
+      action = @expanded_interface_action
+      action.checked = visible if action && action.checked? != visible
+    end
+
+    private def lock_minimal_window_height : Nil
+      window = @window
+      return unless window
+
+      @expanded_interface_window_minimum_size = window.minimum_size
+      @expanded_interface_window_maximum_size = window.maximum_size
+
+      size = window.size
+      minimum_size = @expanded_interface_window_minimum_size.not_nil!
+      maximum_size = @expanded_interface_window_maximum_size.not_nil!
+      window.set_minimum_size(minimum_size.width, size.height)
+      window.set_maximum_size(maximum_size.width, size.height)
+    end
+
+    private def restore_expanded_interface_window_resize_limits : Nil
+      window = @window
+      return unless window
+
+      if minimum_size = @expanded_interface_window_minimum_size
+        window.set_minimum_size(minimum_size.width, minimum_size.height)
+      end
+
+      if maximum_size = @expanded_interface_window_maximum_size
+        window.set_maximum_size(maximum_size.width, maximum_size.height)
+      end
     end
 
     private def set_library_panel_visible(visible : Bool) : Nil
