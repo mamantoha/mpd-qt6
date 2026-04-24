@@ -283,6 +283,7 @@ module MPDUI
       window.central_widget = central
       @window = window
       @status_bar = status_bar
+      apply_interface_visibility_settings
     end
 
     private def build_menu(window : Qt6::MainWindow) : Nil
@@ -299,7 +300,7 @@ module MPDUI
       expanded_interface_icon = Qt6::QIcon.from_theme("view-split-left-right")
       expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
       expanded_interface_action.checkable = true
-      expanded_interface_action.checked = true
+      expanded_interface_action.checked = @settings.expanded_interface
       expanded_interface_action.status_tip = "Show or hide the library and queue panels"
       expanded_interface_action.on_toggled { |checked| set_expanded_interface_visible(checked) }
       app_menu.add_action(expanded_interface_action)
@@ -322,7 +323,7 @@ module MPDUI
       library_menu = menu_bar.add_menu("&Library")
       show_library_action = Qt6::Action.new("Show Library", window)
       show_library_action.checkable = true
-      show_library_action.checked = true
+      show_library_action.checked = @settings.show_library
       show_library_action.status_tip = "Show or hide the library panel"
       show_library_action.on_toggled { |checked| set_library_panel_visible(checked) }
       library_menu.add_action(show_library_action)
@@ -343,6 +344,17 @@ module MPDUI
       queue_menu.add_action(clear_action)
     end
 
+    private def apply_interface_visibility_settings : Nil
+      if @settings.expanded_interface
+        @browsers.try(&.visible = true)
+        @compact_spacer.try(&.visible = false)
+      else
+        set_expanded_interface_visible(false)
+      end
+
+      set_library_panel_visible(@settings.show_library)
+    end
+
     private def set_expanded_interface_visible(visible : Bool) : Nil
       if visible
         restore_expanded_interface_window_resize_limits
@@ -358,6 +370,11 @@ module MPDUI
 
       action = @expanded_interface_action
       action.checked = visible if action && action.checked? != visible
+
+      if @settings.expanded_interface != visible
+        @settings.expanded_interface = visible
+        @settings.save
+      end
     end
 
     private def lock_minimal_window_height : Nil
@@ -392,6 +409,11 @@ module MPDUI
 
       action = @show_library_action
       action.checked = visible if action && action.checked? != visible
+
+      if @settings.show_library != visible
+        @settings.show_library = visible
+        @settings.save
+      end
     end
 
     private def build_playlist(parent : Qt6::Widget) : Qt6::TableWidget
