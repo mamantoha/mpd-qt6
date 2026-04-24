@@ -14,12 +14,18 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Live track, artist, and album metadata updates
 - Window title updates to reflect the current song
 - Album art loading from MPD when available
-- Queue view with current-track state icons
+- Queue view with current-track state icons, auto-scroll, and current-song selection sync
 - Double-click a queue row to start playback instantly
+- Queue reordering with drag and drop
+- Clear queue action from the main menu
 - Database browser grouped as artist → album → songs
+- Toggleable library panel from the main menu
 - Drag and drop songs, albums, or artists from the database into the queue
 - Drop-position queue insertion for fast playlist building
+- Main menu with About, Settings, Library, and Queue actions
+- About dialog with application details and live MPD server statistics
 - Connection settings dialog for MPD host and port
+- System tray integration with tray menu, close-to-tray behavior, restore/show toggle, and playback actions
 - Settings persisted in the user config directory
 
 ## Requirements
