@@ -32,6 +32,7 @@ module MPDUI
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
     @expanded_interface_action : Qt6::Action?
+    @options_expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
     @browsers : Qt6::Splitter?
@@ -130,10 +131,13 @@ module MPDUI
         reload_icon = Qt6::QIcon.from_theme("view-refresh")
         reload_option.icon = reload_icon unless reload_icon.null?
         reload_option.on_triggered { ensure_database_loaded(force: true) }
-        clear_queue_option = options_menu.add_action("Clear Queue")
-        clear_icon = Qt6::QIcon.from_theme("edit-clear")
-        clear_queue_option.icon = clear_icon unless clear_icon.null?
-        clear_queue_option.on_triggered { clear_queue }
+        options_menu.add_separator
+        expanded_interface_option = options_menu.add_action("Expanded Interface")
+        expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
+        expanded_interface_option.icon = expanded_interface_icon unless expanded_interface_icon.null?
+        expanded_interface_option.checkable = true
+        expanded_interface_option.checked = @settings.expanded_interface
+        expanded_interface_option.on_toggled { |checked| set_expanded_interface_visible(checked) }
         options_menu.add_separator
         main_menu_option = options_menu.add_action("Show Main Menu")
         main_menu_icon = Qt6::QIcon.from_theme("show-menu")
@@ -382,6 +386,7 @@ module MPDUI
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
+        @options_expanded_interface_action = expanded_interface_option
         @options_button = options_button
         @options_menu = options_menu
         @browsers = browsers
@@ -496,6 +501,8 @@ module MPDUI
 
       action = @expanded_interface_action
       action.checked = visible if action && action.checked? != visible
+      options_action = @options_expanded_interface_action
+      options_action.checked = visible if options_action && options_action.checked? != visible
 
       if @settings.expanded_interface != visible
         @settings.expanded_interface = visible
@@ -507,8 +514,8 @@ module MPDUI
       window = @window
       return unless window
 
-      @expanded_interface_window_minimum_size = window.minimum_size
-      @expanded_interface_window_maximum_size = window.maximum_size
+      @expanded_interface_window_minimum_size ||= window.minimum_size
+      @expanded_interface_window_maximum_size ||= window.maximum_size
 
       size = window.size
       minimum_size = @expanded_interface_window_minimum_size.not_nil!
@@ -521,13 +528,16 @@ module MPDUI
       window = @window
       return unless window
 
+      if maximum_size = @expanded_interface_window_maximum_size
+        window.set_maximum_size(maximum_size.width, maximum_size.height)
+      end
+
       if minimum_size = @expanded_interface_window_minimum_size
         window.set_minimum_size(minimum_size.width, minimum_size.height)
       end
 
-      if maximum_size = @expanded_interface_window_maximum_size
-        window.set_maximum_size(maximum_size.width, maximum_size.height)
-      end
+      @expanded_interface_window_minimum_size = nil
+      @expanded_interface_window_maximum_size = nil
     end
 
     private def set_library_panel_visible(visible : Bool) : Nil
