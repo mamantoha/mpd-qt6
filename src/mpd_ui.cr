@@ -4,6 +4,12 @@ require "./mpd_ui/version"
 require "./mpd_ui/settings"
 require "./mpd_ui/event_bridge"
 require "./mpd_ui/settings_dialog"
+require "./mpd_ui/app/tray"
+require "./mpd_ui/app/queue"
+require "./mpd_ui/app/database"
+require "./mpd_ui/app/dialogs"
+require "./mpd_ui/app/player"
+require "./mpd_ui/app/mpd_connection"
 require "./mpd_ui/app"
 
 module MPDUI
@@ -11,5 +17,3 @@ module MPDUI
     App.new.run
   end
 end
-
-MPDUI.run
