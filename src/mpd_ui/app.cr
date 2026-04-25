@@ -123,13 +123,21 @@ module MPDUI
         options_button.tool_tip = "Options"
         options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
         settings_option = options_menu.add_action("Settings")
+        settings_icon = Qt6::QIcon.from_theme("preferences-system")
+        settings_option.icon = settings_icon unless settings_icon.null?
         settings_option.on_triggered { open_settings_dialog }
         reload_option = options_menu.add_action("Reload Database")
+        reload_icon = Qt6::QIcon.from_theme("view-refresh")
+        reload_option.icon = reload_icon unless reload_icon.null?
         reload_option.on_triggered { ensure_database_loaded(force: true) }
         clear_queue_option = options_menu.add_action("Clear Queue")
+        clear_icon = Qt6::QIcon.from_theme("edit-clear")
+        clear_queue_option.icon = clear_icon unless clear_icon.null?
         clear_queue_option.on_triggered { clear_queue }
         options_menu.add_separator
         main_menu_option = options_menu.add_action("Show Main Menu")
+        main_menu_icon = Qt6::QIcon.from_theme("show-menu")
+        main_menu_option.icon = main_menu_icon unless main_menu_icon.null?
         main_menu_option.checkable = true
         main_menu_option.checked = @settings.show_main_menu
         main_menu_option.shortcut = "Ctrl+M"
@@ -143,6 +151,8 @@ module MPDUI
         end
         options_menu.add_separator
         about_option = options_menu.add_action("About")
+        about_icon = Qt6::QIcon.from_theme("help-about")
+        about_option.icon = about_icon unless about_icon.null?
         about_option.on_triggered { open_about_dialog }
         options_button.menu = options_menu
 
