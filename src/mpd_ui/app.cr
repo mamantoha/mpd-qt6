@@ -1,5 +1,6 @@
 module MPDUI
   class App
+    include FormatHelpers
     include AppTray
     include AppMPDConnection
     include AppAboutDialog

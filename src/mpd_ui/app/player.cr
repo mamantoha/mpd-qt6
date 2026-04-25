@@ -158,11 +158,6 @@ module MPDUI
       @cover_label.try(&.text = "No Cover")
     end
 
-    private def format_time(seconds : Float64) : String
-      t = seconds.to_i
-      "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
-    end
-
     private def sync_toggle_buttons : Nil
       @syncing = true
       @shuffle_button.try(&.checked = @random)
