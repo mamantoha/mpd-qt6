@@ -2,7 +2,8 @@ module MPDUI
   class App
     include AppTray
     include AppMPDConnection
-    include AppDialogs
+    include AppSettingsDialog
+    include AppAboutDialog
     include AppPlayer
     include AppQueue
     include AppDatabase
