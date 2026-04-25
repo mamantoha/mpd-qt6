@@ -129,6 +129,19 @@ module MPDUI
         clear_queue_option = options_menu.add_action("Clear Queue")
         clear_queue_option.on_triggered { clear_queue }
         options_menu.add_separator
+        main_menu_option = options_menu.add_action("Show Main Menu")
+        main_menu_option.checkable = true
+        main_menu_option.checked = @settings.show_main_menu
+        main_menu_option.shortcut = "Ctrl+M"
+        window.menu_bar.visible = @settings.show_main_menu
+        main_menu_option.on_toggled do |checked|
+          window.menu_bar.visible = checked
+          if @settings.show_main_menu != checked
+            @settings.show_main_menu = checked
+            @settings.save
+          end
+        end
+        options_menu.add_separator
         about_option = options_menu.add_action("About")
         about_option.on_triggered { open_about_dialog }
         options_button.menu = options_menu
