@@ -8,7 +8,7 @@ module MPDUI
       table.set_horizontal_header_label(1, "Track")
       table.set_horizontal_header_label(2, "Time")
       table.alternating_row_colors = true
-      table.selection_mode = Qt6::ItemSelectionMode::SingleSelection
+      table.selection_mode = Qt6::ItemSelectionMode::ExtendedSelection
       table.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       table.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       table.show_grid = false
@@ -237,14 +237,46 @@ module MPDUI
       table = @playlist_table
       return unless table
 
+      positions = selected_playlist_positions(table)
+      return if positions.empty?
+
+      mpd_action do |client|
+        client.with_command_list do
+          positions.sort.reverse_each do |pos|
+            client.delete(pos)
+          end
+        end
+      end
+
+      suffix = positions.size == 1 ? "song" : "songs"
+      set_status("Removed #{positions.size} #{suffix} from Queue")
+    end
+
+    private def selected_playlist_positions(table : Qt6::TableWidget) : Array(Int32)
+      selected_playlist_rows(table).compact_map { |row| @playlist_positions[row]? }
+    end
+
+    private def selected_playlist_rows(table : Qt6::TableWidget) : Array(Int32)
+      model = table.model
+      selection_model = table.selection_model
+      return current_playlist_row(table) unless model && selection_model
+
+      rows = [] of Int32
+      table.row_count.times do |row|
+        index = model.index(row, 0)
+        begin
+          rows << row if selection_model.selected?(index)
+        ensure
+          index.release
+        end
+      end
+
+      rows.empty? ? current_playlist_row(table) : rows
+    end
+
+    private def current_playlist_row(table : Qt6::TableWidget) : Array(Int32)
       row = table.current_row
-      return if row < 0
-
-      pos = @playlist_positions[row]?
-      return unless pos
-
-      mpd_action { |c| c.delete(pos) }
-      set_status("Removed song from Queue")
+      row >= 0 ? [row] : [] of Int32
     end
 
     private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
