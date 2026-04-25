@@ -1,9 +1,9 @@
 module MPDUI
   class Settings
-    ORGANIZATION = "mamantoha"
-    APPLICATION  = "mpd-qt6"
-    HOST_KEY     = "mpd/host"
-    PORT_KEY     = "mpd/port"
+    ORGANIZATION           = "mamantoha"
+    APPLICATION            = "mpd-qt6"
+    HOST_KEY               = "mpd/host"
+    PORT_KEY               = "mpd/port"
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"
     SHOW_LIBRARY_KEY       = "ui/show_library"
 

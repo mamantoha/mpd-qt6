@@ -71,6 +71,5 @@ module MPDUI
     rescue ex
       "Host: #{@settings.host}\nPort: #{@settings.port}\nMPD statistics are unavailable.\nError: #{ex.message || ex.to_s}"
     end
-
   end
 end
