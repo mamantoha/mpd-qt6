@@ -132,12 +132,18 @@ module MPDUI
         slider.value = value
         slider.tool_tip = "#{value}%"
         update_volume_icon(value)
+        update_volume_label(value)
       else
         slider.value = 0
         slider.tool_tip = "Volume unavailable"
         update_volume_icon(nil)
+        update_volume_label(nil)
       end
       @syncing_volume = false
+    end
+
+    private def update_volume_label(volume : Int32?) : Nil
+      @volume_label.try(&.text = volume ? "#{volume}%" : "--%")
     end
 
     private def update_volume_icon(volume : Int32?) : Nil
