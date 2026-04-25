@@ -111,6 +111,46 @@ module MPDUI
         cover_label.style_sheet = "background: #222; border: 1px solid #444;"
         cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
 
+        options_button = Qt6::PushButton.new("...")
+        options_menu = Qt6::Menu.new("Options", options_button)
+        options_icon = Qt6::QIcon.from_theme("open-menu-symbolic")
+        unless options_icon.null?
+          options_button.icon = options_icon
+          options_button.text = ""
+        end
+        options_button.icon_size = Qt6::Size.new(22, 22)
+        options_button.fixed_width = 44
+        options_button.tool_tip = "Options"
+        options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
+        settings_option = options_menu.add_action("Settings")
+        settings_option.on_triggered { open_settings_dialog }
+        reload_option = options_menu.add_action("Reload Database")
+        reload_option.on_triggered { ensure_database_loaded(force: true) }
+        clear_queue_option = options_menu.add_action("Clear Queue")
+        clear_queue_option.on_triggered { clear_queue }
+        options_menu.add_separator
+        about_option = options_menu.add_action("About")
+        about_option.on_triggered { open_about_dialog }
+        options_button.menu = options_menu
+
+        options_panel = Qt6::Widget.new(central)
+        options_panel.fixed_height = 160
+        options_panel.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
+        options_panel.vbox do |options_column|
+          options_column.set_contents_margins(0, 0, 0, 0)
+          options_column << options_button
+          options_column.add_stretch
+        end
+
+        top_row = Qt6::Widget.new(central)
+        top_row.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        top_row.hbox do |row|
+          row.set_contents_margins(0, 0, 0, 0)
+          row << cover_label
+          row.add_stretch
+          row << options_panel
+        end
+
         title_label = Qt6::Label.new("Connecting...")
         title_label.style_sheet = "font-size: 18px; font-weight: bold;"
         title_label.word_wrap = true
@@ -174,9 +214,7 @@ module MPDUI
           shuffle_button = Qt6::PushButton.new("")
           repeat_button = Qt6::PushButton.new("")
           volume_button = Qt6::PushButton.new("")
-          options_button = Qt6::PushButton.new("...")
           volume_menu = Qt6::Menu.new("Volume", volume_button)
-          options_menu = Qt6::Menu.new("Options", options_button)
           volume_panel = Qt6::Widget.new(volume_menu)
           volume_slider = Qt6::Slider.new(Qt6::Orientation::Vertical, volume_panel)
           volume_label = Qt6::Label.new("--%", volume_panel)
@@ -191,7 +229,6 @@ module MPDUI
           repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
           clear_icon = Qt6::QIcon.from_theme("edit-clear")
           volume_icon = Qt6::QIcon.from_theme("audio-volume-medium")
-          options_icon = Qt6::QIcon.from_theme("open-menu-symbolic")
 
           prev_button.icon = prev_icon
           play_pause_button.icon = play_icon
@@ -199,33 +236,25 @@ module MPDUI
           shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
           repeat_button.icon = repeat_icon unless repeat_icon.null?
           volume_button.icon = volume_icon unless volume_icon.null?
-          unless options_icon.null?
-            options_button.icon = options_icon
-            options_button.text = ""
-          end
           prev_button.icon_size = Qt6::Size.new(22, 22)
           play_pause_button.icon_size = Qt6::Size.new(22, 22)
           next_button.icon_size = Qt6::Size.new(22, 22)
           shuffle_button.icon_size = Qt6::Size.new(22, 22)
           repeat_button.icon_size = Qt6::Size.new(22, 22)
           volume_button.icon_size = Qt6::Size.new(22, 22)
-          options_button.icon_size = Qt6::Size.new(22, 22)
           prev_button.fixed_width = 44
           play_pause_button.fixed_width = 44
           next_button.fixed_width = 44
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
           volume_button.fixed_width = 44
-          options_button.fixed_width = 44
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
           shuffle_button.tool_tip = "Shuffle"
           repeat_button.tool_tip = "Repeat"
           volume_button.tool_tip = "Volume"
-          options_button.tool_tip = "Options"
           volume_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
-          options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
           volume_slider.tool_tip = "Volume"
           volume_slider.set_range(0, 100)
           volume_slider.value = 0
@@ -242,16 +271,6 @@ module MPDUI
           volume_widget_action.default_widget = volume_panel
           volume_menu.add_action(volume_widget_action)
           volume_button.menu = volume_menu
-          settings_option = options_menu.add_action("Settings")
-          settings_option.on_triggered { open_settings_dialog }
-          reload_option = options_menu.add_action("Reload Database")
-          reload_option.on_triggered { ensure_database_loaded(force: true) }
-          clear_queue_option = options_menu.add_action("Clear Queue")
-          clear_queue_option.on_triggered { clear_queue }
-          options_menu.add_separator
-          about_option = options_menu.add_action("About")
-          about_option.on_triggered { open_about_dialog }
-          options_button.menu = options_menu
 
           shuffle_button.checkable = true
           repeat_button.checkable = true
@@ -277,7 +296,6 @@ module MPDUI
           row << shuffle_button
           row << repeat_button
           row << volume_button
-          row << options_button
           row.add_stretch
 
           @play_pause_button = play_pause_button
@@ -288,8 +306,6 @@ module MPDUI
           @volume_label = volume_label
           @volume_menu = volume_menu
           @volume_widget_action = volume_widget_action
-          @options_button = options_button
-          @options_menu = options_menu
           @play_icon = play_icon
           @pause_icon = pause_icon
           @stop_icon = stop_icon
@@ -331,7 +347,7 @@ module MPDUI
 
         ensure_database_loaded
 
-        column << cover_label
+        column << top_row
         column << title_label
         column << subtitle_label
         column << progress
@@ -342,6 +358,8 @@ module MPDUI
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
+        @options_button = options_button
+        @options_menu = options_menu
         @browsers = browsers
         @compact_spacer = compact_spacer
         @database_panel = database_panel
