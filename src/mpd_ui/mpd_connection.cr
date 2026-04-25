@@ -44,6 +44,10 @@ module MPDUI
             @event_bridge.update_random(value == "1")
           when .repeat?
             @event_bridge.update_repeat(value == "1")
+          when .volume?
+            if volume = value.to_i?
+              @event_bridge.update_volume(volume)
+            end
           when .song?, .state?, .playlist?, .duration?
             @event_bridge.request_refresh
           end

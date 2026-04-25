@@ -19,6 +19,10 @@ module MPDUI
         @repeat = enabled
         sync_toggle_buttons
       end
+
+      @event_bridge.volume_changed.connect do |volume|
+        update_volume_control(volume)
+      end
     end
 
     private def toggle_play_pause : Nil
@@ -54,6 +58,7 @@ module MPDUI
       @duration = status["duration"]?.try(&.to_f?) || @duration
       @random = status["random"]? == "1"
       @repeat = status["repeat"]? == "1"
+      @volume = status["volume"]?.try(&.to_i?)
 
       if button = @play_pause_button
         if icon = (state == "play" ? @pause_icon : @play_icon)
@@ -61,6 +66,7 @@ module MPDUI
         end
       end
       sync_toggle_buttons
+      update_volume_control(@volume)
       update_progress
       refresh_playlist(song_changed: previous_song_pos != @current_song_pos)
 
@@ -112,6 +118,48 @@ module MPDUI
       slider.value = pct
       @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
       @syncing_progress = false
+    end
+
+    private def update_volume_control(volume : Int32?) : Nil
+      slider = @volume_slider
+      return unless slider
+
+      enabled = !!volume && volume >= 0
+      @syncing_volume = true
+      slider.enabled = enabled
+      if enabled
+        value = volume.not_nil!.clamp(0, 100)
+        slider.value = value
+        slider.tool_tip = "#{value}%"
+        update_volume_icon(value)
+      else
+        slider.value = 0
+        slider.tool_tip = "Volume unavailable"
+        update_volume_icon(nil)
+      end
+      @syncing_volume = false
+    end
+
+    private def update_volume_icon(volume : Int32?) : Nil
+      button = @volume_button
+      return unless button
+
+      icon_name =
+        if volume.nil?
+          "audio-volume-muted"
+        elsif volume <= 0
+          "audio-volume-muted"
+        elsif volume < 35
+          "audio-volume-low"
+        elsif volume < 70
+          "audio-volume-medium"
+        else
+          "audio-volume-high"
+        end
+
+      icon = Qt6::QIcon.from_theme(icon_name)
+      button.icon = icon unless icon.null?
+      button.tool_tip = volume ? "#{volume}%" : "Volume unavailable"
     end
 
     private def load_cover_art(uri : String) : Nil

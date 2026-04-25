@@ -4,6 +4,7 @@ module MPDUI
     getter progress_requested : Qt6::Signal(Float64) = Qt6::Signal(Float64).new
     getter random_changed : Qt6::Signal(Bool) = Qt6::Signal(Bool).new
     getter repeat_changed : Qt6::Signal(Bool) = Qt6::Signal(Bool).new
+    getter volume_changed : Qt6::Signal(Int32) = Qt6::Signal(Int32).new
 
     @refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @progress_pending : Atomic(Bool) = Atomic(Bool).new(false)
@@ -42,6 +43,10 @@ module MPDUI
 
     def update_repeat(enabled : Bool) : Nil
       @app.invoke_later { @repeat_changed.emit(enabled) }
+    end
+
+    def update_volume(volume : Int32) : Nil
+      @app.invoke_later { @volume_changed.emit(volume) }
     end
   end
 end

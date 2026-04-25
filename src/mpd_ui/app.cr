@@ -22,6 +22,8 @@ module MPDUI
     @shuffle_button : Qt6::PushButton?
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
+    @volume_button : Qt6::PushButton?
+    @volume_slider : Qt6::Slider?
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
     @expanded_interface_action : Qt6::Action?
@@ -60,8 +62,10 @@ module MPDUI
     @duration : Float64 = 0.0
     @random : Bool = false
     @repeat : Bool = false
+    @volume : Int32? = nil
     @syncing : Bool = false
     @syncing_progress : Bool = false
+    @syncing_volume : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
     @quitting : Bool = false
@@ -164,6 +168,8 @@ module MPDUI
           next_button = Qt6::PushButton.new("")
           shuffle_button = Qt6::PushButton.new("")
           repeat_button = Qt6::PushButton.new("")
+          volume_button = Qt6::PushButton.new("")
+          volume_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
 
           play_icon = Qt6::QIcon.from_theme("media-playback-start")
           pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
@@ -173,27 +179,40 @@ module MPDUI
           shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
           repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
           clear_icon = Qt6::QIcon.from_theme("edit-clear")
+          volume_icon = Qt6::QIcon.from_theme("audio-volume-medium")
 
           prev_button.icon = prev_icon
           play_pause_button.icon = play_icon
           next_button.icon = next_icon
           shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
           repeat_button.icon = repeat_icon unless repeat_icon.null?
+          volume_button.icon = volume_icon unless volume_icon.null?
           prev_button.icon_size = Qt6::Size.new(22, 22)
           play_pause_button.icon_size = Qt6::Size.new(22, 22)
           next_button.icon_size = Qt6::Size.new(22, 22)
           shuffle_button.icon_size = Qt6::Size.new(22, 22)
           repeat_button.icon_size = Qt6::Size.new(22, 22)
+          volume_button.icon_size = Qt6::Size.new(22, 22)
           prev_button.fixed_width = 44
           play_pause_button.fixed_width = 44
           next_button.fixed_width = 44
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
+          volume_button.fixed_width = 28
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
           shuffle_button.tool_tip = "Shuffle"
           repeat_button.tool_tip = "Repeat"
+          volume_button.tool_tip = "Volume"
+          volume_button.style_sheet = "QPushButton { border: none; background: transparent; padding: 0; }"
+          volume_slider.tool_tip = "Volume"
+          volume_slider.set_range(0, 100)
+          volume_slider.value = 0
+          volume_slider.minimum_width = 136
+          volume_slider.maximum_width = 180
+          volume_slider.enabled = false
+          volume_slider.click_to_position = true
 
           shuffle_button.checkable = true
           repeat_button.checkable = true
@@ -203,6 +222,13 @@ module MPDUI
           next_button.on_clicked { mpd_action { |c| c.next } }
           shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
           repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
+          volume_slider.on_value_changed do |value|
+            next if @syncing_volume
+
+            @volume = value
+            update_volume_icon(value)
+            mpd_action { |c| c.setvol(value) }
+          end
 
           row.add_stretch
           row << prev_button
@@ -210,11 +236,15 @@ module MPDUI
           row << next_button
           row << shuffle_button
           row << repeat_button
+          row << volume_button
+          row << volume_slider
           row.add_stretch
 
           @play_pause_button = play_pause_button
           @shuffle_button = shuffle_button
           @repeat_button = repeat_button
+          @volume_button = volume_button
+          @volume_slider = volume_slider
           @play_icon = play_icon
           @pause_icon = pause_icon
           @stop_icon = stop_icon
