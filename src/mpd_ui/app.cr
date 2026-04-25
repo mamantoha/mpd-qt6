@@ -2,7 +2,6 @@ module MPDUI
   class App
     include AppTray
     include AppMPDConnection
-    include AppSettingsDialog
     include AppAboutDialog
     include AppPlayer
     include AppQueue
@@ -419,6 +418,13 @@ module MPDUI
         @settings.show_library = visible
         @settings.save
       end
+    end
+
+    private def open_settings_dialog : Nil
+      parent = @window
+      return unless parent
+
+      connect if SettingsDialog.edit(parent, @settings)
     end
 
     private def set_status(message : String) : Nil
