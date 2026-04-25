@@ -141,6 +141,7 @@ module MPDUI
         main_menu_option.checkable = true
         main_menu_option.checked = @settings.show_main_menu
         main_menu_option.shortcut = "Ctrl+M"
+        window.add_action(main_menu_option)
         window.menu_bar.visible = @settings.show_main_menu
         main_menu_option.on_toggled do |checked|
           window.menu_bar.visible = checked
@@ -424,6 +425,7 @@ module MPDUI
       settings_action.status_tip = "Open connection settings"
       settings_action.on_triggered { open_settings_dialog }
       app_menu.add_action(settings_action)
+      window.add_action(settings_action)
       app_menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)
@@ -433,6 +435,7 @@ module MPDUI
       quit_action.status_tip = "Quit the application"
       quit_action.on_triggered { quit_application }
       app_menu.add_action(quit_action)
+      window.add_action(quit_action)
       @expanded_interface_action = expanded_interface_action
 
       library_menu = menu_bar.add_menu("&Library")
@@ -453,6 +456,7 @@ module MPDUI
       reload_action.status_tip = "Reload the music database from MPD"
       reload_action.on_triggered { ensure_database_loaded(force: true) }
       library_menu.add_action(reload_action)
+      window.add_action(reload_action)
       @show_library_action = show_library_action
 
       queue_menu = menu_bar.add_menu("&Queue")
@@ -463,6 +467,7 @@ module MPDUI
       clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
       queue_menu.add_action(clear_action)
+      window.add_action(clear_action)
     end
 
     private def apply_interface_visibility_settings : Nil
