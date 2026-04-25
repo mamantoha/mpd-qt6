@@ -170,33 +170,6 @@ module MPDUI
       end
     end
 
-    private def display_name(value : String?, fallback : String) : String
-      if value && !value.strip.empty?
-        value
-      else
-        fallback
-      end
-    end
-
-    private def database_song_label(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
-      track = song["Track"]?.try(&.split('/').first)
-      duration = playlist_duration(song)
-
-      base = if track && !track.empty?
-               "#{track.rjust(2, '0')}. #{title}"
-             else
-               title
-             end
-
-      duration.empty? ? base : "#{base} • #{duration}"
-    end
-
-    private def track_number(song : Hash(String, String)) : Int32
-      song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
-    end
-
     private def selected_database_uris : Array(String)
       tree = @database_tree
       model = @database_model

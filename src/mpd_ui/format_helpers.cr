@@ -28,5 +28,50 @@ module MPDUI
     rescue
       "Unknown"
     end
+
+    private def display_name(value : String?, fallback : String) : String
+      if value && !value.strip.empty?
+        value
+      else
+        fallback
+      end
+    end
+
+    private def playlist_title(song : Hash(String, String)) : String
+      file = song["file"]?
+      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
+      artist = song["Artist"]?
+      text = [artist, title].compact.join(" — ")
+      text.empty? ? title : text
+    end
+
+    private def playlist_duration(song : Hash(String, String)) : String
+      if seconds = song["Time"]?.try(&.to_i?)
+        format_time(seconds.to_f)
+      elsif seconds = song["duration"]?.try(&.to_f?)
+        format_time(seconds)
+      else
+        ""
+      end
+    end
+
+    private def database_song_label(song : Hash(String, String)) : String
+      file = song["file"]?
+      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
+      track = song["Track"]?.try(&.split('/').first)
+      duration = playlist_duration(song)
+
+      base = if track && !track.empty?
+               "#{track.rjust(2, '0')}. #{title}"
+             else
+               title
+             end
+
+      duration.empty? ? base : "#{base} • #{duration}"
+    end
+
+    private def track_number(song : Hash(String, String)) : Int32
+      song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
+    end
   end
 end

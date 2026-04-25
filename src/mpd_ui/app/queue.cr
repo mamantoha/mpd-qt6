@@ -259,23 +259,5 @@ module MPDUI
         @stop_icon
       end
     end
-
-    private def playlist_title(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-      artist = song["Artist"]?
-      text = [artist, title].compact.join(" — ")
-      text.empty? ? title : text
-    end
-
-    private def playlist_duration(song : Hash(String, String)) : String
-      if seconds = song["Time"]?.try(&.to_i?)
-        format_time(seconds.to_f)
-      elsif seconds = song["duration"]?.try(&.to_f?)
-        format_time(seconds)
-      else
-        ""
-      end
-    end
   end
 end
