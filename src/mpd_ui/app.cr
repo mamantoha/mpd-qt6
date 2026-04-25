@@ -24,9 +24,15 @@ module MPDUI
     @progress_slider : Qt6::Slider?
     @volume_button : Qt6::PushButton?
     @volume_slider : Qt6::Slider?
+    @volume_label : Qt6::Label?
+    @volume_menu : Qt6::Menu?
+    @volume_widget_action : Qt6::WidgetAction?
+    @options_button : Qt6::PushButton?
+    @options_menu : Qt6::Menu?
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
     @expanded_interface_action : Qt6::Action?
+    @options_expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
     @browsers : Qt6::Splitter?
@@ -106,6 +112,73 @@ module MPDUI
         cover_label.style_sheet = "background: #222; border: 1px solid #444;"
         cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
 
+        options_button = Qt6::PushButton.new("...")
+        options_menu = Qt6::Menu.new("Options", options_button)
+        options_icon = Qt6::QIcon.from_theme("open-menu-symbolic")
+        unless options_icon.null?
+          options_button.icon = options_icon
+          options_button.text = ""
+        end
+        options_button.icon_size = Qt6::Size.new(22, 22)
+        options_button.fixed_width = 44
+        options_button.tool_tip = "Options"
+        options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
+        settings_option = options_menu.add_action("Settings")
+        settings_icon = Qt6::QIcon.from_theme("preferences-system")
+        settings_option.icon = settings_icon unless settings_icon.null?
+        settings_option.on_triggered { open_settings_dialog }
+        reload_option = options_menu.add_action("Reload Database")
+        reload_icon = Qt6::QIcon.from_theme("view-refresh")
+        reload_option.icon = reload_icon unless reload_icon.null?
+        reload_option.on_triggered { ensure_database_loaded(force: true) }
+        options_menu.add_separator
+        expanded_interface_option = options_menu.add_action("Expanded Interface")
+        expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
+        expanded_interface_option.icon = expanded_interface_icon unless expanded_interface_icon.null?
+        expanded_interface_option.checkable = true
+        expanded_interface_option.checked = @settings.expanded_interface
+        expanded_interface_option.on_toggled { |checked| set_expanded_interface_visible(checked) }
+        options_menu.add_separator
+        main_menu_option = options_menu.add_action("Show Main Menu")
+        main_menu_icon = Qt6::QIcon.from_theme("show-menu")
+        main_menu_option.icon = main_menu_icon unless main_menu_icon.null?
+        main_menu_option.checkable = true
+        main_menu_option.checked = @settings.show_main_menu
+        main_menu_option.shortcut = "Ctrl+M"
+        window.add_action(main_menu_option)
+        window.menu_bar.visible = @settings.show_main_menu
+        main_menu_option.on_toggled do |checked|
+          window.menu_bar.visible = checked
+          if @settings.show_main_menu != checked
+            @settings.show_main_menu = checked
+            @settings.save
+          end
+        end
+        options_menu.add_separator
+        about_option = options_menu.add_action("About")
+        about_icon = Qt6::QIcon.from_theme("help-about")
+        about_option.icon = about_icon unless about_icon.null?
+        about_option.on_triggered { open_about_dialog }
+        options_button.menu = options_menu
+
+        options_panel = Qt6::Widget.new(central)
+        options_panel.fixed_height = 160
+        options_panel.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
+        options_panel.vbox do |options_column|
+          options_column.set_contents_margins(0, 0, 0, 0)
+          options_column << options_button
+          options_column.add_stretch
+        end
+
+        top_row = Qt6::Widget.new(central)
+        top_row.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        top_row.hbox do |row|
+          row.set_contents_margins(0, 0, 0, 0)
+          row << cover_label
+          row.add_stretch
+          row << options_panel
+        end
+
         title_label = Qt6::Label.new("Connecting...")
         title_label.style_sheet = "font-size: 18px; font-weight: bold;"
         title_label.word_wrap = true
@@ -169,7 +242,11 @@ module MPDUI
           shuffle_button = Qt6::PushButton.new("")
           repeat_button = Qt6::PushButton.new("")
           volume_button = Qt6::PushButton.new("")
-          volume_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
+          volume_menu = Qt6::Menu.new("Volume", volume_button)
+          volume_panel = Qt6::Widget.new(volume_menu)
+          volume_slider = Qt6::Slider.new(Qt6::Orientation::Vertical, volume_panel)
+          volume_label = Qt6::Label.new("--%", volume_panel)
+          volume_widget_action = Qt6::WidgetAction.new(volume_menu)
 
           play_icon = Qt6::QIcon.from_theme("media-playback-start")
           pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
@@ -198,21 +275,30 @@ module MPDUI
           next_button.fixed_width = 44
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
-          volume_button.fixed_width = 28
+          volume_button.fixed_width = 44
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
           shuffle_button.tool_tip = "Shuffle"
           repeat_button.tool_tip = "Repeat"
           volume_button.tool_tip = "Volume"
-          volume_button.style_sheet = "QPushButton { border: none; background: transparent; padding: 0; }"
+          volume_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
           volume_slider.tool_tip = "Volume"
           volume_slider.set_range(0, 100)
           volume_slider.value = 0
-          volume_slider.minimum_width = 136
-          volume_slider.maximum_width = 180
+          volume_slider.set_fixed_size(36, 132)
           volume_slider.enabled = false
           volume_slider.click_to_position = true
+          volume_label.alignment = Qt6::AlignmentFlag::Center
+          volume_label.tool_tip = "Volume"
+          volume_panel.vbox do |volume_column|
+            volume_column.set_contents_margins(8, 8, 8, 8)
+            volume_column << volume_slider
+            volume_column << volume_label
+          end
+          volume_widget_action.default_widget = volume_panel
+          volume_menu.add_action(volume_widget_action)
+          volume_button.menu = volume_menu
 
           shuffle_button.checkable = true
           repeat_button.checkable = true
@@ -227,6 +313,7 @@ module MPDUI
 
             @volume = value
             update_volume_icon(value)
+            update_volume_label(value)
             mpd_action { |c| c.setvol(value) }
           end
 
@@ -237,7 +324,6 @@ module MPDUI
           row << shuffle_button
           row << repeat_button
           row << volume_button
-          row << volume_slider
           row.add_stretch
 
           @play_pause_button = play_pause_button
@@ -245,6 +331,9 @@ module MPDUI
           @repeat_button = repeat_button
           @volume_button = volume_button
           @volume_slider = volume_slider
+          @volume_label = volume_label
+          @volume_menu = volume_menu
+          @volume_widget_action = volume_widget_action
           @play_icon = play_icon
           @pause_icon = pause_icon
           @stop_icon = stop_icon
@@ -286,7 +375,7 @@ module MPDUI
 
         ensure_database_loaded
 
-        column << cover_label
+        column << top_row
         column << title_label
         column << subtitle_label
         column << progress
@@ -297,6 +386,9 @@ module MPDUI
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
+        @options_expanded_interface_action = expanded_interface_option
+        @options_button = options_button
+        @options_menu = options_menu
         @browsers = browsers
         @compact_spacer = compact_spacer
         @database_panel = database_panel
@@ -338,6 +430,7 @@ module MPDUI
       settings_action.status_tip = "Open connection settings"
       settings_action.on_triggered { open_settings_dialog }
       app_menu.add_action(settings_action)
+      window.add_action(settings_action)
       app_menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)
@@ -347,6 +440,7 @@ module MPDUI
       quit_action.status_tip = "Quit the application"
       quit_action.on_triggered { quit_application }
       app_menu.add_action(quit_action)
+      window.add_action(quit_action)
       @expanded_interface_action = expanded_interface_action
 
       library_menu = menu_bar.add_menu("&Library")
@@ -367,6 +461,7 @@ module MPDUI
       reload_action.status_tip = "Reload the music database from MPD"
       reload_action.on_triggered { ensure_database_loaded(force: true) }
       library_menu.add_action(reload_action)
+      window.add_action(reload_action)
       @show_library_action = show_library_action
 
       queue_menu = menu_bar.add_menu("&Queue")
@@ -377,6 +472,7 @@ module MPDUI
       clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
       queue_menu.add_action(clear_action)
+      window.add_action(clear_action)
     end
 
     private def apply_interface_visibility_settings : Nil
@@ -405,6 +501,8 @@ module MPDUI
 
       action = @expanded_interface_action
       action.checked = visible if action && action.checked? != visible
+      options_action = @options_expanded_interface_action
+      options_action.checked = visible if options_action && options_action.checked? != visible
 
       if @settings.expanded_interface != visible
         @settings.expanded_interface = visible
@@ -416,8 +514,8 @@ module MPDUI
       window = @window
       return unless window
 
-      @expanded_interface_window_minimum_size = window.minimum_size
-      @expanded_interface_window_maximum_size = window.maximum_size
+      @expanded_interface_window_minimum_size ||= window.minimum_size
+      @expanded_interface_window_maximum_size ||= window.maximum_size
 
       size = window.size
       minimum_size = @expanded_interface_window_minimum_size.not_nil!
@@ -430,13 +528,16 @@ module MPDUI
       window = @window
       return unless window
 
+      if maximum_size = @expanded_interface_window_maximum_size
+        window.set_maximum_size(maximum_size.width, maximum_size.height)
+      end
+
       if minimum_size = @expanded_interface_window_minimum_size
         window.set_minimum_size(minimum_size.width, minimum_size.height)
       end
 
-      if maximum_size = @expanded_interface_window_maximum_size
-        window.set_maximum_size(maximum_size.width, maximum_size.height)
-      end
+      @expanded_interface_window_minimum_size = nil
+      @expanded_interface_window_maximum_size = nil
     end
 
     private def set_library_panel_visible(visible : Bool) : Nil

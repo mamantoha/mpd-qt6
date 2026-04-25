@@ -6,17 +6,20 @@ module MPDUI
     PORT_KEY               = "mpd/port"
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"
     SHOW_LIBRARY_KEY       = "ui/show_library"
+    SHOW_MAIN_MENU_KEY     = "ui/show_main_menu"
 
     property host : String
     property port : Int32
     property expanded_interface : Bool
     property show_library : Bool
+    property show_main_menu : Bool
 
     def initialize
       @host = "localhost"
       @port = 6600
       @expanded_interface = true
       @show_library = true
+      @show_main_menu = true
     end
 
     def self.load : Settings
@@ -26,6 +29,7 @@ module MPDUI
       settings.port = read_port(store, settings.port)
       settings.expanded_interface = read_bool(store, EXPANDED_INTERFACE_KEY, settings.expanded_interface)
       settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library)
+      settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu)
       settings
     rescue
       new
@@ -37,6 +41,7 @@ module MPDUI
       store.set_value(PORT_KEY, @port)
       store.set_value(EXPANDED_INTERFACE_KEY, @expanded_interface)
       store.set_value(SHOW_LIBRARY_KEY, @show_library)
+      store.set_value(SHOW_MAIN_MENU_KEY, @show_main_menu)
       store.sync
     rescue
       nil
