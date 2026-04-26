@@ -148,15 +148,22 @@ module MPDUI
         return
       end
 
+      artist_icon = themed_icon("avatar-default", "user-identity", "system-users", "contact-new")
+      album_icon = Qt6::QIcon.from_theme("media-optical-audio")
+      song_icon = Qt6::QIcon.from_theme("audio-x-generic")
+
       library.keys.sort.each do |artist|
         artist_item = Qt6::StandardItem.new(artist)
+        artist_item.icon = artist_icon unless artist_icon.null?
 
         library[artist].keys.sort.each do |album|
           album_songs = library[artist][album]
           album_item = Qt6::StandardItem.new("#{album} (#{album_songs.size})")
+          album_item.icon = album_icon unless album_icon.null?
 
           album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
             song_item = Qt6::StandardItem.new(database_song_label(song))
+            song_item.icon = song_icon unless song_icon.null?
             if file = song["file"]?
               song_item.set_data(file, Qt6::ItemDataRole::User)
             end
@@ -168,6 +175,15 @@ module MPDUI
 
         model << artist_item
       end
+    end
+
+    private def themed_icon(*names : String) : Qt6::QIcon
+      names.each do |name|
+        icon = Qt6::QIcon.from_theme(name)
+        return icon unless icon.null?
+      end
+
+      Qt6::QIcon.new
     end
 
     private def selected_database_uris : Array(String)
