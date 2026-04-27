@@ -10,7 +10,7 @@ module MPDUI
       tree.header_hidden = true
       tree.root_is_decorated = true
       tree.uniform_row_heights = true
-      tree.selection_mode = Qt6::ItemSelectionMode::SingleSelection
+      tree.selection_mode = Qt6::ItemSelectionMode::ExtendedSelection
       tree.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       tree.alternating_row_colors = true
       tree.drag_enabled = true
@@ -191,6 +191,17 @@ module MPDUI
       model = @database_model
       return [] of String unless tree && model
 
+      if selection_model = tree.selection_model
+        uris = [] of String
+        model.row_count.times do |row|
+          if item = model.item(row)
+            collect_selected_database_uris(item, selection_model, model, uris)
+          end
+        end
+        uris.uniq!
+        return uris unless uris.empty?
+      end
+
       index = tree.current_index
       return [] of String unless index.valid?
 
@@ -201,6 +212,21 @@ module MPDUI
       collect_database_uris(item, uris)
       uris.uniq!
       uris
+    end
+
+    private def collect_selected_database_uris(item : Qt6::StandardItem, selection_model : Qt6::ItemSelectionModel, model : Qt6::StandardItemModel, uris : Array(String)) : Nil
+      index = model.index_from_item(item)
+      begin
+        collect_database_uris(item, uris) if selection_model.selected?(index)
+      ensure
+        index.release
+      end
+
+      item.row_count.times do |row|
+        if child = item.child(row)
+          collect_selected_database_uris(child, selection_model, model, uris)
+        end
+      end
     end
 
     private def collect_database_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
