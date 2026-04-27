@@ -71,8 +71,12 @@ module MPDUI
             hide_main_window_to_tray
             true
           end
-        when Qt6::EventType::Hide, Qt6::EventType::Show
+        when Qt6::EventType::Hide
           sync_tray_state
+          false
+        when Qt6::EventType::Show
+          sync_tray_state
+          @qt_app.invoke_later { scroll_playlist_to_current_song }
           false
         else
           false
@@ -109,6 +113,7 @@ module MPDUI
       window.set_focus
       @tray_message_shown = false
       sync_tray_state
+      @qt_app.invoke_later { scroll_playlist_to_current_song }
     end
 
     private def maybe_show_tray_message : Nil
