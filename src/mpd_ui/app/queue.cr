@@ -57,6 +57,7 @@ module MPDUI
           false
         when Qt6::EventType::DragEnter
           @drag_source_type ||= :playlist
+          @dragged_database_uris = selected_database_uris if @drag_source_type == :database && @dragged_database_uris.empty?
           false
         when Qt6::EventType::DragMove
           row = table.current_row
@@ -66,7 +67,6 @@ module MPDUI
           if drag_is_playlist_reorder?(drop_event)
             drop_event.accept_proposed_action
           elsif drag_is_database_drop?(drop_event)
-            @dragged_database_uris = selected_database_uris if selected_database_uris.any?
             drop_event.accept_proposed_action
           end
           false
@@ -108,7 +108,7 @@ module MPDUI
     end
 
     private def drag_is_database_drop?(event : Qt6::DropEvent) : Bool
-      @drag_source_type == :database && !!event.mime_data && (@dragged_database_uris.any? || selected_database_uris.any?)
+      @drag_source_type == :database && !!event.mime_data && @dragged_database_uris.any?
     end
 
     private def queue_drop_row_for(event : Qt6::DropEvent) : Int32
