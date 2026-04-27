@@ -148,9 +148,9 @@ module MPDUI
         return
       end
 
-      artist_icon = themed_icon("avatar-default", "user-identity", "system-users", "contact-new")
+      artist_icon = themed_icon("user-identiry", "person.circle")
       album_icon = themed_icon("media-optical-audio", "media-optical")
-      song_icon = themed_icon("audio-x-generic", "audio-card")
+      song_icon = themed_icon("audio-x-generic", "music.note.list")
 
       library.keys.sort.each do |artist|
         artist_item = Qt6::StandardItem.new(artist)
