@@ -31,9 +31,12 @@ module MPDUI
     @options_menu : Qt6::Menu?
     @playlist_table : Qt6::TableWidget?
     @delete_queue_action : Qt6::Action?
+    @about_action : Qt6::Action?
+    @settings_action : Qt6::Action?
+    @reload_database_action : Qt6::Action?
     @expanded_interface_action : Qt6::Action?
-    @options_expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
+    @show_main_menu_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
     @browsers : Qt6::Splitter?
     @compact_spacer : Qt6::Widget?
@@ -123,42 +126,27 @@ module MPDUI
         options_button.fixed_width = 44
         options_button.tool_tip = "Options"
         options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
-        settings_option = options_menu.add_action("Settings")
-        settings_icon = Qt6::QIcon.from_theme("preferences-system")
-        settings_option.icon = settings_icon unless settings_icon.null?
-        settings_option.on_triggered { open_settings_dialog }
-        reload_option = options_menu.add_action("Reload Database")
-        reload_icon = Qt6::QIcon.from_theme("view-refresh")
-        reload_option.icon = reload_icon unless reload_icon.null?
-        reload_option.on_triggered { ensure_database_loaded(force: true) }
-        options_menu.add_separator
-        expanded_interface_option = options_menu.add_action("Expanded Interface")
-        expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
-        expanded_interface_option.icon = expanded_interface_icon unless expanded_interface_icon.null?
-        expanded_interface_option.checkable = true
-        expanded_interface_option.checked = @settings.expanded_interface
-        expanded_interface_option.on_toggled { |checked| set_expanded_interface_visible(checked) }
-        options_menu.add_separator
-        main_menu_option = options_menu.add_action("Show Main Menu")
-        main_menu_icon = Qt6::QIcon.from_theme("show-menu")
-        main_menu_option.icon = main_menu_icon unless main_menu_icon.null?
-        main_menu_option.checkable = true
-        main_menu_option.checked = @settings.show_main_menu
-        main_menu_option.shortcut = "Ctrl+M"
-        window.add_action(main_menu_option)
-        window.menu_bar.visible = @settings.show_main_menu
-        main_menu_option.on_toggled do |checked|
-          window.menu_bar.visible = checked
-          if @settings.show_main_menu != checked
-            @settings.show_main_menu = checked
-            @settings.save
-          end
+        if settings_action = @settings_action
+          options_menu.add_action(settings_action)
+        end
+        if reload_database_action = @reload_database_action
+          options_menu.add_action(reload_database_action)
         end
         options_menu.add_separator
-        about_option = options_menu.add_action("About")
-        about_icon = Qt6::QIcon.from_theme("help-about")
-        about_option.icon = about_icon unless about_icon.null?
-        about_option.on_triggered { open_about_dialog }
+        if show_library_action = @show_library_action
+          options_menu.add_action(show_library_action)
+        end
+        if expanded_interface_action = @expanded_interface_action
+          options_menu.add_action(expanded_interface_action)
+        end
+        options_menu.add_separator
+        if show_main_menu_action = @show_main_menu_action
+          options_menu.add_action(show_main_menu_action)
+        end
+        options_menu.add_separator
+        if about_action = @about_action
+          options_menu.add_action(about_action)
+        end
         options_button.menu = options_menu
 
         options_panel = Qt6::Widget.new(central)
@@ -386,7 +374,6 @@ module MPDUI
         @cover_label = cover_label
         @title_label = title_label
         @subtitle_label = subtitle_label
-        @options_expanded_interface_action = expanded_interface_option
         @options_button = options_button
         @options_menu = options_menu
         @browsers = browsers
@@ -423,6 +410,25 @@ module MPDUI
       app_menu.add_action(expanded_interface_action)
       app_menu.add_separator
 
+      show_main_menu_action = Qt6::Action.new("Show Main Menu", window)
+      main_menu_icon = Qt6::QIcon.from_theme("show-menu")
+      show_main_menu_action.icon = main_menu_icon unless main_menu_icon.null?
+      show_main_menu_action.checkable = true
+      show_main_menu_action.checked = @settings.show_main_menu
+      show_main_menu_action.shortcut = "Ctrl+M"
+      show_main_menu_action.status_tip = "Show or hide the main menu bar"
+      show_main_menu_action.on_toggled do |checked|
+        window.menu_bar.visible = checked
+        if @settings.show_main_menu != checked
+          @settings.show_main_menu = checked
+          @settings.save
+        end
+      end
+      app_menu.add_action(show_main_menu_action)
+      window.add_action(show_main_menu_action)
+      window.menu_bar.visible = @settings.show_main_menu
+      app_menu.add_separator
+
       settings_action = Qt6::Action.new("Settings", window)
       settings_icon = Qt6::QIcon.from_theme("preferences-system")
       settings_action.icon = settings_icon unless settings_icon.null?
@@ -441,7 +447,10 @@ module MPDUI
       quit_action.on_triggered { quit_application }
       app_menu.add_action(quit_action)
       window.add_action(quit_action)
+      @about_action = about_action
       @expanded_interface_action = expanded_interface_action
+      @show_main_menu_action = show_main_menu_action
+      @settings_action = settings_action
 
       library_menu = menu_bar.add_menu("&Library")
       show_library_action = Qt6::Action.new("Show Library", window)
@@ -463,6 +472,7 @@ module MPDUI
       library_menu.add_action(reload_action)
       window.add_action(reload_action)
       @show_library_action = show_library_action
+      @reload_database_action = reload_action
 
       queue_menu = menu_bar.add_menu("&Queue")
       clear_action = Qt6::Action.new("Clear Queue", window)
@@ -501,8 +511,6 @@ module MPDUI
 
       action = @expanded_interface_action
       action.checked = visible if action && action.checked? != visible
-      options_action = @options_expanded_interface_action
-      options_action.checked = visible if options_action && options_action.checked? != visible
 
       if @settings.expanded_interface != visible
         @settings.expanded_interface = visible
