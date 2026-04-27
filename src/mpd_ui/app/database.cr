@@ -65,24 +65,28 @@ module MPDUI
       @database_drag_filter = filter
     end
 
-    private def ensure_database_loaded(*, force : Bool = false) : Nil
+    private def ensure_database_loaded(*, force : Bool = false, update_mpd : Bool = false) : Nil
       return if @database_loading
       return if @database_loaded && !force
 
       @database_loading = true
-      show_database_message("Loading database…")
-      set_status("Loading database from #{@settings.host}:#{@settings.port}…")
+      show_database_message(update_mpd ? "Updating database…" : "Loading database…")
+      set_status("#{update_mpd ? "Updating" : "Loading"} database from #{@settings.host}:#{@settings.port}…")
 
       host = @settings.host
       port = @settings.port
 
       Thread.new do
+        db_client = nil
         begin
           db_client = MPD::Client.new(host, port)
+          if update_mpd
+            db_client.update
+            wait_for_mpd_database_update(db_client)
+          end
           raw_entries = db_client.listallinfo
           songs = database_song_entries(raw_entries)
           library = build_database_library(songs)
-          db_client.disconnect
 
           @qt_app.invoke_later do
             populate_database_tree(library)
@@ -97,7 +101,18 @@ module MPDUI
             show_database_message("Failed to load database")
             set_status("Database load failed: #{ex.message || ex}")
           end
+        ensure
+          db_client.try(&.disconnect)
         end
+      end
+    end
+
+    private def wait_for_mpd_database_update(client : MPD::Client) : Nil
+      600.times do
+        status = client.status
+        break unless status && status["updating_db"]?
+
+        sleep 200.milliseconds
       end
     end
 

@@ -469,7 +469,7 @@ module MPDUI
       reload_action.icon = reload_icon unless reload_icon.null?
       reload_action.shortcut = "F5"
       reload_action.status_tip = "Reload the music database from MPD"
-      reload_action.on_triggered { ensure_database_loaded(force: true) }
+      reload_action.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
       library_menu.add_action(reload_action)
       window.add_action(reload_action)
       @show_library_action = show_library_action
