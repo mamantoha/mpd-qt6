@@ -57,7 +57,7 @@ module MPDUI
           false
         when Qt6::EventType::DragEnter
           @drag_source_type ||= :playlist
-          @dragged_database_uris = selected_database_uris if @drag_source_type == :database && @dragged_database_uris.empty?
+          @dragged_database_uris = selected_database_uris if @drag_source_type == :database
           false
         when Qt6::EventType::DragMove
           row = table.current_row

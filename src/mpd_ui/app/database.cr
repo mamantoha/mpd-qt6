@@ -51,6 +51,7 @@ module MPDUI
         case event.type
         when Qt6::EventType::MouseButtonPress
           @playlist_drag_source_row = nil
+          @dragged_database_uris.clear
           @drag_source_type = :database
         when Qt6::EventType::DragEnter
           @drag_source_type = :database
