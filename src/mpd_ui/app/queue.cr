@@ -78,7 +78,7 @@ module MPDUI
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           handled = false
           if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
-            handled = move_playlist_row(@playlist_drag_source_row.not_nil!, queue_drop_row_for(drop_event))
+            handled = move_selected_playlist_rows(queue_drop_row_for(drop_event))
           elsif @drag_source_type == :database && drag_is_database_drop?(drop_event)
             handled = append_selected_database_to_queue(queue_drop_row_for(drop_event))
           end
@@ -132,16 +132,40 @@ module MPDUI
       y < rect.y + rect.height / 2.0 ? row : row + 1
     end
 
-    private def move_playlist_row(source_row : Int32, insert_row : Int32) : Bool
-      source_pos = @playlist_positions[source_row]?
-      return false unless source_pos
+    private def move_selected_playlist_rows(insert_row : Int32) : Bool
+      table = @playlist_table
+      return false unless table
 
-      target_row = insert_row.clamp(0, @playlist_positions.size)
-      target_row -= 1 if target_row > source_row
-      return true if target_row == source_row
+      selected_rows = selected_playlist_rows(table).select { |row| row >= 0 && row < @playlist_ids.size }.sort.uniq
+      return false if selected_rows.empty?
+
+      selected_ids = selected_rows.compact_map { |row| @playlist_ids[row]? }
+      return false if selected_ids.empty?
+
+      current_ids = @playlist_ids.dup
+      remaining_ids = current_ids.reject { |id| selected_ids.includes?(id) }
+      target_row = insert_row.clamp(0, current_ids.size)
+      target_row -= selected_rows.count { |row| row < target_row }
+      target_row = target_row.clamp(0, remaining_ids.size)
+
+      desired_ids = remaining_ids.dup
+      selected_ids.each_with_index do |id, offset|
+        desired_ids.insert(target_row + offset, id)
+      end
+      return true if desired_ids == current_ids
 
       mpd_action do |client|
-        client.move(source_pos, target_row)
+        client.with_command_list do
+          desired_ids.each_with_index do |id, desired_index|
+            current_index = current_ids.index(id)
+            next unless current_index
+            next if current_index == desired_index
+
+            client.moveid(id, desired_index)
+            moved_id = current_ids.delete_at(current_index)
+            current_ids.insert(desired_index, moved_id)
+          end
+        end
       end
 
       @just_moved_pos = target_row
@@ -172,12 +196,15 @@ module MPDUI
 
       @syncing = true
       @playlist_positions.clear
+      @playlist_ids.clear
       table.clear_contents
       table.row_count = songs.size
 
       songs.each_with_index do |song, row|
         pos = song["Pos"]?.try(&.to_i?) || row
+        id = song["Id"]?.try(&.to_i?) || pos
         @playlist_positions << pos
+        @playlist_ids << id
 
         indicator_icon = playlist_indicator_icon(pos)
         indicator_item = Qt6::TableWidgetItem.new("")

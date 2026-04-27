@@ -66,6 +66,7 @@ module MPDUI
     @state : String = "stop"
     @current_song_pos : Int32? = nil
     @playlist_positions : Array(Int32) = [] of Int32
+    @playlist_ids : Array(Int32) = [] of Int32
     @just_moved_pos : Int32? = nil
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
