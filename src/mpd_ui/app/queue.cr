@@ -45,6 +45,24 @@ module MPDUI
       @queue_context_menu = context_menu
       @queue_play_now_action = play_now_action
 
+      play_return_action = Qt6::Action.new("Play Selected", table)
+      play_return_action.shortcut = "Return"
+      play_return_action.on_triggered do
+        next unless table.has_focus? || table.viewport.has_focus?
+        play_selected_playlist_row
+      end
+      table.add_action(play_return_action)
+      @play_queue_return_action = play_return_action
+
+      play_enter_action = Qt6::Action.new("Play Selected", table)
+      play_enter_action.shortcut = "Enter"
+      play_enter_action.on_triggered do
+        next unless table.has_focus? || table.viewport.has_focus?
+        play_selected_playlist_row
+      end
+      table.add_action(play_enter_action)
+      @play_queue_enter_action = play_enter_action
+
       delete_action = Qt6::Action.new("Remove from Queue", table)
       delete_action.shortcut = "Delete"
       delete_action.on_triggered do
