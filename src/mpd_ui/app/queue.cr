@@ -30,6 +30,20 @@ module MPDUI
         play_selected_playlist_row
       end
 
+      context_menu = Qt6::Menu.new("Queue", table)
+      play_now_action = Qt6::Action.new("Play Now", table)
+      play_now_icon = Qt6::QIcon.from_theme("media-playback-start")
+      play_now_action.icon = play_now_icon unless play_now_icon.null?
+      play_now_action.on_triggered { play_selected_playlist_row }
+      context_menu.add_action(play_now_action)
+
+      remove_action = Qt6::Action.new("Remove from Queue", table)
+      remove_icon = Qt6::QIcon.from_theme("edit-delete")
+      remove_action.icon = remove_icon unless remove_icon.null?
+      remove_action.on_triggered { delete_selected_playlist_row }
+      context_menu.add_action(remove_action)
+      @queue_context_menu = context_menu
+
       delete_action = Qt6::Action.new("Remove from Queue", table)
       delete_action.shortcut = "Delete"
       delete_action.on_triggered do
@@ -50,11 +64,17 @@ module MPDUI
       filter.on_event do |_watched, event|
         case event.type
         when Qt6::EventType::MouseButtonPress
+          mouse_event = event.mouse_event
+          if mouse_event.button == 2
+            show_queue_context_menu(table, viewport, mouse_event.position)
+            true
+          else
           row = table.current_row
           @playlist_drag_source_row = row >= 0 ? row : nil
           @dragged_database_uris.clear
           @drag_source_type = :playlist
           false
+          end
         when Qt6::EventType::DragEnter
           @drag_source_type ||= :playlist
           @dragged_database_uris = selected_database_uris if @drag_source_type == :database
@@ -99,6 +119,22 @@ module MPDUI
 
       viewport.install_event_filter(filter)
       @queue_drop_filter = filter
+    end
+
+    private def show_queue_context_menu(table : Qt6::TableWidget, viewport : Qt6::Widget, position : Qt6::PointF) : Nil
+      index = table.index_at(position)
+      begin
+        return unless index.valid?
+
+        row = index.row
+        unless selected_playlist_rows(table).includes?(row)
+          table.set_current_cell(row, 1)
+        end
+
+        @queue_context_menu.try(&.exec_at(viewport, position))
+      ensure
+        index.release
+      end
     end
 
     private def drag_is_playlist_reorder?(event : Qt6::DropEvent) : Bool

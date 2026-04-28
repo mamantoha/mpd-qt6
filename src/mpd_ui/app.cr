@@ -30,6 +30,7 @@ module MPDUI
     @options_button : Qt6::PushButton?
     @options_menu : Qt6::Menu?
     @playlist_table : Qt6::TableWidget?
+    @queue_context_menu : Qt6::Menu?
     @delete_queue_action : Qt6::Action?
     @about_action : Qt6::Action?
     @settings_action : Qt6::Action?
