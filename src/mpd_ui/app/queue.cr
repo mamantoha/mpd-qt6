@@ -43,6 +43,7 @@ module MPDUI
       remove_action.on_triggered { delete_selected_playlist_row }
       context_menu.add_action(remove_action)
       @queue_context_menu = context_menu
+      @queue_play_now_action = play_now_action
 
       delete_action = Qt6::Action.new("Remove from Queue", table)
       delete_action.shortcut = "Delete"
@@ -131,6 +132,7 @@ module MPDUI
           table.set_current_cell(row, 1)
         end
 
+        @queue_play_now_action.try(&.enabled = selected_playlist_rows(table).size == 1)
         @queue_context_menu.try(&.exec_at(viewport, position))
       ensure
         index.release
