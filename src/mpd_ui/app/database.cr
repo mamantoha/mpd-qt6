@@ -2,6 +2,20 @@ module MPDUI
   module AppDatabase
     private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
       container = Qt6::Widget.new(parent)
+
+      search_panel = Qt6::Widget.new(container)
+      search_panel.visible = false
+      search_edit = Qt6::LineEdit.new("", search_panel)
+      search_edit.placeholder_text = "Search..."
+      close_search_button = Qt6::PushButton.new("x", search_panel)
+      close_icon = Qt6::QIcon.from_theme("window-close")
+      unless close_icon.null?
+        close_search_button.icon = close_icon
+        close_search_button.text = ""
+      end
+      close_search_button.fixed_width = 34
+      close_search_button.tool_tip = "Close search"
+
       tree = Qt6::TreeView.new(container)
       model = Qt6::StandardItemModel.new(tree)
 
@@ -33,10 +47,26 @@ module MPDUI
         @dragged_database_uris = selected_database_uris
       end
 
+      search_edit.on_text_changed do |_text|
+        apply_database_filter
+      end
+
+      close_search_button.on_clicked { hide_database_search }
+
+      search_panel.hbox do |row|
+        row.spacing = 4
+        row.set_contents_margins(0, 0, 0, 0)
+        row << search_edit
+        row << close_search_button
+      end
+
       container.vbox do |column|
+        column << search_panel
         column << tree
       end
 
+      @database_search_panel = search_panel
+      @database_search_edit = search_edit
       @database_tree = tree
       @database_model = model
       setup_database_drag_source(tree)
@@ -65,6 +95,52 @@ module MPDUI
       @database_drag_filter = filter
     end
 
+    private def show_database_search : Nil
+      return unless @settings.expanded_interface
+      return unless @settings.show_library
+
+      preserve_window_size do
+        set_library_panel_visible(true)
+        @database_search_panel.try(&.visible = true)
+      end
+
+      @database_search_edit.try do |edit|
+        edit.set_focus
+        edit.select_all
+      end
+    end
+
+    private def hide_database_search : Nil
+      @database_search_edit.try do |edit|
+        if edit.text.empty?
+          apply_database_filter
+        else
+          edit.clear
+        end
+      end
+
+      preserve_window_size do
+        @database_search_panel.try(&.visible = false)
+      end
+
+      @database_tree.try(&.set_focus)
+    end
+
+    private def preserve_window_size(& : ->) : Nil
+      window = @window
+
+      unless window
+        yield
+        return
+      end
+
+      size = window.size
+
+      yield
+
+      window.resize(size.width, size.height)
+    end
+
     private def ensure_database_loaded(*, force : Bool = false, update_mpd : Bool = false) : Nil
       return if @database_loading
       return if @database_loaded && !force
@@ -86,13 +162,12 @@ module MPDUI
           end
           raw_entries = db_client.listallinfo
           songs = database_song_entries(raw_entries)
-          library = build_database_library(songs)
 
           @qt_app.invoke_later do
-            populate_database_tree(library)
+            @database_songs = songs
             @database_loaded = true
             @database_loading = false
-            set_status("Database loaded • #{songs.size} songs")
+            apply_database_filter
           end
         rescue ex
           @qt_app.invoke_later do
@@ -152,7 +227,33 @@ module MPDUI
       library
     end
 
-    private def populate_database_tree(library : Hash(String, Hash(String, Array(Hash(String, String))))) : Nil
+    private def apply_database_filter : Nil
+      query = @database_search_edit.try(&.text.strip) || ""
+      terms = query.downcase.split.reject(&.empty?)
+      songs = terms.empty? ? @database_songs : @database_songs.select { |song| database_song_matches?(song, terms) }
+
+      populate_database_tree(build_database_library(songs), filtered: !terms.empty?)
+      @dragged_database_uris.clear
+
+      if terms.empty?
+        set_status("Database loaded • #{@database_songs.size} songs") if @database_loaded
+      else
+        set_status("Database filter: #{songs.size} of #{@database_songs.size} songs")
+      end
+    end
+
+    private def database_song_matches?(song : Hash(String, String), terms : Array(String)) : Bool
+      haystack = [
+        song["Artist"]?,
+        song["Album"]?,
+        song["Title"]?,
+        song["file"]?,
+      ].compact.join(" ").downcase
+
+      terms.all? { |term| haystack.includes?(term) }
+    end
+
+    private def populate_database_tree(library : Hash(String, Hash(String, Array(Hash(String, String)))), *, filtered : Bool = false) : Nil
       model = @database_model
       return unless model
 
@@ -160,7 +261,7 @@ module MPDUI
       model.set_horizontal_header_label(0, "Database")
 
       if library.empty?
-        model << Qt6::StandardItem.new("Database is empty")
+        model << Qt6::StandardItem.new(filtered ? "No matching songs" : "Database is empty")
         return
       end
 
@@ -191,6 +292,8 @@ module MPDUI
 
         model << artist_item
       end
+
+      @database_tree.try(&.expand_all) if filtered
     end
 
     private def themed_icon(*names : String) : Qt6::QIcon

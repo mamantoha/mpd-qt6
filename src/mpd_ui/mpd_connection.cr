@@ -9,6 +9,7 @@ module MPDUI
 
       @client = MPD::Client.new(@settings.host, @settings.port)
       Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
+      @database_songs.clear
       @database_loaded = false
       @database_loading = false
       show_database_message("Open the Database tab to load your library")

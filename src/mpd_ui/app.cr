@@ -33,6 +33,7 @@ module MPDUI
     @delete_queue_action : Qt6::Action?
     @about_action : Qt6::Action?
     @settings_action : Qt6::Action?
+    @search_library_action : Qt6::Action?
     @reload_database_action : Qt6::Action?
     @expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
@@ -45,8 +46,11 @@ module MPDUI
     @database_panel : Qt6::Widget?
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
+    @database_search_panel : Qt6::Widget?
+    @database_search_edit : Qt6::LineEdit?
     @database_tree : Qt6::TreeView?
     @database_model : Qt6::StandardItemModel?
+    @database_songs : Array(Hash(String, String)) = [] of Hash(String, String)
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
@@ -129,6 +133,9 @@ module MPDUI
         options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
         if settings_action = @settings_action
           options_menu.add_action(settings_action)
+        end
+        if search_library_action = @search_library_action
+          options_menu.add_action(search_library_action)
         end
         if reload_database_action = @reload_database_action
           options_menu.add_action(reload_database_action)
@@ -462,6 +469,17 @@ module MPDUI
       show_library_action.status_tip = "Show or hide the library panel"
       show_library_action.on_toggled { |checked| set_library_panel_visible(checked) }
       library_menu.add_action(show_library_action)
+      library_menu.add_separator
+
+      search_library_action = Qt6::Action.new("Search Library", window)
+      search_icon = Qt6::QIcon.from_theme("edit-find")
+      search_library_action.icon = search_icon unless search_icon.null?
+      search_library_action.shortcut = "Ctrl+F"
+      search_library_action.status_tip = "Search the library"
+      search_library_action.on_triggered { show_database_search }
+      library_menu.add_action(search_library_action)
+      window.add_action(search_library_action)
+      @search_library_action = search_library_action
       library_menu.add_separator
 
       reload_action = Qt6::Action.new("Reload Database", window)

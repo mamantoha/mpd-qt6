@@ -4,7 +4,6 @@ Planning reference for useful missing features and polish ideas.
 
 ## High Value
 
-- Add database search/filter by artist, album, title, and file path.
 - Add queue search/filter for large playlists.
 - Add MPD saved playlist support:
   - list saved playlists
