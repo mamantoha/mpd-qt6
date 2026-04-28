@@ -207,15 +207,19 @@ module MPDUI
         @playlist_ids << id
 
         indicator_icon = playlist_indicator_icon(pos)
+        tooltip = song_tooltip(song)
         indicator_item = Qt6::TableWidgetItem.new("")
         indicator_item.flags = flags
         indicator_item.icon = indicator_icon.not_nil! if indicator_icon && !indicator_icon.not_nil!.null?
+        indicator_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
 
         title_item = Qt6::TableWidgetItem.new(playlist_title(song))
         title_item.flags = flags
+        title_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
 
         time_item = Qt6::TableWidgetItem.new(playlist_duration(song))
         time_item.flags = flags
+        time_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
 
         table.set_item(row, 0, indicator_item)
         table.set_item(row, 1, title_item)
