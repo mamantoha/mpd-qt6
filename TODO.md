@@ -12,8 +12,6 @@ Planning reference for useful missing features and polish ideas.
   - save the current queue as a playlist
   - rename or delete playlists where supported
 - Add queue context menu actions:
-  - play selected song now
-  - remove selected songs
   - move selected songs to top or bottom
   - show song details
   - add selected songs to a saved playlist
