@@ -30,6 +30,10 @@ module MPDUI
     @options_button : Qt6::PushButton?
     @options_menu : Qt6::Menu?
     @playlist_table : Qt6::TableWidget?
+    @queue_context_menu : Qt6::Menu?
+    @queue_play_now_action : Qt6::Action?
+    @play_queue_return_action : Qt6::Action?
+    @play_queue_enter_action : Qt6::Action?
     @delete_queue_action : Qt6::Action?
     @about_action : Qt6::Action?
     @settings_action : Qt6::Action?
@@ -49,6 +53,7 @@ module MPDUI
     @database_search_panel : Qt6::Widget?
     @database_search_edit : Qt6::LineEdit?
     @database_tree : Qt6::TreeView?
+    @database_context_menu : Qt6::Menu?
     @database_model : Qt6::StandardItemModel?
     @database_songs : Array(Hash(String, String)) = [] of Hash(String, String)
     @database_loaded : Bool = false

@@ -47,6 +47,13 @@ module MPDUI
         @dragged_database_uris = selected_database_uris
       end
 
+      context_menu = Qt6::Menu.new("Library", tree)
+      add_to_queue_action = Qt6::Action.new("Add to Queue", tree)
+      add_icon = Qt6::QIcon.from_theme("list-add")
+      add_to_queue_action.icon = add_icon unless add_icon.null?
+      add_to_queue_action.on_triggered { add_selected_database_to_queue }
+      context_menu.add_action(add_to_queue_action)
+
       search_edit.on_text_changed do |_text|
         apply_database_filter
       end
@@ -68,6 +75,7 @@ module MPDUI
       @database_search_panel = search_panel
       @database_search_edit = search_edit
       @database_tree = tree
+      @database_context_menu = context_menu
       @database_model = model
       setup_database_drag_source(tree)
       show_database_message("Open the Database tab to load your library")
@@ -80,19 +88,52 @@ module MPDUI
       filter.on_event do |_watched, event|
         case event.type
         when Qt6::EventType::MouseButtonPress
+          mouse_event = event.mouse_event
+          if mouse_event.button == 2
+            show_database_context_menu(tree, viewport, mouse_event.position)
+            true
+          else
           @playlist_drag_source_row = nil
           @dragged_database_uris.clear
           @drag_source_type = :database
+          false
+          end
         when Qt6::EventType::DragEnter
           @drag_source_type = :database
+          false
         when Qt6::EventType::DragLeave, Qt6::EventType::Drop
           @drag_source_type = nil
+          false
+        else
+          false
         end
-        false
       end
 
       viewport.install_event_filter(filter)
       @database_drag_filter = filter
+    end
+
+    private def show_database_context_menu(tree : Qt6::TreeView, viewport : Qt6::Widget, position : Qt6::PointF) : Nil
+      index = tree.index_at(position)
+      begin
+        return unless index.valid?
+
+        selection_model = tree.selection_model
+        unless selection_model && selection_model.selected?(index)
+          selection_model.try(&.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect))
+          tree.current_index = index
+        end
+
+        @dragged_database_uris.clear
+        @database_context_menu.try(&.exec_at(viewport, position))
+      ensure
+        index.release
+      end
+    end
+
+    private def add_selected_database_to_queue : Nil
+      @dragged_database_uris.clear
+      append_selected_database_to_queue
     end
 
     private def show_database_search : Nil
