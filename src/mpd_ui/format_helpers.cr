@@ -73,5 +73,49 @@ module MPDUI
     private def track_number(song : Hash(String, String)) : Int32
       song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
     end
+
+    private def song_tooltip(song : Hash(String, String)) : String
+      file = song["file"]?
+      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
+      duration = playlist_duration(song)
+
+      rows = [] of Tuple(String, String)
+      rows << {"Title", title}
+      add_metadata_row(rows, "Artist", song["Artist"]?)
+      add_metadata_row(rows, "Album", song["Album"]?)
+      add_metadata_row(rows, "Track number", song["Track"]?.try(&.split('/').first))
+      add_metadata_row(rows, "Disc number", song["Disc"]?.try(&.split('/').first))
+      add_metadata_row(rows, "Genre", song["Genre"]?)
+      add_metadata_row(rows, "Year", song["Date"]?)
+      rows << {"Length", duration} unless duration.empty?
+
+      String.build do |html|
+        html << "<table cellspacing=\"3\">"
+        rows.each do |label, value|
+          html << "<tr><td align=\"right\"><b>"
+          html << html_escape(label)
+          html << ":</b></td><td>"
+          html << html_escape(value)
+          html << "</td></tr>"
+        end
+        html << "</table>"
+
+        if file && !file.empty?
+          html << "<div style=\"margin-top: 8px;\"><i>"
+          html << html_escape(file)
+          html << "</i></div>"
+        end
+      end
+    end
+
+    private def add_metadata_row(rows : Array(Tuple(String, String)), label : String, value : String?) : Nil
+      return unless value && !value.strip.empty?
+
+      rows << {label, value}
+    end
+
+    private def html_escape(value : String) : String
+      value.gsub('&', "&amp;").gsub('<', "&lt;").gsub('>', "&gt;").gsub('"', "&quot;")
+    end
   end
 end

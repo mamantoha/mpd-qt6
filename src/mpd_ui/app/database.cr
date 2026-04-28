@@ -281,6 +281,7 @@ module MPDUI
           album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
             song_item = Qt6::StandardItem.new(database_song_label(song))
             song_item.icon = song_icon unless song_icon.null?
+            song_item.set_data(song_tooltip(song), Qt6::ItemDataRole::ToolTip)
             if file = song["file"]?
               song_item.set_data(file, Qt6::ItemDataRole::User)
             end
