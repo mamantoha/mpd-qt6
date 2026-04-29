@@ -3,12 +3,26 @@ require "uri"
 
 module MPDUI
   module MPRIS
-    BUS_NAME   = "org.mpris.MediaPlayer2.mpd_qt6"
     OBJECT     = "/org/mpris/MediaPlayer2"
     ROOT_IFACE = "org.mpris.MediaPlayer2"
     PLAYER     = "org.mpris.MediaPlayer2.Player"
     PROPERTIES = "org.freedesktop.DBus.Properties"
     INTROSPECT = "org.freedesktop.DBus.Introspectable"
+
+    struct Options
+      getter bus_name : String
+      getter identity : String
+      getter desktop_entry : String
+      getter cache_prefix : String
+
+      def initialize(app_id : String, @identity : String, @desktop_entry : String = app_id, @cache_prefix : String = app_id)
+        @bus_name = "org.mpris.MediaPlayer2.#{dbus_name(app_id)}"
+      end
+
+      private def dbus_name(value : String) : String
+        value.gsub(/[^A-Za-z0-9_]/, "_")
+      end
+    end
 
     struct State
       property playback_status : String = "Stopped"
@@ -48,6 +62,11 @@ module MPDUI
       @running = Atomic(Bool).new(false)
       @mutex = Mutex.new
       @state = State.new
+
+      getter options : Options
+
+      def initialize(@options : Options)
+      end
 
       def start : Nil
         return if @running.get
@@ -160,7 +179,7 @@ module MPDUI
 
       private def request_name : Nil
         body = Writer.build do |w|
-          w.write_string(BUS_NAME)
+          w.write_string(@options.bus_name)
           w.write_u32(0_u32)
         end
         call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName", body, "su")
@@ -296,8 +315,8 @@ module MPDUI
           {"CanQuit", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
           {"CanRaise", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
           {"HasTrackList", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(false) } }},
-          {"Identity", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string("Crystal MPD") } }},
-          {"DesktopEntry", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string("mpd-qt6") } }},
+          {"Identity", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(@options.identity) } }},
+          {"DesktopEntry", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(@options.desktop_entry) } }},
           {"SupportedUriSchemes", ->(w : Writer) { w.write_variant("as") { |vw| vw.write_array("s") { |aw| aw.write_string("file") } } }},
           {"SupportedMimeTypes", ->(w : Writer) { w.write_variant("as") { |vw| vw.write_array("s") { |_aw| } } }},
         ]
@@ -695,80 +714,6 @@ module MPDUI
       private def align_for(signature : String) : Nil
         align(signature == "x" || signature == "t" || signature == "d" || signature.starts_with?("(") || signature.starts_with?("{") ? 8 : signature == "s" || signature == "o" || signature == "u" || signature == "i" || signature.starts_with?("a") ? 4 : 1)
       end
-    end
-  end
-
-  class App
-    private def setup_mpris : Nil
-      service = MPRIS::Service.new
-      service.on_raise = ->{ @qt_app.invoke_later { show_main_window } }
-      service.on_quit = ->{ @qt_app.invoke_later { quit_application } }
-      service.on_play = ->{ @qt_app.invoke_later { mpd_action { |client| client.play } } }
-      service.on_pause = ->{ @qt_app.invoke_later { mpd_action { |client| client.pause(true) } } }
-      service.on_play_pause = ->{ @qt_app.invoke_later { toggle_play_pause } }
-      service.on_stop = ->{ @qt_app.invoke_later { mpd_action { |client| client.stop } } }
-      service.on_next = ->{ @qt_app.invoke_later { mpd_action { |client| client.next } } }
-      service.on_previous = ->{ @qt_app.invoke_later { mpd_action { |client| client.previous } } }
-      service.on_seek = ->(offset_us : Int64) do
-        @qt_app.invoke_later do
-          seconds = offset_us / 1_000_000
-          next if seconds == 0
-
-          value = seconds > 0 ? "+#{seconds}" : seconds.to_s
-          mpd_action { |client| client.seekcur(value) }
-        end
-      end
-      service.on_set_position = ->(_track_id : String, position_us : Int64) do
-        @qt_app.invoke_later do
-          seconds = (position_us / 1_000_000).clamp(0_i64, Int32::MAX.to_i64)
-          mpd_action { |client| client.seekcur(seconds.to_i) }
-        end
-      end
-      service.on_set_volume = ->(volume : Float64) do
-        @qt_app.invoke_later do
-          percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
-          @volume = percent
-          update_volume_icon(percent)
-          update_volume_label(percent)
-          mpd_action { |client| client.setvol(percent) }
-        end
-      end
-
-      @mpris_service = service
-      service.start
-      sync_mpris_state(nil)
-    end
-
-    private def sync_mpris_state(song : Hash(String, String)?) : Nil
-      service = @mpris_service
-      return unless service
-
-      state = MPRIS::State.new
-      state.playback_status = case @state
-                              when "play"
-                                "Playing"
-                              when "pause"
-                                "Paused"
-                              else
-                                "Stopped"
-                              end
-      state.position_us = (@elapsed * 1_000_000).round.to_i64
-      state.length_us = (@duration * 1_000_000).round.to_i64
-      state.volume = @volume ? (@volume.not_nil!.clamp(0, 100) / 100.0) : 1.0
-      state.shuffle = @random
-      state.repeat = @repeat
-
-      if song
-        file = song["file"]?
-        state.file = file || ""
-        state.title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "")
-        state.artist = song["Artist"]? || ""
-        state.album = song["Album"]? || ""
-        state.art_url = @mpris_art_url
-        state.track_id = song["Id"]?.try(&.to_i?)
-      end
-
-      service.update_state(state)
     end
   end
 end

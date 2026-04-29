@@ -229,7 +229,8 @@ module MPDUI
                   else
                     ".img"
                   end
-      path = File.join(Dir.tempdir, "mpd-qt6-mpris-cover-#{Process.pid}#{extension}")
+      cache_prefix = @mpris_service.try(&.options.cache_prefix) || Settings::APPLICATION
+      path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}#{extension}")
 
       if old_path = @mpris_cover_path
         File.delete(old_path) if old_path != path && File.exists?(old_path)

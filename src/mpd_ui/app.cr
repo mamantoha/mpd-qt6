@@ -3,6 +3,7 @@ module MPDUI
     include FormatHelpers
     include AppTray
     include AppMPDConnection
+    include AppMPRIS
     include AppAboutDialog
     include AppPlayer
     include AppQueue
