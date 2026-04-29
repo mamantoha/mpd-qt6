@@ -131,6 +131,9 @@ module MPDUI
       end
 
       private def authenticate(socket : UNIXSocket) : Nil
+        # DBus starts with a small SASL-style authentication exchange before
+        # binary messages are allowed. EXTERNAL uses the current Unix uid,
+        # encoded as hex ASCII, after an initial NUL byte.
         uid = LibC.getuid.to_s
         hex_uid = uid.bytes.map { |byte| byte.to_s(16).rjust(2, '0') }.join
         socket.write_byte(0_u8)
@@ -151,6 +154,8 @@ module MPDUI
         socket = @socket
         return 0_u32 unless socket
 
+        # All outgoing DBus messages pass through here. The serial lets peers
+        # match replies to calls; field 8 carries the optional body signature.
         serial = next_serial
         all_fields = fields.dup
         all_fields << HeaderField.new(8_u8, BasicValue.signature(signature)) if signature && !signature.empty?
@@ -161,6 +166,8 @@ module MPDUI
       end
 
       private def call(destination : String, path : String, interface : String, member : String, body : Bytes = Bytes.empty, signature : String? = nil) : UInt32
+        # A DBus method call is just a message with routing fields:
+        # object path, interface, member name, and destination bus name.
         send_message(1_u8, 0_u8, [
           HeaderField.new(1_u8, BasicValue.object_path(path)),
           HeaderField.new(2_u8, BasicValue.string(interface)),
@@ -170,6 +177,8 @@ module MPDUI
       end
 
       private def hello : Nil
+        # Hello registers this connection with the bus and assigns a unique
+        # name. We wait for its reply before requesting the public MPRIS name.
         call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "Hello")
         loop do
           message = Message.read(@socket.not_nil!)
@@ -178,6 +187,8 @@ module MPDUI
       end
 
       private def request_name : Nil
+        # Desktop media controls discover players by this well-known name:
+        # org.mpris.MediaPlayer2.<app_id>.
         body = Writer.build do |w|
           w.write_string(@options.bus_name)
           w.write_u32(0_u32)
@@ -456,6 +467,8 @@ module MPDUI
       end
 
       def self.read(io : IO) : self?
+        # DBus messages have a fixed 16-byte header, a variable header field
+        # block, padding to the next 8-byte boundary, then the body bytes.
         fixed = Bytes.new(16)
         io.read_fully(fixed)
         raise "unsupported DBus endian" unless fixed[0] == 'l'.ord
@@ -497,6 +510,8 @@ module MPDUI
       end
 
       def self.build(type : UInt8, flags : UInt8, serial : UInt32, fields : Array(HeaderField), body : Bytes) : Bytes
+        # Build the inverse of read: serialize header fields, then wrap them
+        # with the fixed DBus header and required padding before the body.
         header = Writer.build do |w|
           fields.each do |field|
             w.align(8)
@@ -526,6 +541,8 @@ module MPDUI
       end
 
       def each_header_field(& : UInt8, String, String -> Nil) : Nil
+        # Header fields are structs: a numeric field code plus a variant value.
+        # We decode only the simple field types needed for routing this service.
         end_offset = @bytes.size
         while @offset < end_offset
           align(8)
@@ -624,6 +641,8 @@ module MPDUI
       end
 
       private def align(boundary : Int32) : Nil
+        # DBus values must start on type-specific byte boundaries. If alignment
+        # is wrong, every following value in the message is read incorrectly.
         remainder = @offset % boundary
         @offset += boundary - remainder unless remainder == 0
       end
@@ -649,6 +668,8 @@ module MPDUI
       end
 
       def align(boundary : Int32) : Nil
+        # DBus values must start on type-specific byte boundaries. Padding bytes
+        # are not part of the value; they only move the write cursor forward.
         remainder = @io.pos % boundary
         (boundary - remainder).times { @io.write_byte(0_u8) } unless remainder == 0
       end
@@ -694,12 +715,16 @@ module MPDUI
       end
 
       def write_variant(signature : String, & : Writer -> Nil) : Nil
+        # A DBus variant stores its own signature first, followed by the value
+        # aligned as if it had appeared directly in the message.
         write_signature(signature)
         align_for(signature)
         yield self
       end
 
       def write_array(element_signature : String, & : Writer -> Nil) : Nil
+        # DBus arrays are length-prefixed byte blocks. Reserve the length,
+        # write the aligned contents, then patch the byte count afterward.
         align(4)
         length_pos = @io.pos
         write_u32(0_u32)
