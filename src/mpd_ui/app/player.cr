@@ -60,6 +60,8 @@ module MPDUI
       @repeat = status["repeat"]? == "1"
       @volume = status["volume"]?.try(&.to_i?)
 
+      sync_mpris_state(song)
+
       if button = @play_pause_button
         if icon = (state == "play" ? @pause_icon : @play_icon)
           button.icon = icon

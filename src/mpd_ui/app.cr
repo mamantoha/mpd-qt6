@@ -68,6 +68,7 @@ module MPDUI
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
+    @mpris_service : MPRIS::Service?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
@@ -101,6 +102,7 @@ module MPDUI
     def run : Nil
       build_ui
       connect
+      setup_mpris
       @window.try(&.show)
       exit(@qt_app.run)
     end
