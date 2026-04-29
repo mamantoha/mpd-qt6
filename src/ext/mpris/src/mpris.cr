@@ -41,6 +41,8 @@ module MPRIS
     alias Command = Proc(Nil)
     alias SeekCommand = Proc(Int64, Nil)
     alias VolumeCommand = Proc(Float64, Nil)
+    alias BoolCommand = Proc(Bool, Nil)
+    alias StringCommand = Proc(String, Nil)
     alias PositionCommand = Proc(String, Int64, Nil)
 
     class Service
@@ -54,6 +56,8 @@ module MPRIS
       property on_previous : Command?
       property on_seek : SeekCommand?
       property on_set_volume : VolumeCommand?
+      property on_set_shuffle : BoolCommand?
+      property on_set_loop_status : StringCommand?
       property on_set_position : PositionCommand?
 
       @socket : UNIXSocket?
@@ -244,9 +248,15 @@ module MPRIS
         when "Set"
           iface = reader.read_string
           property = reader.read_string
-          if iface == PLAYER && property == "Volume"
-            volume = reader.read_variant_double
-            @on_set_volume.try(&.call(volume))
+          if iface == PLAYER
+            case property
+            when "Volume"
+              @on_set_volume.try(&.call(reader.read_variant_double))
+            when "Shuffle"
+              @on_set_shuffle.try(&.call(reader.read_variant_bool))
+            when "LoopStatus"
+              @on_set_loop_status.try(&.call(reader.read_variant_string))
+            end
           end
           reply(message)
         end
@@ -625,6 +635,23 @@ module MPRIS
           read_u32.to_f
         else
           0.0
+        end
+      end
+
+      def read_variant_bool : Bool
+        signature = read_signature
+        align_for(signature)
+        signature == "b" && read_u32 != 0
+      end
+
+      def read_variant_string : String
+        signature = read_signature
+        align_for(signature)
+        case signature
+        when "s"
+          read_string
+        else
+          ""
         end
       end
 

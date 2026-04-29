@@ -36,7 +36,34 @@ module MPDUI
           @volume = percent
           update_volume_icon(percent)
           update_volume_label(percent)
+          sync_mpris_state
           mpd_action { |client| client.setvol(percent) }
+        end
+      end
+      service.on_set_shuffle = ->(enabled : Bool) do
+        @qt_app.invoke_later do
+          @random = enabled
+          sync_toggle_buttons
+          sync_mpris_state
+          mpd_action { |client| client.random(enabled) }
+        end
+      end
+      service.on_set_loop_status = ->(status : String) do
+        @qt_app.invoke_later do
+          next unless status == "Playlist" || status == "Track" || status == "None"
+
+          enabled = case status
+                    when "Track"
+                      !@repeat
+                    when "Playlist"
+                      true
+                    else
+                      false
+                    end
+          @repeat = enabled
+          sync_toggle_buttons
+          sync_mpris_state
+          mpd_action { |client| client.repeat(enabled) }
         end
       end
 
@@ -45,9 +72,12 @@ module MPDUI
       sync_mpris_state(nil)
     end
 
-    private def sync_mpris_state(song : Hash(String, String)?) : Nil
+    private def sync_mpris_state(song : Hash(String, String)? = nil) : Nil
       service = @mpris_service
       return unless service
+
+      @mpris_song = song if song
+      song ||= @mpris_song
 
       state = MPRIS::State.new
       state.playback_status = case @state

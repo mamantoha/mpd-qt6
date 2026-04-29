@@ -13,15 +13,18 @@ module MPDUI
       @event_bridge.random_changed.connect do |enabled|
         @random = enabled
         sync_toggle_buttons
+        sync_mpris_state
       end
 
       @event_bridge.repeat_changed.connect do |enabled|
         @repeat = enabled
         sync_toggle_buttons
+        sync_mpris_state
       end
 
       @event_bridge.volume_changed.connect do |volume|
         update_volume_control(volume)
+        sync_mpris_state
       end
     end
 

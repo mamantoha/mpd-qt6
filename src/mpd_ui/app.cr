@@ -89,6 +89,7 @@ module MPDUI
     @syncing_volume : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
+    @mpris_song : Hash(String, String)?
     @mpris_art_url : String = ""
     @mpris_cover_path : String?
     @quitting : Bool = false
@@ -312,8 +313,20 @@ module MPDUI
           prev_button.on_clicked { mpd_action { |c| c.previous } }
           play_pause_button.on_clicked { toggle_play_pause }
           next_button.on_clicked { mpd_action { |c| c.next } }
-          shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
-          repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
+          shuffle_button.on_toggled do |checked|
+            next if @syncing
+
+            @random = checked
+            sync_mpris_state
+            mpd_action { |c| c.random(checked) }
+          end
+          repeat_button.on_toggled do |checked|
+            next if @syncing
+
+            @repeat = checked
+            sync_mpris_state
+            mpd_action { |c| c.repeat(checked) }
+          end
           volume_slider.on_value_changed do |value|
             next if @syncing_volume
 
