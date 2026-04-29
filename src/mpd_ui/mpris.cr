@@ -62,11 +62,11 @@ module MPDUI
 
       def stop : Nil
         @running.set(false)
-        @socket.try(&.close)
-      rescue
       end
 
       def update_state(state : State) : Nil
+        return unless @running.get
+
         @mutex.synchronize { @state = state }
         emit_player_properties_changed
       rescue ex
