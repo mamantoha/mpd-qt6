@@ -93,6 +93,8 @@ module MPDUI
         Log.debug { "mpris: failed to emit state change: #{ex.message || ex}" }
       end
 
+      # Opens the session bus, publishes this service as an MPRIS player, and
+      # keeps listening for desktop media-control requests.
       private def run : Nil
         address = ENV["DBUS_SESSION_BUS_ADDRESS"]?
         unless address
@@ -115,6 +117,8 @@ module MPDUI
         @socket = nil
       end
 
+      # Opens the Unix socket for the user's DBus session bus. MPRIS is a
+      # session-bus protocol because it is consumed by the logged-in desktop.
       private def connect_session_bus(address : String) : UNIXSocket
         parts = address.split(';').find(&.starts_with?("unix:")) || address
         values = {} of String => String
@@ -130,6 +134,8 @@ module MPDUI
         end
       end
 
+      # Proves this process identity to the DBus daemon so the socket can switch
+      # from text authentication commands to normal binary DBus messages.
       private def authenticate(socket : UNIXSocket) : Nil
         # DBus starts with a small SASL-style authentication exchange before
         # binary messages are allowed. EXTERNAL uses the current Unix uid,
@@ -150,6 +156,8 @@ module MPDUI
         serial
       end
 
+      # Sends one DBus message to the bus. Replies, signals, and bus method
+      # calls all use this path so framing stays consistent.
       private def send_message(type : UInt8, flags : UInt8, fields : Array(HeaderField), body : Bytes = Bytes.empty, signature : String? = nil) : UInt32
         socket = @socket
         return 0_u32 unless socket
@@ -165,6 +173,8 @@ module MPDUI
         serial
       end
 
+      # Sends a DBus method call. This is used for calls to the bus daemon
+      # itself, such as Hello and RequestName.
       private def call(destination : String, path : String, interface : String, member : String, body : Bytes = Bytes.empty, signature : String? = nil) : UInt32
         # A DBus method call is just a message with routing fields:
         # object path, interface, member name, and destination bus name.
@@ -176,6 +186,8 @@ module MPDUI
         ], body, signature)
       end
 
+      # Registers this socket as a DBus client. Without Hello, the bus has not
+      # assigned us a unique name and later operations are not valid.
       private def hello : Nil
         # Hello registers this connection with the bus and assigns a unique
         # name. We wait for its reply before requesting the public MPRIS name.
@@ -186,6 +198,8 @@ module MPDUI
         end
       end
 
+      # Claims the public MPRIS player name so desktop shells and tools like
+      # playerctl can discover this process as a media player.
       private def request_name : Nil
         # Desktop media controls discover players by this well-known name:
         # org.mpris.MediaPlayer2.<app_id>.
@@ -196,6 +210,8 @@ module MPDUI
         call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName", body, "su")
       end
 
+      # Routes incoming method calls to the small set of interfaces this service
+      # exports: introspection, generic properties, and the two MPRIS interfaces.
       private def handle(message : Message) : Nil
         return unless message.type == 1_u8
         return unless message.path == OBJECT
@@ -214,6 +230,8 @@ module MPDUI
         Log.debug { "mpris: failed to handle #{message.interface}.#{message.member}: #{ex.message || ex}" }
       end
 
+      # Implements org.freedesktop.DBus.Properties so clients can read MPRIS
+      # state and set writable properties such as Volume.
       private def handle_properties(message : Message) : Nil
         reader = Reader.new(message.body, message.signature)
         case message.member
@@ -235,6 +253,7 @@ module MPDUI
         end
       end
 
+      # Handles application-level MPRIS requests that are not playback-specific.
       private def handle_root(message : Message) : Nil
         case message.member
         when "Raise"
@@ -246,6 +265,8 @@ module MPDUI
         end
       end
 
+      # Handles playback-control requests from desktop media keys, shell
+      # controls, lock screens, and tools like playerctl.
       private def handle_player(message : Message) : Nil
         reader = Reader.new(message.body, message.signature)
         case message.member
@@ -269,6 +290,8 @@ module MPDUI
         reply(message)
       end
 
+      # Sends a DBus method return for a handled call. The reply serial points
+      # back to the caller's message serial.
       private def reply(message : Message, body : Bytes = Bytes.empty, signature : String? = nil) : Nil
         fields = [
           HeaderField.new(5_u8, BasicValue.uint32(message.serial)),
@@ -279,6 +302,8 @@ module MPDUI
         send_message(2_u8, 1_u8, fields, body, signature)
       end
 
+      # Notifies clients that playback state, metadata, position, or volume has
+      # changed so they can refresh their UI without polling.
       private def emit_player_properties_changed : Nil
         body = Writer.build do |w|
           w.write_string(PLAYER)
@@ -293,6 +318,8 @@ module MPDUI
         ], body, "sa{sv}as")
       end
 
+      # Serializes all properties for one exported interface in the a{sv} shape
+      # required by org.freedesktop.DBus.Properties.GetAll.
       private def write_properties(w : Writer, iface : String) : Nil
         entries = [] of Tuple(String, Proc(Writer, Nil))
 
@@ -311,6 +338,8 @@ module MPDUI
         end
       end
 
+      # Serializes one property as a variant for
+      # org.freedesktop.DBus.Properties.Get.
       private def write_property_variant(w : Writer, iface : String, property : String) : Nil
         properties = iface == ROOT_IFACE ? root_properties : player_properties
         entry = properties.find { |name, _| name == property }
@@ -354,6 +383,8 @@ module MPDUI
         ]
       end
 
+      # Converts the current song into MPRIS/Xesam metadata keys understood by
+      # desktop shells, notifications, and media widgets.
       private def write_metadata(w : Writer, state : State) : Nil
         w.write_array("{sv}") do |aw|
           write_dict_variant(aw, "mpris:trackid", "o") { |vw| vw.write_object_path(track_path(state.track_id)) }
@@ -372,14 +403,20 @@ module MPDUI
         w.write_variant(signature) { |vw| yield vw }
       end
 
+      # Returns a stable object path for the current track, as required by the
+      # MPRIS metadata format.
       private def track_path(id : Int32?) : String
         "#{OBJECT}/Track/#{id || 0}"
       end
 
+      # Converts local paths to file URLs because MPRIS metadata URLs must be
+      # URI strings, not raw filesystem paths.
       private def file_url(file : String) : String
         file.starts_with?("/") ? "file://#{URI.encode_path(file)}" : file
       end
 
+      # Describes the exported object for clients that inspect DBus services at
+      # runtime instead of relying only on the MPRIS spec.
       private def introspection_xml : String
         <<-XML
         <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
@@ -466,6 +503,8 @@ module MPDUI
       def initialize(@type : UInt8, @serial : UInt32, @path : String?, @interface : String?, @member : String?, @sender : String?, @signature : String, @body : Bytes)
       end
 
+      # Reads one raw DBus frame from the socket and extracts the fields needed
+      # to route it to the correct service handler.
       def self.read(io : IO) : self?
         # DBus messages have a fixed 16-byte header, a variable header field
         # block, padding to the next 8-byte boundary, then the body bytes.
@@ -509,6 +548,8 @@ module MPDUI
         nil
       end
 
+      # Builds a raw DBus frame from structured header fields and body bytes so
+      # it can be written directly to the session bus socket.
       def self.build(type : UInt8, flags : UInt8, serial : UInt32, fields : Array(HeaderField), body : Bytes) : Bytes
         # Build the inverse of read: serialize header fields, then wrap them
         # with the fixed DBus header and required padding before the body.
@@ -540,6 +581,8 @@ module MPDUI
         @offset = 0
       end
 
+      # Decodes the message header field block so Message.read can find routing
+      # information such as path, interface, member, sender, and body signature.
       def each_header_field(& : UInt8, String, String -> Nil) : Nil
         # Header fields are structs: a numeric field code plus a variant value.
         # We decode only the simple field types needed for routing this service.
@@ -667,6 +710,8 @@ module MPDUI
         @io.pos.to_i
       end
 
+      # Moves the write cursor to a DBus alignment boundary before writing the
+      # next value.
       def align(boundary : Int32) : Nil
         # DBus values must start on type-specific byte boundaries. Padding bytes
         # are not part of the value; they only move the write cursor forward.
@@ -714,6 +759,8 @@ module MPDUI
         @io.write_byte(0_u8)
       end
 
+      # Writes a DBus variant, used heavily by properties because DBus property
+      # values are typed dynamically.
       def write_variant(signature : String, & : Writer -> Nil) : Nil
         # A DBus variant stores its own signature first, followed by the value
         # aligned as if it had appeared directly in the message.
@@ -722,6 +769,8 @@ module MPDUI
         yield self
       end
 
+      # Writes a DBus array, used for dictionaries such as a{sv} property maps
+      # and metadata maps.
       def write_array(element_signature : String, & : Writer -> Nil) : Nil
         # DBus arrays are length-prefixed byte blocks. Reserve the length,
         # write the aligned contents, then patch the byte count afterward.
