@@ -1,8 +1,7 @@
 require "socket"
 require "uri"
 
-module MPDUI
-  module MPRIS
+module MPRIS
     OBJECT     = "/org/mpris/MediaPlayer2"
     ROOT_IFACE = "org.mpris.MediaPlayer2"
     PLAYER     = "org.mpris.MediaPlayer2.Player"
@@ -788,6 +787,5 @@ module MPDUI
       private def align_for(signature : String) : Nil
         align(signature == "x" || signature == "t" || signature == "d" || signature.starts_with?("(") || signature.starts_with?("{") ? 8 : signature == "s" || signature == "o" || signature == "u" || signature == "i" || signature.starts_with?("a") ? 4 : 1)
       end
-    end
   end
 end
