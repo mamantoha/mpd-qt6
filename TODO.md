@@ -16,6 +16,13 @@ Planning reference for useful missing features and polish ideas.
   - show song details
   - add selected songs to a saved playlist
 - Add MPD output/device control for enabling and disabling outputs.
+- Add MPRISv2 desktop media integration over DBus:
+  - register `org.mpris.MediaPlayer2.mpd-qt6` on the session bus
+  - implement `org.mpris.MediaPlayer2` and `org.mpris.MediaPlayer2.Player`
+  - expose play, pause, play/pause, stop, next, previous, seek, volume, and raise/quit actions
+  - publish current song metadata, playback status, position, duration, and volume
+  - emit DBus property changes when MPD status or current song changes
+  - investigate a small native Crystal DBus wrapper scoped to MPRIS instead of adding a broad external binding dependency
 
 ## User Workflow
 
