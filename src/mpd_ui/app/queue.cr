@@ -301,12 +301,6 @@ module MPDUI
       return unless row
 
       table.set_current_cell(row, 1)
-      scroll_bar = playlist_vertical_scroll_bar(table)
-      scroll_bar.value = (row - scroll_bar.page_step // 2).clamp(scroll_bar.minimum, scroll_bar.maximum)
-    end
-
-    private def playlist_vertical_scroll_bar(table : Qt6::TableWidget) : Qt6::ScrollBar
-      Qt6::ScrollBar.wrap(Qt6::LibQt6.qt6cr_abstract_scroll_area_vertical_scroll_bar(table.to_unsafe))
     end
 
     private def play_selected_playlist_row : Nil
