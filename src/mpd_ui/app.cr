@@ -88,6 +88,8 @@ module MPDUI
     @syncing_volume : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
+    @mpris_art_url : String = ""
+    @mpris_cover_path : String?
     @quitting : Bool = false
     @tray_message_shown : Bool = false
 

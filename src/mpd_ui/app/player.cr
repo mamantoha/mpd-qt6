@@ -60,8 +60,6 @@ module MPDUI
       @repeat = status["repeat"]? == "1"
       @volume = status["volume"]?.try(&.to_i?)
 
-      sync_mpris_state(song)
-
       if button = @play_pause_button
         if icon = (state == "play" ? @pause_icon : @play_icon)
           button.icon = icon
@@ -103,6 +101,7 @@ module MPDUI
         set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
         update_tray_tooltip("State: #{state.capitalize}", "#{@settings.host}:#{@settings.port}")
       end
+      sync_mpris_state(song)
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
@@ -188,11 +187,13 @@ module MPDUI
       if response
         _meta, io = response
         io.rewind
-        pixmap = Qt6::QPixmap.from_data(io.to_slice)
+        bytes = io.to_slice
+        pixmap = Qt6::QPixmap.from_data(bytes)
 
         if pixmap.null?
           clear_cover_art
         else
+          @mpris_art_url = cache_mpris_cover_art(uri, _meta, bytes)
           scaled = pixmap.scaled(
             160,
             160,
@@ -212,6 +213,34 @@ module MPDUI
     private def clear_cover_art : Nil
       @cover_label.try(&.pixmap = nil)
       @cover_label.try(&.text = "No Cover")
+      @mpris_art_url = ""
+    end
+
+    private def cache_mpris_cover_art(uri : String, metadata : Hash(String, String), bytes : Bytes) : String
+      extension = case metadata["type"]?
+                  when "image/jpeg", "image/jpg"
+                    ".jpg"
+                  when "image/png"
+                    ".png"
+                  when "image/gif"
+                    ".gif"
+                  when "image/webp"
+                    ".webp"
+                  else
+                    ".img"
+                  end
+      path = File.join(Dir.tempdir, "mpd-qt6-mpris-cover-#{Process.pid}#{extension}")
+
+      if old_path = @mpris_cover_path
+        File.delete(old_path) if old_path != path && File.exists?(old_path)
+      end
+
+      File.write(path, bytes)
+      @mpris_cover_path = path
+      "file://#{URI.encode_path(path)}"
+    rescue ex
+      Log.debug { "mpris: failed to cache cover art for #{uri}: #{ex.message || ex}" }
+      ""
     end
 
     private def sync_toggle_buttons : Nil

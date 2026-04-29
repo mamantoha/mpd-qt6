@@ -16,6 +16,7 @@ module MPDUI
       property artist : String = ""
       property album : String = ""
       property file : String = ""
+      property art_url : String = ""
       property track_id : Int32? = nil
       property length_us : Int64 = 0_i64
       property position_us : Int64 = 0_i64
@@ -331,6 +332,7 @@ module MPDUI
           write_dict_variant(aw, "xesam:artist", "as") { |vw| vw.write_array("s") { |arr| arr.write_string(state.artist) } } unless state.artist.empty?
           write_dict_variant(aw, "xesam:album", "s") { |vw| vw.write_string(state.album) } unless state.album.empty?
           write_dict_variant(aw, "xesam:url", "s") { |vw| vw.write_string(file_url(state.file)) } unless state.file.empty?
+          write_dict_variant(aw, "mpris:artUrl", "s") { |vw| vw.write_string(state.art_url) } unless state.art_url.empty?
         end
       end
 
@@ -762,6 +764,7 @@ module MPDUI
         state.title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "")
         state.artist = song["Artist"]? || ""
         state.album = song["Album"]? || ""
+        state.art_url = @mpris_art_url
         state.track_id = song["Id"]?.try(&.to_i?)
       end
 
