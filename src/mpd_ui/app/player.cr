@@ -228,9 +228,10 @@ module MPDUI
                     ".webp"
                   else
                     ".img"
-                  end
+      end
       cache_prefix = @mpris_service.try(&.options.cache_prefix) || Settings::APPLICATION
-      path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}#{extension}")
+      cache_key = "#{uri.hash.to_s(16)}-#{bytes.hash.to_s(16)}"
+      path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}-#{cache_key}#{extension}")
 
       if old_path = @mpris_cover_path
         File.delete(old_path) if old_path != path && File.exists?(old_path)
