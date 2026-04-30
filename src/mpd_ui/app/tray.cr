@@ -146,6 +146,7 @@ module MPDUI
 
     private def quit_application : Nil
       @quitting = true
+      @mpris_service.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
     end
