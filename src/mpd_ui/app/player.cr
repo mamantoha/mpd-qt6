@@ -24,6 +24,7 @@ module MPDUI
       end
 
       @event_bridge.volume_changed.connect do |volume|
+        @volume = volume
         update_volume_control(volume)
         sync_mpris_state
       end

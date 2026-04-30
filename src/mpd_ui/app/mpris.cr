@@ -33,10 +33,6 @@ module MPDUI
       service.on_set_volume = ->(volume : Float64) do
         @qt_app.invoke_later do
           percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
-          @volume = percent
-          update_volume_icon(percent)
-          update_volume_label(percent)
-          sync_mpris_state
           mpd_action { |client| client.setvol(percent) }
         end
       end
