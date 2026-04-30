@@ -222,18 +222,20 @@ module MPDUI
     end
 
     private def cache_mpris_cover_art(uri : String, metadata : Hash(String, String), bytes : Bytes) : String
-      extension = case metadata["type"]?
-                  when "image/jpeg", "image/jpg"
-                    ".jpg"
-                  when "image/png"
-                    ".png"
-                  when "image/gif"
-                    ".gif"
-                  when "image/webp"
-                    ".webp"
-                  else
-                    ".img"
-      end
+      extension =
+        case metadata["type"]?
+        when "image/jpeg", "image/jpg"
+          ".jpg"
+        when "image/png"
+          ".png"
+        when "image/gif"
+          ".gif"
+        when "image/webp"
+          ".webp"
+        else
+          ".img"
+        end
+
       cache_prefix = @mpris_service.try(&.options.cache_prefix) || Settings::APPLICATION
       cache_key = "#{uri.hash.to_s(16)}-#{bytes.hash.to_s(16)}"
       path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}-#{cache_key}#{extension}")
