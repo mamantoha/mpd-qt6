@@ -2,6 +2,8 @@ require "socket"
 require "uri"
 
 module MPRIS
+  Log = ::Log.for("mpris")
+
   OBJECT     = "/org/mpris/MediaPlayer2"
   ROOT_IFACE = "org.mpris.MediaPlayer2"
   PLAYER     = "org.mpris.MediaPlayer2.Player"
@@ -87,7 +89,7 @@ module MPRIS
       Thread.new do
         run
       rescue ex
-        Log.warn { "mpris: #{ex.message || ex}" }
+        Log.warn { ex.message || ex.to_s }
         @running.set(false)
       end
     end
@@ -102,7 +104,7 @@ module MPRIS
       @mutex.synchronize { @state = state }
       emit_player_properties_changed
     rescue ex
-      Log.debug { "mpris: failed to emit state change: #{ex.message || ex}" }
+      Log.debug { "failed to emit state change: #{ex.message || ex}" }
     end
 
     # Opens the session bus, publishes this service as an MPRIS player, and
@@ -110,7 +112,7 @@ module MPRIS
     private def run : Nil
       address = ENV["DBUS_SESSION_BUS_ADDRESS"]?
       unless address
-        Log.info { "mpris: DBUS_SESSION_BUS_ADDRESS is not set" }
+        Log.info { "DBUS_SESSION_BUS_ADDRESS is not set" }
         return
       end
 
@@ -239,7 +241,7 @@ module MPRIS
         handle_player(message)
       end
     rescue ex
-      Log.debug { "mpris: failed to handle #{message.interface}.#{message.member}: #{ex.message || ex}" }
+      Log.debug { "failed to handle #{message.interface}.#{message.member}: #{ex.message || ex}" }
     end
 
     # Implements org.freedesktop.DBus.Properties so clients can read MPRIS
