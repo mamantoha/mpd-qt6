@@ -3,6 +3,7 @@ module MPDUI
     include FormatHelpers
     include AppTray
     include AppMPDConnection
+    include AppMPRIS
     include AppAboutDialog
     include AppPlayer
     include AppQueue
@@ -68,6 +69,7 @@ module MPDUI
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
+    @mpris_service : MPRIS::Service?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
@@ -87,6 +89,9 @@ module MPDUI
     @syncing_volume : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
+    @mpris_song : Hash(String, String)?
+    @mpris_art_url : String = ""
+    @mpris_cover_path : String?
     @quitting : Bool = false
     @tray_message_shown : Bool = false
 
@@ -100,6 +105,7 @@ module MPDUI
 
     def run : Nil
       build_ui
+      setup_mpris
       connect
       @window.try(&.show)
       exit(@qt_app.run)
@@ -307,8 +313,20 @@ module MPDUI
           prev_button.on_clicked { mpd_action { |c| c.previous } }
           play_pause_button.on_clicked { toggle_play_pause }
           next_button.on_clicked { mpd_action { |c| c.next } }
-          shuffle_button.on_toggled { |checked| mpd_action { |c| c.random(checked) } unless @syncing }
-          repeat_button.on_toggled { |checked| mpd_action { |c| c.repeat(checked) } unless @syncing }
+          shuffle_button.on_toggled do |checked|
+            next if @syncing
+
+            @random = checked
+            sync_mpris_state
+            mpd_action { |c| c.random(checked) }
+          end
+          repeat_button.on_toggled do |checked|
+            next if @syncing
+
+            @repeat = checked
+            sync_mpris_state
+            mpd_action { |c| c.repeat(checked) }
+          end
           volume_slider.on_value_changed do |value|
             next if @syncing_volume
 

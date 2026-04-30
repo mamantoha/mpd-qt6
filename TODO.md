@@ -16,6 +16,12 @@ Planning reference for useful missing features and polish ideas.
   - show song details
   - add selected songs to a saved playlist
 - Add MPD output/device control for enabling and disabling outputs.
+- Extract the embedded MPRIS implementation in `src/ext/mpris` into a standalone shard.
+- Add proper repeat-current-track support:
+  - expose MPD `single` mode in the UI
+  - map MPRIS `LoopStatus=Track` to MPD `repeat=true` and `single=true`
+  - map MPRIS `LoopStatus=Playlist` to MPD `repeat=true` and `single=false`
+  - map MPRIS `LoopStatus=None` to MPD `repeat=false` and `single=false`
 
 ## User Workflow
 
