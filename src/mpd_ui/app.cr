@@ -218,7 +218,6 @@ module MPDUI
             next if @syncing_progress || @duration <= 0
             @dragging_progress = true
             target = @duration * value / 1000.0
-            @elapsed = target
             @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
           end
 
@@ -226,8 +225,6 @@ module MPDUI
             next if @syncing_progress || @duration <= 0
             @dragging_progress = false
             target = @duration * progress_slider.value / 1000.0
-            @elapsed = target
-            update_progress
             mpd_action { |c| c.seekcur(target.to_i) }
           end
 
@@ -327,9 +324,6 @@ module MPDUI
           volume_slider.on_value_changed do |value|
             next if @syncing_volume
 
-            @volume = value
-            update_volume_icon(value)
-            update_volume_label(value)
             mpd_action { |c| c.setvol(value) }
           end
 
