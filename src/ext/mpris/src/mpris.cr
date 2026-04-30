@@ -36,8 +36,8 @@ module MPRIS
     property length_us : Int64 = 0_i64
     property position_us : Int64 = 0_i64
     property volume : Float64 = 1.0
-    property shuffle : Bool = false
-    property repeat : Bool = false
+    property? shuffle : Bool = false
+    property? repeat : Bool = false
   end
 
   alias Command = Proc(Nil)
@@ -386,9 +386,9 @@ module MPRIS
       state = @mutex.synchronize { @state }
       [
         {"PlaybackStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.playback_status) } }},
-        {"LoopStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.repeat ? "Playlist" : "None") } }},
+        {"LoopStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.repeat? ? "Playlist" : "None") } }},
         {"Rate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
-        {"Shuffle", ->(w : Writer) { w.write_variant("b", &.write_bool(state.shuffle)) }},
+        {"Shuffle", ->(w : Writer) { w.write_variant("b", &.write_bool(state.shuffle?)) }},
         {"Metadata", ->(w : Writer) { w.write_variant("a{sv}") { |vw| write_metadata(vw, state) } }},
         {"Volume", ->(w : Writer) { w.write_variant("d", &.write_f64(state.volume)) }},
         {"Position", ->(w : Writer) { w.write_variant("x", &.write_i64(state.position_us)) }},
