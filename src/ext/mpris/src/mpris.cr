@@ -71,6 +71,15 @@ module MPRIS
       def initialize(@options : Options)
       end
 
+      def initialize(app_id : String, identity : String, desktop_entry : String = app_id, cache_prefix : String = app_id)
+        initialize(Options.new(
+          app_id: app_id,
+          identity: identity,
+          desktop_entry: desktop_entry,
+          cache_prefix: cache_prefix
+        ))
+      end
+
       def start : Nil
         return if @running.get
 

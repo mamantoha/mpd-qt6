@@ -1,12 +1,12 @@
 module MPDUI
   module AppMPRIS
     private def setup_mpris : Nil
-      service = MPRIS::Service.new(MPRIS::Options.new(
+      service = MPRIS::Service.new(
         app_id: Settings::APPLICATION,
         identity: App::WINDOW_TITLE,
         desktop_entry: Settings::APPLICATION,
         cache_prefix: Settings::APPLICATION
-      ))
+      )
       service.on_raise = ->{ @qt_app.invoke_later { show_main_window } }
       service.on_quit = ->{ @qt_app.invoke_later { quit_application } }
       service.on_play = ->{ @qt_app.invoke_later { mpd_action { |client| client.play } } }

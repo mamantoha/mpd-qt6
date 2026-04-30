@@ -52,11 +52,9 @@ player = MyPlayerBackend.new
 # The service owns the DBus/MPRIS connection. These options decide how desktop
 # clients discover and display your player.
 service = MPRIS::Service.new(
-  MPRIS::Options.new(
-    app_id: "my-player",
-    identity: "My Player",
-    desktop_entry: "my-player"
-  )
+  app_id: "my-player",
+  identity: "My Player",
+  desktop_entry: "my-player"
 )
 
 # Desktop -> player:
