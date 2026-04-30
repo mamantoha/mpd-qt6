@@ -317,15 +317,11 @@ module MPDUI
           shuffle_button.on_toggled do |checked|
             next if @syncing
 
-            @random = checked
-            sync_mpris_state
             mpd_action { |c| c.random(checked) }
           end
           repeat_button.on_toggled do |checked|
             next if @syncing
 
-            @repeat = checked
-            sync_mpris_state
             mpd_action { |c| c.repeat(checked) }
           end
           volume_slider.on_value_changed do |value|

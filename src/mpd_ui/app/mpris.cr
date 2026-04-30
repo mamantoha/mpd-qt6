@@ -42,9 +42,6 @@ module MPDUI
       end
       service.on_set_shuffle = ->(enabled : Bool) do
         @qt_app.invoke_later do
-          @random = enabled
-          sync_toggle_buttons
-          sync_mpris_state
           mpd_action { |client| client.random(enabled) }
         end
       end
@@ -60,9 +57,6 @@ module MPDUI
                     else
                       false
                     end
-          @repeat = enabled
-          sync_toggle_buttons
-          sync_mpris_state
           mpd_action { |client| client.repeat(enabled) }
         end
       end
