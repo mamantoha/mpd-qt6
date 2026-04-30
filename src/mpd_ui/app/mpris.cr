@@ -72,6 +72,14 @@ module MPDUI
       sync_mpris_state(nil)
     end
 
+    private def sync_mpris_position : Nil
+      second = @elapsed.floor.to_i64
+      return if @mpris_last_position_second == second
+
+      @mpris_last_position_second = second
+      sync_mpris_state
+    end
+
     private def sync_mpris_state(song : Hash(String, String)? = nil) : Nil
       service = @mpris_service
       return unless service
@@ -89,6 +97,7 @@ module MPDUI
                                 "Stopped"
                               end
       state.position_us = (@elapsed * 1_000_000).round.to_i64
+      @mpris_last_position_second = @elapsed.floor.to_i64
       state.length_us = (@duration * 1_000_000).round.to_i64
       state.volume = @volume ? (@volume.not_nil!.clamp(0, 100) / 100.0) : 1.0
       state.shuffle = @random

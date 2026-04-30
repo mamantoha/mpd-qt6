@@ -8,6 +8,7 @@ module MPDUI
       @event_bridge.progress_requested.connect do |elapsed|
         @elapsed = elapsed
         update_progress
+        sync_mpris_position
       end
 
       @event_bridge.random_changed.connect do |enabled|

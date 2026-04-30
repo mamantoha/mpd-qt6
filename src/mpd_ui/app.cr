@@ -92,6 +92,7 @@ module MPDUI
     @mpris_song : Hash(String, String)?
     @mpris_art_url : String = ""
     @mpris_cover_path : String?
+    @mpris_last_position_second : Int64? = nil
     @quitting : Bool = false
     @tray_message_shown : Bool = false
 
