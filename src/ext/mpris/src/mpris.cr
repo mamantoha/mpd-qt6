@@ -36,8 +36,8 @@ module MPRIS
     property length_us : Int64 = 0_i64
     property position_us : Int64 = 0_i64
     property volume : Float64 = 1.0
-    property shuffle : Bool = false
-    property repeat : Bool = false
+    property? shuffle : Bool = false
+    property? repeat : Bool = false
   end
 
   alias Command = Proc(Nil)
@@ -155,7 +155,7 @@ module MPRIS
       # binary messages are allowed. EXTERNAL uses the current Unix uid,
       # encoded as hex ASCII, after an initial NUL byte.
       uid = LibC.getuid.to_s
-      hex_uid = uid.bytes.map { |byte| byte.to_s(16).rjust(2, '0') }.join
+      hex_uid = uid.bytes.map(&.to_s(16).rjust(2, '0')).join
       socket.write_byte(0_u8)
       socket << "AUTH EXTERNAL #{hex_uid}\r\n"
       line = socket.gets("\r\n") || ""
@@ -232,7 +232,7 @@ module MPRIS
 
       case message.interface
       when INTROSPECT
-        reply(message, Writer.build { |w| w.write_string(introspection_xml) }, "s") if message.member == "Introspect"
+        reply(message, Writer.build(&.write_string(introspection_xml)), "s") if message.member == "Introspect"
       when PROPERTIES
         handle_properties(message)
       when ROOT_IFACE
@@ -366,18 +366,18 @@ module MPRIS
       if entry
         entry[1].call(w)
       else
-        w.write_variant("s") { |vw| vw.write_string("") }
+        w.write_variant("s", &.write_string(""))
       end
     end
 
     private def root_properties
       [
-        {"CanQuit", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
-        {"CanRaise", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
-        {"HasTrackList", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(false) } }},
+        {"CanQuit", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
+        {"CanRaise", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
+        {"HasTrackList", ->(w : Writer) { w.write_variant("b", &.write_bool(false)) }},
         {"Identity", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(@options.identity) } }},
         {"DesktopEntry", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(@options.desktop_entry) } }},
-        {"SupportedUriSchemes", ->(w : Writer) { w.write_variant("as") { |vw| vw.write_array("s") { |aw| aw.write_string("file") } } }},
+        {"SupportedUriSchemes", ->(w : Writer) { w.write_variant("as") { |vw| vw.write_array("s", &.write_string("file")) } }},
         {"SupportedMimeTypes", ->(w : Writer) { w.write_variant("as") { |vw| vw.write_array("s") { |_aw| } } }},
       ]
     end
@@ -386,20 +386,20 @@ module MPRIS
       state = @mutex.synchronize { @state }
       [
         {"PlaybackStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.playback_status) } }},
-        {"LoopStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.repeat ? "Playlist" : "None") } }},
-        {"Rate", ->(w : Writer) { w.write_variant("d") { |vw| vw.write_f64(1.0) } }},
-        {"Shuffle", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(state.shuffle) } }},
+        {"LoopStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.repeat? ? "Playlist" : "None") } }},
+        {"Rate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
+        {"Shuffle", ->(w : Writer) { w.write_variant("b", &.write_bool(state.shuffle?)) }},
         {"Metadata", ->(w : Writer) { w.write_variant("a{sv}") { |vw| write_metadata(vw, state) } }},
-        {"Volume", ->(w : Writer) { w.write_variant("d") { |vw| vw.write_f64(state.volume) } }},
-        {"Position", ->(w : Writer) { w.write_variant("x") { |vw| vw.write_i64(state.position_us) } }},
-        {"MinimumRate", ->(w : Writer) { w.write_variant("d") { |vw| vw.write_f64(1.0) } }},
-        {"MaximumRate", ->(w : Writer) { w.write_variant("d") { |vw| vw.write_f64(1.0) } }},
-        {"CanGoNext", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
-        {"CanGoPrevious", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
-        {"CanPlay", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
-        {"CanPause", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
+        {"Volume", ->(w : Writer) { w.write_variant("d", &.write_f64(state.volume)) }},
+        {"Position", ->(w : Writer) { w.write_variant("x", &.write_i64(state.position_us)) }},
+        {"MinimumRate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
+        {"MaximumRate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
+        {"CanGoNext", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
+        {"CanGoPrevious", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
+        {"CanPlay", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
+        {"CanPause", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
         {"CanSeek", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(state.length_us > 0) } }},
-        {"CanControl", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(true) } }},
+        {"CanControl", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
       ]
     end
 
@@ -410,7 +410,7 @@ module MPRIS
         write_dict_variant(aw, "mpris:trackid", "o") { |vw| vw.write_object_path(track_path(state.track_id)) }
         write_dict_variant(aw, "mpris:length", "x") { |vw| vw.write_i64(state.length_us) } if state.length_us > 0
         write_dict_variant(aw, "xesam:title", "s") { |vw| vw.write_string(state.title) } unless state.title.empty?
-        write_dict_variant(aw, "xesam:artist", "as") { |vw| vw.write_array("s") { |arr| arr.write_string(state.artist) } } unless state.artist.empty?
+        write_dict_variant(aw, "xesam:artist", "as") { |vw| vw.write_array("s", &.write_string(state.artist)) } unless state.artist.empty?
         write_dict_variant(aw, "xesam:album", "s") { |vw| vw.write_string(state.album) } unless state.album.empty?
         write_dict_variant(aw, "xesam:url", "s") { |vw| vw.write_string(file_url(state.file)) } unless state.file.empty?
         write_dict_variant(aw, "mpris:artUrl", "s") { |vw| vw.write_string(state.art_url) } unless state.art_url.empty?
