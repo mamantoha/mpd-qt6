@@ -7,14 +7,14 @@ module MPDUI
         desktop_entry: Settings::APPLICATION,
         cache_prefix: Settings::APPLICATION
       )
-      service.on_raise = ->{ @qt_app.invoke_later { show_main_window } }
-      service.on_quit = ->{ @qt_app.invoke_later { quit_application } }
-      service.on_play = ->{ @qt_app.invoke_later { mpd_action { |client| client.play } } }
-      service.on_pause = ->{ @qt_app.invoke_later { mpd_action { |client| client.pause(true) } } }
-      service.on_play_pause = ->{ @qt_app.invoke_later { toggle_play_pause } }
-      service.on_stop = ->{ @qt_app.invoke_later { mpd_action { |client| client.stop } } }
-      service.on_next = ->{ @qt_app.invoke_later { mpd_action { |client| client.next } } }
-      service.on_previous = ->{ @qt_app.invoke_later { mpd_action { |client| client.previous } } }
+      service.on_raise = -> { @qt_app.invoke_later { show_main_window } }
+      service.on_quit = -> { @qt_app.invoke_later { quit_application } }
+      service.on_play = -> { @qt_app.invoke_later { mpd_action { |client| client.play } } }
+      service.on_pause = -> { @qt_app.invoke_later { mpd_action { |client| client.pause(true) } } }
+      service.on_play_pause = -> { @qt_app.invoke_later { toggle_play_pause } }
+      service.on_stop = -> { @qt_app.invoke_later { mpd_action { |client| client.stop } } }
+      service.on_next = -> { @qt_app.invoke_later { mpd_action { |client| client.next } } }
+      service.on_previous = -> { @qt_app.invoke_later { mpd_action { |client| client.previous } } }
       service.on_seek = ->(offset_us : Int64) do
         @qt_app.invoke_later do
           seconds = offset_us / 1_000_000
