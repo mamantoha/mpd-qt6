@@ -606,7 +606,6 @@ module MPDUI
 
     private def setup_progress_tooltip(slider : Qt6::Slider) : Nil
       slider.mouse_tracking = true
-      configure_progress_tooltip_style
 
       filter = Qt6::EventFilter.new(slider)
       filter.on_event do |_watched, event|
@@ -625,19 +624,6 @@ module MPDUI
 
       slider.install_event_filter(filter)
       @progress_tooltip_filter = filter
-    end
-
-    private def configure_progress_tooltip_style : Nil
-      font = Qt6::ToolTip.font
-      font.point_size = 9
-      font.bold = false
-      font.italic = true
-      Qt6::ToolTip.font = font
-
-      palette = Qt6::ToolTip.palette
-      palette.set_color(Qt6::ColorRole::ToolTipBase, Qt6::Color.new(28, 34, 42))
-      palette.set_color(Qt6::ColorRole::ToolTipText, Qt6::Color.new(245, 248, 252))
-      Qt6::ToolTip.palette = palette
     end
 
     private def show_progress_tooltip(slider : Qt6::Slider, position : Qt6::PointF, seconds : Float64? = nil) : Nil
