@@ -61,6 +61,7 @@ module MPDUI
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
     @queue_drop_filter : Qt6::EventFilter?
+    @progress_tooltip_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
     @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
@@ -207,6 +208,7 @@ module MPDUI
           progress_slider.value = 0
           progress_slider.minimum_width = 320
           progress_slider.click_to_position = true
+          setup_progress_tooltip(progress_slider)
 
           time_label = Qt6::Label.new("0:00 / 0:00")
 
@@ -219,11 +221,13 @@ module MPDUI
             @dragging_progress = true
             target = @duration * value / 1000.0
             @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
+            show_progress_tooltip(progress_slider, slider_position_for_value(progress_slider, value), target)
           end
 
           progress_slider.on_released do
             next if @syncing_progress || @duration <= 0
             @dragging_progress = false
+            Qt6::ToolTip.hide_text
             target = @duration * progress_slider.value / 1000.0
             mpd_action { |c| c.seekcur(target.to_i) }
           end
@@ -598,6 +602,65 @@ module MPDUI
       return unless parent
 
       connect if SettingsDialog.edit(parent, @settings)
+    end
+
+    private def setup_progress_tooltip(slider : Qt6::Slider) : Nil
+      slider.mouse_tracking = true
+      configure_progress_tooltip_style
+
+      filter = Qt6::EventFilter.new(slider)
+      filter.on_event do |_watched, event|
+        case event.type
+        when Qt6::EventType::MouseMove
+          show_progress_tooltip(slider, event.mouse_event.position)
+          false
+        when Qt6::EventType::Leave
+          slider.tool_tip = ""
+          Qt6::ToolTip.hide_text
+          false
+        else
+          false
+        end
+      end
+
+      slider.install_event_filter(filter)
+      @progress_tooltip_filter = filter
+    end
+
+    private def configure_progress_tooltip_style : Nil
+      font = Qt6::ToolTip.font
+      font.point_size = 9
+      font.bold = false
+      font.italic = true
+      Qt6::ToolTip.font = font
+
+      palette = Qt6::ToolTip.palette
+      palette.set_color(Qt6::ColorRole::ToolTipBase, Qt6::Color.new(28, 34, 42))
+      palette.set_color(Qt6::ColorRole::ToolTipText, Qt6::Color.new(245, 248, 252))
+      Qt6::ToolTip.palette = palette
+    end
+
+    private def show_progress_tooltip(slider : Qt6::Slider, position : Qt6::PointF, seconds : Float64? = nil) : Nil
+      if @duration <= 0
+        slider.tool_tip = ""
+        Qt6::ToolTip.hide_text
+        return
+      end
+
+      width = slider.size.width
+      return if width <= 0
+
+      x = position.x.clamp(0.0, width.to_f64)
+      target = seconds || (@duration * x / width)
+      text = format_time(target)
+      slider.tool_tip = text
+      Qt6::ToolTip.show_text(slider, Qt6::PointF.new(x, 0.0), text)
+    end
+
+    private def slider_position_for_value(slider : Qt6::Slider, value : Int32) : Qt6::PointF
+      width = slider.size.width
+      x = width > 0 ? (width * value / 1000.0).clamp(0.0, width.to_f64) : 0.0
+      Qt6::PointF.new(x, 0.0)
     end
 
     private def set_status(message : String) : Nil
