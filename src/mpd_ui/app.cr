@@ -127,10 +127,9 @@ module MPDUI
         column.set_contents_margins(8, 8, 8, 8)
 
         cover_label = Qt6::Label.new("No Cover")
-        cover_label.set_fixed_size(160, 160)
+        cover_label.set_fixed_size(84, 84)
         cover_label.scaled_contents = false
         cover_label.alignment = Qt6::AlignmentFlag::Center
-        cover_label.style_sheet = "background: #222; border: 1px solid #444;"
         cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
 
         options_button = Qt6::PushButton.new("...")
@@ -170,26 +169,8 @@ module MPDUI
         end
         options_button.menu = options_menu
 
-        options_panel = Qt6::Widget.new(central)
-        options_panel.fixed_height = 160
-        options_panel.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
-        options_panel.vbox do |options_column|
-          options_column.set_contents_margins(0, 0, 0, 0)
-          options_column << options_button
-          options_column.add_stretch
-        end
-
-        top_row = Qt6::Widget.new(central)
-        top_row.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
-        top_row.hbox do |row|
-          row.set_contents_margins(0, 0, 0, 0)
-          row << cover_label
-          row.add_stretch
-          row << options_panel
-        end
-
         title_label = Qt6::Label.new("Connecting...")
-        title_label.style_sheet = "font-size: 18px; font-weight: bold;"
+        title_label.style_sheet = "font-size: 16px; font-weight: bold;"
         title_label.word_wrap = true
         title_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
 
@@ -353,6 +334,52 @@ module MPDUI
           @stop_icon = stop_icon
         end
 
+        metadata_panel = Qt6::Widget.new(central)
+        metadata_panel.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
+        metadata_panel.vbox do |metadata_column|
+          metadata_column.spacing = 2
+          metadata_column.set_contents_margins(0, 0, 0, 0)
+          metadata_column << title_label
+          metadata_column << subtitle_label
+          metadata_column << progress
+        end
+
+        now_playing = Qt6::Widget.new(central)
+        now_playing.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        now_playing.hbox do |row|
+          row.spacing = 10
+          row.set_contents_margins(0, 0, 0, 0)
+          row << cover_label
+          row << metadata_panel
+        end
+
+        options_panel = Qt6::Widget.new(central)
+        options_panel.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Preferred)
+        options_panel.vbox do |options_column|
+          options_column.set_contents_margins(0, 0, 0, 0)
+          options_column << options_button
+          options_column.add_stretch
+        end
+
+        header_body = Qt6::Widget.new(central)
+        header_body.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        header_body.hbox do |row|
+          row.spacing = 10
+          row.set_contents_margins(0, 0, 0, 0)
+          row << now_playing
+          row << options_panel
+        end
+
+        playback_header = Qt6::Widget.new(central)
+        playback_header.fixed_height = 138
+        playback_header.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        playback_header.vbox do |header_column|
+          header_column.spacing = 8
+          header_column.set_contents_margins(8, 8, 8, 8)
+          header_column << header_body
+          header_column << controls
+        end
+
         setup_system_tray(window)
         playlist_table = build_playlist(central)
         setup_queue_drop_target(playlist_table)
@@ -389,11 +416,7 @@ module MPDUI
 
         ensure_database_loaded
 
-        column << top_row
-        column << title_label
-        column << subtitle_label
-        column << progress
-        column << controls
+        column << playback_header
         column << browsers
         column << compact_spacer
 
