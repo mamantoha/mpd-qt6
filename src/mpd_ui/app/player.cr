@@ -199,12 +199,9 @@ module MPDUI
           clear_cover_art
         else
           @mpris_art_url = cache_mpris_cover_art(uri, _meta, bytes)
-          cover_size = @cover_label.try(&.size)
-          cover_width = cover_size.try(&.width) || 84
-          cover_height = cover_size.try(&.height) || 84
           scaled = pixmap.scaled(
-            cover_width > 0 ? cover_width : 84,
-            cover_height > 0 ? cover_height : 84,
+            App::COVER_ART_SIZE,
+            App::COVER_ART_SIZE,
             Qt6::AspectRatioMode::Keep,
             Qt6::TransformationMode::Smooth
           )

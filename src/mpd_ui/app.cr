@@ -10,6 +10,8 @@ module MPDUI
     include AppDatabase
 
     WINDOW_TITLE = "Crystal MPD"
+    COVER_ART_SIZE = 84
+    PLAYBACK_CONTROLS_HEIGHT = 56
 
     @settings : Settings
     @qt_app : Qt6::Application
@@ -127,7 +129,7 @@ module MPDUI
         column.set_contents_margins(8, 8, 8, 8)
 
         cover_label = Qt6::Label.new("No Cover")
-        cover_label.set_fixed_size(84, 84)
+        cover_label.set_fixed_size(COVER_ART_SIZE, COVER_ART_SIZE)
         cover_label.scaled_contents = false
         cover_label.alignment = Qt6::AlignmentFlag::Center
         cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
@@ -221,6 +223,7 @@ module MPDUI
         end
 
         controls = Qt6::Widget.new(central)
+        controls.fixed_height = PLAYBACK_CONTROLS_HEIGHT
         controls.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         controls.hbox do |row|
           row.spacing = 6
@@ -345,6 +348,7 @@ module MPDUI
         end
 
         now_playing = Qt6::Widget.new(central)
+        now_playing.fixed_height = COVER_ART_SIZE
         now_playing.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         now_playing.hbox do |row|
           row.spacing = 10
@@ -362,6 +366,7 @@ module MPDUI
         end
 
         header_body = Qt6::Widget.new(central)
+        header_body.fixed_height = COVER_ART_SIZE
         header_body.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         header_body.hbox do |row|
           row.spacing = 10
@@ -371,7 +376,7 @@ module MPDUI
         end
 
         playback_header = Qt6::Widget.new(central)
-        playback_header.fixed_height = 138
+        playback_header.fixed_height = COVER_ART_SIZE + PLAYBACK_CONTROLS_HEIGHT + 32
         playback_header.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
         playback_header.vbox do |header_column|
           header_column.spacing = 8
