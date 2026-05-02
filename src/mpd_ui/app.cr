@@ -11,6 +11,7 @@ module MPDUI
 
     WINDOW_TITLE = "Crystal MPD"
     COVER_ART_SIZE = 84
+    PROGRESS_ROW_HEIGHT = 24
     PLAYBACK_CONTROLS_HEIGHT = 56
 
     @settings : Settings
@@ -181,7 +182,8 @@ module MPDUI
         subtitle_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
 
         progress = Qt6::Widget.new(central)
-        progress.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        progress.fixed_height = PROGRESS_ROW_HEIGHT
+        progress.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
         progress.hbox do |row|
           row.spacing = 6
           row.set_contents_margins(0, 0, 0, 0)
@@ -190,10 +192,12 @@ module MPDUI
           progress_slider.set_range(0, 1000)
           progress_slider.value = 0
           progress_slider.minimum_width = 320
+          progress_slider.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
           progress_slider.click_to_position = true
           setup_progress_tooltip(progress_slider)
 
           time_label = Qt6::Label.new("0:00 / 0:00")
+          time_label.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
 
           progress_slider.on_pressed do
             @dragging_progress = true
@@ -344,12 +348,11 @@ module MPDUI
           metadata_column.set_contents_margins(0, 0, 0, 0)
           metadata_column << title_label
           metadata_column << subtitle_label
-          metadata_column << progress
         end
 
         now_playing = Qt6::Widget.new(central)
         now_playing.fixed_height = COVER_ART_SIZE
-        now_playing.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        now_playing.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
         now_playing.hbox do |row|
           row.spacing = 10
           row.set_contents_margins(0, 0, 0, 0)
@@ -367,7 +370,7 @@ module MPDUI
 
         header_body = Qt6::Widget.new(central)
         header_body.fixed_height = COVER_ART_SIZE
-        header_body.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        header_body.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
         header_body.hbox do |row|
           row.spacing = 10
           row.set_contents_margins(0, 0, 0, 0)
@@ -376,12 +379,12 @@ module MPDUI
         end
 
         playback_header = Qt6::Widget.new(central)
-        playback_header.fixed_height = COVER_ART_SIZE + PLAYBACK_CONTROLS_HEIGHT + 32
-        playback_header.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        playback_header.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
         playback_header.vbox do |header_column|
           header_column.spacing = 8
           header_column.set_contents_margins(8, 8, 8, 8)
           header_column << header_body
+          header_column << progress
           header_column << controls
         end
 
