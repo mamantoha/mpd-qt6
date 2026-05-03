@@ -199,6 +199,7 @@ module MPDUI
           clear_cover_art
         else
           @mpris_art_url = cache_mpris_cover_art(uri, _meta, bytes)
+          @cover_label.try(&.tool_tip = cover_art_tooltip(@mpris_art_url, pixmap))
           scaled = pixmap.scaled(
             App::COVER_ART_SIZE,
             App::COVER_ART_SIZE,
@@ -218,7 +219,23 @@ module MPDUI
     private def clear_cover_art : Nil
       @cover_label.try(&.pixmap = nil)
       @cover_label.try(&.text = "No Cover")
+      @cover_label.try(&.tool_tip = "")
       @mpris_art_url = ""
+    end
+
+    private def cover_art_tooltip(url : String, pixmap : Qt6::QPixmap) : String
+      return "" if url.empty? || pixmap.null?
+
+      max_size = 720
+      width = pixmap.width
+      height = pixmap.height
+      if width > max_size || height > max_size
+        scale = {max_size.to_f / width, max_size.to_f / height}.min
+        width = (width * scale).round.to_i
+        height = (height * scale).round.to_i
+      end
+
+      %(<img src="#{url}" width="#{width}" height="#{height}">)
     end
 
     private def cache_mpris_cover_art(uri : String, metadata : Hash(String, String), bytes : Bytes) : String
