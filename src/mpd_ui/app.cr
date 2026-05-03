@@ -350,16 +350,6 @@ module MPDUI
           metadata_column << subtitle_label
         end
 
-        now_playing = Qt6::Widget.new(central)
-        now_playing.fixed_height = COVER_ART_SIZE
-        now_playing.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
-        now_playing.hbox do |row|
-          row.spacing = 10
-          row.set_contents_margins(0, 0, 0, 0)
-          row << cover_label
-          row << metadata_panel
-        end
-
         options_panel = Qt6::Widget.new(central)
         options_panel.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Preferred)
         options_panel.vbox do |options_column|
@@ -371,11 +361,13 @@ module MPDUI
         header_body = Qt6::Widget.new(central)
         header_body.fixed_height = COVER_ART_SIZE
         header_body.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
-        header_body.hbox do |row|
-          row.spacing = 10
-          row.set_contents_margins(0, 0, 0, 0)
-          row << now_playing
-          row << options_panel
+        header_body.grid do |grid|
+          grid.spacing = 10
+          grid.set_contents_margins(0, 0, 0, 0)
+          grid.add(cover_label, 0, 0, 2, 1)
+          grid.add(metadata_panel, 0, 1)
+          grid.add(options_panel, 0, 2)
+          grid.add(progress, 1, 1, 1, 2)
         end
 
         playback_header = Qt6::Widget.new(central)
@@ -384,7 +376,6 @@ module MPDUI
           header_column.spacing = 8
           header_column.set_contents_margins(8, 8, 8, 8)
           header_column << header_body
-          header_column << progress
           header_column << controls
         end
 
