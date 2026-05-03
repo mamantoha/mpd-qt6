@@ -59,8 +59,13 @@ module MPDUI
       previous_song_pos = @current_song_pos
       @state = state
       @current_song_pos = status["song"]?.try(&.to_i?)
-      @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
-      @duration = status["duration"]?.try(&.to_f?) || @duration
+      if state == "stop"
+        @elapsed = 0.0
+        @duration = 0.0
+      else
+        @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
+        @duration = status["duration"]?.try(&.to_f?) || @duration
+      end
       @random = status["random"]? == "1"
       @repeat = status["repeat"]? == "1"
       @volume = status["volume"]?.try(&.to_i?)
@@ -70,6 +75,7 @@ module MPDUI
           button.icon = icon
         end
       end
+      sync_playback_controls
       sync_toggle_buttons
       update_volume_control(@volume)
       update_progress
@@ -124,6 +130,14 @@ module MPDUI
       slider.value = pct
       @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
       @syncing_progress = false
+    end
+
+    private def sync_playback_controls : Nil
+      enabled = @state != "stop"
+      @previous_button.try(&.enabled = enabled)
+      @play_pause_button.try(&.enabled = enabled)
+      @next_button.try(&.enabled = enabled)
+      @progress_slider.try(&.enabled = enabled)
     end
 
     private def update_volume_control(volume : Int32?) : Nil

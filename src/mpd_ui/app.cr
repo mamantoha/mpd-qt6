@@ -22,7 +22,9 @@ module MPDUI
     @subtitle_label : Qt6::Label?
     @status_bar : Qt6::StatusBar?
     @time_label : Qt6::Label?
+    @previous_button : Qt6::PushButton?
     @play_pause_button : Qt6::PushButton?
+    @next_button : Qt6::PushButton?
     @shuffle_button : Qt6::PushButton?
     @repeat_button : Qt6::PushButton?
     @progress_slider : Qt6::Slider?
@@ -347,7 +349,9 @@ module MPDUI
           row << volume_button
           row.add_stretch
 
+          @previous_button = prev_button
           @play_pause_button = play_pause_button
+          @next_button = next_button
           @shuffle_button = shuffle_button
           @repeat_button = repeat_button
           @volume_button = volume_button
@@ -469,6 +473,7 @@ module MPDUI
         @compact_spacer = compact_spacer
         @database_panel = database_panel
         @playlist_table = playlist_table
+        sync_playback_controls
       end
 
       window.central_widget = central
