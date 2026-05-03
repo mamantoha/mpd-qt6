@@ -200,6 +200,7 @@ module MPDUI
         else
           @mpris_art_url = cache_mpris_cover_art(uri, _meta, bytes)
           @cover_label.try(&.tool_tip = cover_art_tooltip(@mpris_art_url, pixmap))
+          apply_cover_background(pixmap)
           scaled = pixmap.scaled(
             App::COVER_ART_SIZE,
             App::COVER_ART_SIZE,
@@ -221,6 +222,7 @@ module MPDUI
       @cover_label.try(&.text = "No Cover")
       @cover_label.try(&.tool_tip = "")
       @mpris_art_url = ""
+      reset_cover_background
     end
 
     private def cover_art_tooltip(url : String, pixmap : Qt6::QPixmap) : String
@@ -236,6 +238,39 @@ module MPDUI
       end
 
       %(<img src="#{url}" width="#{width}" height="#{height}">)
+    end
+
+    private def apply_cover_background(pixmap : Qt6::QPixmap) : Nil
+      return reset_cover_background if pixmap.null?
+
+      width = 960
+      height = 260
+      scaled = pixmap.scaled(width, height, Qt6::AspectRatioMode::KeepByExpanding, Qt6::TransformationMode::Smooth)
+      background = Qt6::QPixmap.new(width, height)
+      background.fill(Qt6::Color.new(0, 0, 0, 0))
+      Qt6::QPainter.paint(background) do |painter|
+        painter.draw_pixmap(Qt6::RectF.new(0, 0, width, height), scaled)
+        painter.fill_rect(Qt6::RectF.new(0, 0, width, height), Qt6::Color.new(0, 0, 0, 96))
+      end
+
+      @playback_header.try(&.style_sheet = "")
+      @playback_header_background.try do |label|
+        @playback_header.try do |header|
+          size = header.size
+          label.resize(size.width, size.height)
+          label.move(0, 0)
+        end
+        label.pixmap = background
+        label.visible = true
+      end
+    end
+
+    private def reset_cover_background : Nil
+      @playback_header.try(&.style_sheet = "")
+      @playback_header_background.try do |label|
+        label.pixmap = nil
+        label.visible = false
+      end
     end
 
     private def cache_mpris_cover_art(uri : String, metadata : Hash(String, String), bytes : Bytes) : String

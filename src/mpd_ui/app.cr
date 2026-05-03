@@ -47,6 +47,8 @@ module MPDUI
     @show_library_action : Qt6::Action?
     @show_main_menu_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
+    @playback_header : Qt6::Widget?
+    @playback_header_background : Qt6::Label?
     @browsers : Qt6::Splitter?
     @compact_spacer : Qt6::Widget?
     @expanded_interface_window_minimum_size : Qt6::Size?
@@ -128,8 +130,8 @@ module MPDUI
 
       central = Qt6::Widget.new(window)
       central.vbox do |column|
-        column.spacing = 6
-        column.set_contents_margins(8, 8, 8, 8)
+        column.spacing = 0
+        column.set_contents_margins(0, 0, 0, 0)
 
         cover_label = Qt6::Label.new("No Cover")
         cover_label.set_fixed_size(COVER_ART_SIZE, COVER_ART_SIZE)
@@ -383,14 +385,34 @@ module MPDUI
           grid.add(progress, 1, 1, 1, 2)
         end
 
-        playback_header = Qt6::Widget.new(central)
+        playback_header = Qt6::EventWidget.new(central)
         playback_header.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
-        playback_header.vbox do |header_column|
+        playback_header_background = Qt6::Label.new("", playback_header)
+        playback_header_background.scaled_contents = true
+        playback_header_background.transparent_for_mouse_events = true
+        playback_header_background.visible = false
+        blur = Qt6::GraphicsBlurEffect.new(playback_header_background)
+        blur.blur_radius = 18
+        playback_header_background.graphics_effect = blur
+
+        playback_header_content = Qt6::Widget.new(playback_header)
+        playback_header_content.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
+        playback_header_content.vbox do |header_column|
           header_column.spacing = 8
           header_column.set_contents_margins(8, 8, 8, 8)
           header_column << header_body
           header_column << controls
         end
+        playback_header.vbox do |header_column|
+          header_column.set_contents_margins(0, 0, 0, 0)
+          header_column << playback_header_content
+        end
+        playback_header.on_resize do |event|
+          playback_header_background.resize(event.size.width, event.size.height)
+          playback_header_background.move(0, 0)
+          playback_header_content.raise_to_front
+        end
+        playback_header_content.raise_to_front
 
         setup_system_tray(window)
         playlist_table = build_playlist(central)
@@ -437,6 +459,8 @@ module MPDUI
         @subtitle_label = subtitle_label
         @options_button = options_button
         @options_menu = options_menu
+        @playback_header = playback_header
+        @playback_header_background = playback_header_background
         @browsers = browsers
         @compact_spacer = compact_spacer
         @database_panel = database_panel
