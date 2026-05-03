@@ -23,7 +23,8 @@ module MPDUI
       tree.model = model
       tree.header_hidden = true
       tree.root_is_decorated = true
-      tree.uniform_row_heights = true
+      tree.uniform_row_heights = false
+      tree.icon_size = Qt6::Size.new(24, 24)
       tree.selection_mode = Qt6::ItemSelectionMode::ExtendedSelection
       tree.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       tree.alternating_row_colors = true
@@ -38,9 +39,12 @@ module MPDUI
           border: 1px solid;
         }
         QTreeView::item {
-          padding: 4px 6px;
+          padding: 2px 6px;
         }
       CSS
+
+      delegate = build_database_item_delegate(tree, model)
+      tree.item_delegate = delegate
 
       tree.on_current_index_changed do
         @playlist_drag_source_row = nil
@@ -77,6 +81,7 @@ module MPDUI
       @database_tree = tree
       @database_context_menu = context_menu
       @database_model = model
+      @database_item_delegate = delegate
       setup_database_drag_source(tree)
       show_database_message("Open the Database tab to load your library")
       container
@@ -129,6 +134,52 @@ module MPDUI
       ensure
         index.release
       end
+    end
+
+    private def build_database_item_delegate(tree : Qt6::TreeView, model : Qt6::StandardItemModel) : Qt6::StyledItemDelegate
+      delegate = Qt6::StyledItemDelegate.new(tree)
+      delegate.on_paint do |painter, option, index|
+        title = index.data(model, Qt6::ItemDataRole::Display).as?(String)
+        subtitle = index.data(model, Qt6::ItemDataRole::StatusTip).as?(String)
+        next false unless title && subtitle && !subtitle.empty?
+
+        option.draw_background(painter)
+        option.draw_decoration(painter)
+
+        rect = option.text_rect
+        title_font = option.font
+        title_font.bold = true
+        subtitle_font = option.font
+        if subtitle_font.point_size > 0
+          subtitle_font.point_size = Math.max(1, (subtitle_font.point_size * 0.86).round.to_i)
+        end
+
+        title_metrics = title_font.metrics
+        subtitle_metrics = subtitle_font.metrics
+        title_height = title_metrics.height
+        subtitle_height = subtitle_metrics.height
+        text_height = title_height + subtitle_height
+        top = rect.y + Math.max(0.0, (rect.height - text_height) / 2.0)
+
+        palette = option.palette
+        title_color = option.selected? ? palette.color(Qt6::ColorRole::HighlightedText) : palette.color(Qt6::ColorRole::Text)
+        subtitle_color = option.selected? ? title_color : palette.color(Qt6::ColorGroup::Disabled, Qt6::ColorRole::Text)
+
+        painter.save
+        painter.font = title_font
+        painter.pen = title_color
+        painter.draw_text(Qt6::RectF.new(rect.x, top, rect.width, title_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, title)
+        painter.font = subtitle_font
+        painter.pen = subtitle_color
+        painter.draw_text(Qt6::RectF.new(rect.x, top + title_height, rect.width, subtitle_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, subtitle)
+        painter.restore
+        true
+      end
+      delegate.on_size_hint do |_option, index|
+        subtitle = index.data(model, Qt6::ItemDataRole::StatusTip).as?(String)
+        subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
+      end
+      delegate
     end
 
     private def add_selected_database_to_queue : Nil
@@ -302,7 +353,7 @@ module MPDUI
       model.set_horizontal_header_label(0, "Database")
 
       if library.empty?
-        model << Qt6::StandardItem.new(filtered ? "No matching songs" : "Database is empty")
+        model << database_item(filtered ? "No matching songs" : "Database is empty")
         return
       end
 
@@ -311,16 +362,17 @@ module MPDUI
       song_icon = themed_icon("audio-x-generic", "music.note.list")
 
       library.keys.sort.each do |artist|
-        artist_item = Qt6::StandardItem.new(artist)
+        artist_albums = library[artist]
+        artist_item = database_item(artist, "#{artist_albums.size} #{artist_albums.size == 1 ? "Album" : "Albums"}")
         artist_item.icon = artist_icon unless artist_icon.null?
 
-        library[artist].keys.sort.each do |album|
-          album_songs = library[artist][album]
-          album_item = Qt6::StandardItem.new("#{album} (#{album_songs.size})")
+        artist_albums.keys.sort.each do |album|
+          album_songs = artist_albums[album]
+          album_item = database_item(album, database_album_summary(album_songs))
           album_item.icon = album_icon unless album_icon.null?
 
           album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
-            song_item = Qt6::StandardItem.new(database_song_label(song))
+            song_item = database_item(database_song_title(song), playlist_duration(song))
             song_item.icon = song_icon unless song_icon.null?
             song_item.set_data(song_tooltip(song), Qt6::ItemDataRole::ToolTip)
             if file = song["file"]?
@@ -336,6 +388,29 @@ module MPDUI
       end
 
       @database_tree.try(&.expand_all) if filtered
+    end
+
+    private def database_item(title : String, subtitle : String? = nil) : Qt6::StandardItem
+      item = Qt6::StandardItem.new(title)
+      item.set_data(subtitle, Qt6::ItemDataRole::StatusTip) if subtitle
+      item
+    end
+
+    private def database_album_summary(songs : Array(Hash(String, String))) : String
+      duration = songs.sum { |song| song["duration"]?.try(&.to_f?) || song["Time"]?.try(&.to_f?) || 0.0 }
+      "#{songs.size} #{songs.size == 1 ? "Track" : "Tracks"}#{duration > 0 ? " (#{format_time(duration)})" : ""}"
+    end
+
+    private def database_song_title(song : Hash(String, String)) : String
+      file = song["file"]?
+      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
+      track = song["Track"]?.try(&.split('/').first)
+
+      if track && !track.empty?
+        "#{track.rjust(2, '0')}. #{title}"
+      else
+        title
+      end
     end
 
     private def themed_icon(*names : String) : Qt6::QIcon

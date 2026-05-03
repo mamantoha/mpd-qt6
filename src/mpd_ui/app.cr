@@ -59,6 +59,7 @@ module MPDUI
     @database_tree : Qt6::TreeView?
     @database_context_menu : Qt6::Menu?
     @database_model : Qt6::StandardItemModel?
+    @database_item_delegate : Qt6::StyledItemDelegate?
     @database_songs : Array(Hash(String, String)) = [] of Hash(String, String)
     @database_loaded : Bool = false
     @database_loading : Bool = false
