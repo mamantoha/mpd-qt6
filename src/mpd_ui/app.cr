@@ -66,6 +66,7 @@ module MPDUI
     @database_drag_filter : Qt6::EventFilter?
     @queue_drop_filter : Qt6::EventFilter?
     @progress_tooltip_filter : Qt6::EventFilter?
+    @cover_click_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
     @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
@@ -135,6 +136,8 @@ module MPDUI
         cover_label.scaled_contents = false
         cover_label.alignment = Qt6::AlignmentFlag::Center
         cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        cover_label.cursor_shape = Qt6::CursorShape::PointingHand
+        setup_cover_art_toggle(cover_label)
 
         options_button = Qt6::PushButton.new("...")
         options_menu = Qt6::Menu.new("Options", options_button)
@@ -584,6 +587,37 @@ module MPDUI
       if @settings.expanded_interface != visible
         @settings.expanded_interface = visible
         @settings.save
+      end
+    end
+
+    private def setup_cover_art_toggle(cover_label : Qt6::Label) : Nil
+      filter = Qt6::EventFilter.new(cover_label)
+      filter.on_event do |_watched, event|
+        case event.type
+        when Qt6::EventType::MouseButtonRelease
+          mouse_event = event.mouse_event
+          if mouse_event.button == 1
+            Qt6::ToolTip.hide_text
+            toggle_expanded_interface
+            true
+          else
+            false
+          end
+        else
+          false
+        end
+      end
+
+      cover_label.install_event_filter(filter)
+      @cover_click_filter = filter
+    end
+
+    private def toggle_expanded_interface : Nil
+      action = @expanded_interface_action
+      if action
+        action.checked = !action.checked?
+      else
+        set_expanded_interface_visible(!@settings.expanded_interface)
       end
     end
 
