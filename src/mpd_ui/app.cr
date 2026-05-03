@@ -46,6 +46,7 @@ module MPDUI
     @expanded_interface_action : Qt6::Action?
     @show_library_action : Qt6::Action?
     @show_main_menu_action : Qt6::Action?
+    @blurred_cover_background_action : Qt6::Action?
     @toggle_window_action : Qt6::Action?
     @playback_header : Qt6::Widget?
     @playback_header_background : Qt6::Label?
@@ -168,6 +169,9 @@ module MPDUI
         end
         if expanded_interface_action = @expanded_interface_action
           options_menu.add_action(expanded_interface_action)
+        end
+        if blurred_cover_background_action = @blurred_cover_background_action
+          options_menu.add_action(blurred_cover_background_action)
         end
         options_menu.add_separator
         if show_main_menu_action = @show_main_menu_action
@@ -493,6 +497,15 @@ module MPDUI
       expanded_interface_action.status_tip = "Show or hide the library and queue panels"
       expanded_interface_action.on_toggled { |checked| set_expanded_interface_visible(checked) }
       app_menu.add_action(expanded_interface_action)
+
+      blurred_cover_background_action = Qt6::Action.new("Blurred Cover Background", window)
+      blurred_cover_icon = Qt6::QIcon.from_theme("image-x-generic")
+      blurred_cover_background_action.icon = blurred_cover_icon unless blurred_cover_icon.null?
+      blurred_cover_background_action.checkable = true
+      blurred_cover_background_action.checked = @settings.blurred_cover_background
+      blurred_cover_background_action.status_tip = "Use album art as a blurred playback header background"
+      blurred_cover_background_action.on_toggled { |checked| set_blurred_cover_background_enabled(checked) }
+      app_menu.add_action(blurred_cover_background_action)
       app_menu.add_separator
 
       show_main_menu_action = Qt6::Action.new("Show Main Menu", window)
@@ -534,6 +547,7 @@ module MPDUI
       window.add_action(quit_action)
       @about_action = about_action
       @expanded_interface_action = expanded_interface_action
+      @blurred_cover_background_action = blurred_cover_background_action
       @show_main_menu_action = show_main_menu_action
       @settings_action = settings_action
 
@@ -611,6 +625,22 @@ module MPDUI
       if @settings.expanded_interface != visible
         @settings.expanded_interface = visible
         @settings.save
+      end
+    end
+
+    private def set_blurred_cover_background_enabled(enabled : Bool) : Nil
+      action = @blurred_cover_background_action
+      action.checked = enabled if action && action.checked? != enabled
+
+      if @settings.blurred_cover_background != enabled
+        @settings.blurred_cover_background = enabled
+        @settings.save
+      end
+
+      if enabled
+        load_cover_art(@current_file) unless @current_file.empty?
+      else
+        reset_cover_background
       end
     end
 

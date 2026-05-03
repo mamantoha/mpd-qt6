@@ -7,12 +7,14 @@ module MPDUI
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"
     SHOW_LIBRARY_KEY       = "ui/show_library"
     SHOW_MAIN_MENU_KEY     = "ui/show_main_menu"
+    BLURRED_COVER_KEY      = "ui/blurred_cover_background"
 
     property host : String
     property port : Int32
     property expanded_interface : Bool
     property show_library : Bool
     property show_main_menu : Bool
+    property blurred_cover_background : Bool
 
     def initialize
       @host = "localhost"
@@ -20,6 +22,7 @@ module MPDUI
       @expanded_interface = true
       @show_library = true
       @show_main_menu = true
+      @blurred_cover_background = true
     end
 
     def self.load : Settings
@@ -30,6 +33,7 @@ module MPDUI
       settings.expanded_interface = read_bool(store, EXPANDED_INTERFACE_KEY, settings.expanded_interface)
       settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library)
       settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu)
+      settings.blurred_cover_background = read_bool(store, BLURRED_COVER_KEY, settings.blurred_cover_background)
       settings
     rescue
       new
@@ -42,6 +46,7 @@ module MPDUI
       store.set_value(EXPANDED_INTERFACE_KEY, @expanded_interface)
       store.set_value(SHOW_LIBRARY_KEY, @show_library)
       store.set_value(SHOW_MAIN_MENU_KEY, @show_main_menu)
+      store.set_value(BLURRED_COVER_KEY, @blurred_cover_background)
       store.sync
     rescue
       nil
