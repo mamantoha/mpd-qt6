@@ -36,10 +36,10 @@ module MPDUI
 
       tree.style_sheet = <<-CSS
         QTreeView {
-          border: 1px solid;
+          border: none;
         }
         QTreeView::item {
-          padding: 2px 6px;
+          padding: 0px;
         }
       CSS
 
@@ -72,6 +72,8 @@ module MPDUI
       end
 
       container.vbox do |column|
+        column.spacing = 0
+        column.set_contents_margins(0, 0, 0, 0)
         column << search_panel
         column << tree
       end
