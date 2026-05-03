@@ -147,6 +147,7 @@ module MPDUI
         options_button.fixed_width = 44
         options_button.tool_tip = "Options"
         options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
+        options_button.flat = true
         if settings_action = @settings_action
           options_menu.add_action(settings_action)
         end
@@ -274,6 +275,14 @@ module MPDUI
           shuffle_button.fixed_width = 44
           repeat_button.fixed_width = 44
           volume_button.fixed_width = 44
+
+          prev_button.flat = true
+          play_pause_button.flat = true
+          next_button.flat = true
+          shuffle_button.flat = true
+          repeat_button.flat = true
+          volume_button.flat = true
+
           prev_button.tool_tip = "Previous"
           play_pause_button.tool_tip = "Play/Pause"
           next_button.tool_tip = "Next"
