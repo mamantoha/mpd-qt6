@@ -13,6 +13,9 @@ module MPDUI
     WINDOW_WIDTH_KEY       = "ui/expanded_window_width"
     WINDOW_HEIGHT_KEY      = "ui/expanded_window_height"
     SPLITTER_SIZES_KEY     = "ui/library_queue_splitter_sizes"
+    LASTFM_ENABLED_KEY     = "lastfm/enabled"
+    LASTFM_USERNAME_KEY    = "lastfm/username"
+    LASTFM_SESSION_KEY     = "lastfm/session_key"
 
     property host : String
     property port : Int32
@@ -23,6 +26,9 @@ module MPDUI
     property expanded_window_width : Int32?
     property expanded_window_height : Int32?
     property library_queue_splitter_sizes : Array(Int32)
+    property lastfm_enabled : Bool
+    property lastfm_username : String
+    property lastfm_session_key : String
 
     def initialize
       @host = "localhost"
@@ -34,6 +40,9 @@ module MPDUI
       @expanded_window_width = nil
       @expanded_window_height = nil
       @library_queue_splitter_sizes = [] of Int32
+      @lastfm_enabled = false
+      @lastfm_username = ""
+      @lastfm_session_key = ""
     end
 
     def self.load : Settings
@@ -48,6 +57,9 @@ module MPDUI
       settings.expanded_window_width = read_int(store, WINDOW_WIDTH_KEY)
       settings.expanded_window_height = read_int(store, WINDOW_HEIGHT_KEY)
       settings.library_queue_splitter_sizes = read_int_array(store, SPLITTER_SIZES_KEY)
+      settings.lastfm_enabled = read_bool(store, LASTFM_ENABLED_KEY, settings.lastfm_enabled)
+      settings.lastfm_username = store.value(LASTFM_USERNAME_KEY, settings.lastfm_username).as?(String) || settings.lastfm_username
+      settings.lastfm_session_key = store.value(LASTFM_SESSION_KEY, settings.lastfm_session_key).as?(String) || settings.lastfm_session_key
       settings
     rescue
       new
@@ -64,6 +76,9 @@ module MPDUI
       store.set_value(WINDOW_WIDTH_KEY, @expanded_window_width) if @expanded_window_width
       store.set_value(WINDOW_HEIGHT_KEY, @expanded_window_height) if @expanded_window_height
       store.set_value(SPLITTER_SIZES_KEY, @library_queue_splitter_sizes.to_json)
+      store.set_value(LASTFM_ENABLED_KEY, @lastfm_enabled)
+      store.set_value(LASTFM_USERNAME_KEY, @lastfm_username)
+      store.set_value(LASTFM_SESSION_KEY, @lastfm_session_key)
       store.sync
     rescue
       nil
