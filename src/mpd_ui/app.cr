@@ -54,6 +54,7 @@ module MPDUI
     @playback_header_background : Qt6::Label?
     @browsers : Qt6::Splitter?
     @compact_spacer : Qt6::Widget?
+    @expanded_interface_window_size : Qt6::Size?
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
@@ -111,6 +112,11 @@ module MPDUI
       @qt_app = Qt6.application
       @qt_app.name = WINDOW_TITLE
       @settings = Settings.load
+      if width = @settings.expanded_window_width
+        if height = @settings.expanded_window_height
+          @expanded_interface_window_size = Qt6::Size.new(width, height)
+        end
+      end
       @event_bridge = EventBridge.new(@qt_app)
       bind_event_bridge
     end
@@ -452,6 +458,7 @@ module MPDUI
 
         browsers << database_panel
         browsers << queue_panel
+        restore_library_queue_splitter_sizes(browsers)
 
         compact_spacer = Qt6::Widget.new(central)
         compact_spacer.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Expanding)
@@ -481,6 +488,7 @@ module MPDUI
       @window = window
       @status_bar = status_bar
       apply_interface_visibility_settings
+      restore_expanded_window_size if @settings.expanded_interface
     end
 
     private def build_menu(window : Qt6::MainWindow) : Nil
@@ -603,13 +611,29 @@ module MPDUI
     end
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
+      window = @window
+
       if visible
         restore_expanded_interface_window_resize_limits
+      elsif window && @settings.expanded_interface
+        save_expanded_layout_settings
+        @expanded_interface_window_size = window.size
       end
 
       @browsers.try(&.visible = visible)
       @compact_spacer.try(&.visible = !visible)
-      @window.try(&.adjust_size)
+
+      if window
+        window.adjust_size
+        if visible
+          if expanded_size = @expanded_interface_window_size
+            window.resize(expanded_size.width, expanded_size.height)
+            @expanded_interface_window_size = nil
+          end
+        elsif expanded_size = @expanded_interface_window_size
+          window.resize(expanded_size.width, window.size.height)
+        end
+      end
 
       unless visible
         lock_minimal_window_height
@@ -683,6 +707,42 @@ module MPDUI
       maximum_size = @expanded_interface_window_maximum_size.not_nil!
       window.set_minimum_size(minimum_size.width, size.height)
       window.set_maximum_size(maximum_size.width, size.height)
+    end
+
+    private def restore_expanded_window_size : Nil
+      window = @window
+      expanded_size = @expanded_interface_window_size
+      return unless window && expanded_size
+
+      window.resize(expanded_size.width, expanded_size.height)
+    end
+
+    private def restore_library_queue_splitter_sizes(splitter : Qt6::Splitter) : Nil
+      sizes = @settings.library_queue_splitter_sizes
+      return unless sizes.size == 2 && sizes.all? { |size| size > 0 }
+
+      splitter.set_sizes(sizes)
+    end
+
+    private def save_expanded_layout_settings : Nil
+      if @settings.expanded_interface
+        if window = @window
+          size = window.size
+          @settings.expanded_window_width = size.width
+          @settings.expanded_window_height = size.height
+          @expanded_interface_window_size = size
+        end
+
+        if splitter = @browsers
+          sizes = splitter.sizes
+          @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all? { |size| size > 0 }
+        end
+      elsif expanded_size = @expanded_interface_window_size
+        @settings.expanded_window_width = expanded_size.width
+        @settings.expanded_window_height = expanded_size.height
+      end
+
+      @settings.save
     end
 
     private def restore_expanded_interface_window_resize_limits : Nil

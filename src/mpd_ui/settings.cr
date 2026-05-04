@@ -1,3 +1,5 @@
+require "json"
+
 module MPDUI
   class Settings
     ORGANIZATION           = "mamantoha"
@@ -8,6 +10,9 @@ module MPDUI
     SHOW_LIBRARY_KEY       = "ui/show_library"
     SHOW_MAIN_MENU_KEY     = "ui/show_main_menu"
     BLURRED_COVER_KEY      = "ui/blurred_cover_background"
+    WINDOW_WIDTH_KEY       = "ui/expanded_window_width"
+    WINDOW_HEIGHT_KEY      = "ui/expanded_window_height"
+    SPLITTER_SIZES_KEY     = "ui/library_queue_splitter_sizes"
 
     property host : String
     property port : Int32
@@ -15,6 +20,9 @@ module MPDUI
     property show_library : Bool
     property show_main_menu : Bool
     property blurred_cover_background : Bool
+    property expanded_window_width : Int32?
+    property expanded_window_height : Int32?
+    property library_queue_splitter_sizes : Array(Int32)
 
     def initialize
       @host = "localhost"
@@ -23,6 +31,9 @@ module MPDUI
       @show_library = true
       @show_main_menu = true
       @blurred_cover_background = true
+      @expanded_window_width = nil
+      @expanded_window_height = nil
+      @library_queue_splitter_sizes = [] of Int32
     end
 
     def self.load : Settings
@@ -34,6 +45,9 @@ module MPDUI
       settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library)
       settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu)
       settings.blurred_cover_background = read_bool(store, BLURRED_COVER_KEY, settings.blurred_cover_background)
+      settings.expanded_window_width = read_int(store, WINDOW_WIDTH_KEY)
+      settings.expanded_window_height = read_int(store, WINDOW_HEIGHT_KEY)
+      settings.library_queue_splitter_sizes = read_int_array(store, SPLITTER_SIZES_KEY)
       settings
     rescue
       new
@@ -47,6 +61,9 @@ module MPDUI
       store.set_value(SHOW_LIBRARY_KEY, @show_library)
       store.set_value(SHOW_MAIN_MENU_KEY, @show_main_menu)
       store.set_value(BLURRED_COVER_KEY, @blurred_cover_background)
+      store.set_value(WINDOW_WIDTH_KEY, @expanded_window_width) if @expanded_window_width
+      store.set_value(WINDOW_HEIGHT_KEY, @expanded_window_height) if @expanded_window_height
+      store.set_value(SPLITTER_SIZES_KEY, @library_queue_splitter_sizes.to_json)
       store.sync
     rescue
       nil
@@ -65,6 +82,26 @@ module MPDUI
       else
         default_port
       end
+    end
+
+    private def self.read_int(store : Qt6::QSettings, key : String) : Int32?
+      case value = store.value(key, nil)
+      when Int32
+        value
+      when String
+        value.to_i?
+      else
+        nil
+      end
+    end
+
+    private def self.read_int_array(store : Qt6::QSettings, key : String) : Array(Int32)
+      value = store.value(key, "").as?(String)
+      return [] of Int32 unless value && !value.empty?
+
+      JSON.parse(value).as_a.compact_map(&.as_i?)
+    rescue
+      [] of Int32
     end
 
     private def self.read_bool(store : Qt6::QSettings, key : String, default_value : Bool) : Bool
