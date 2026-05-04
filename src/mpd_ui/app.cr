@@ -9,9 +9,9 @@ module MPDUI
     include AppQueue
     include AppDatabase
 
-    WINDOW_TITLE = "Crystal MPD"
-    COVER_ART_SIZE = 84
-    PROGRESS_ROW_HEIGHT = 24
+    WINDOW_TITLE             = "Crystal MPD"
+    COVER_ART_SIZE           = 84
+    PROGRESS_ROW_HEIGHT      = 24
     PLAYBACK_CONTROLS_HEIGHT = 56
 
     @settings : Settings
