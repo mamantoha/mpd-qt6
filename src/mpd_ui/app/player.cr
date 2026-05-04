@@ -59,6 +59,9 @@ module MPDUI
       previous_song_pos = @current_song_pos
       @state = state
       @current_song_pos = status["song"]?.try(&.to_i?)
+      if state == "stop" || previous_song_pos != @current_song_pos
+        @dragging_progress = false
+      end
       if state == "stop"
         @elapsed = 0.0
         @duration = 0.0

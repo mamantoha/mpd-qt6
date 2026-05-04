@@ -225,8 +225,9 @@ module MPDUI
           end
 
           progress_slider.on_released do
-            next if @syncing_progress || @duration <= 0
             @dragging_progress = false
+            next if @syncing_progress || @duration <= 0
+
             Qt6::ToolTip.hide_text
             target = @duration * progress_slider.value / 1000.0
             mpd_action { |c| c.seekcur(target.to_i) }
@@ -729,6 +730,7 @@ module MPDUI
           show_progress_tooltip(slider, event.mouse_event.position)
           false
         when Qt6::EventType::Leave
+          @dragging_progress = false
           slider.tool_tip = ""
           Qt6::ToolTip.hide_text
           false
