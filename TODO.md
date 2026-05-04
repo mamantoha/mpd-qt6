@@ -5,6 +5,10 @@ Planning reference for useful missing features and polish ideas.
 ## High Value
 
 - Add queue search/filter for large playlists.
+- Add richer library navigation:
+  - collapse or expand all artists/albums
+  - jump to currently playing song in the library
+  - remember expanded library tree nodes between reloads
 - Add MPD saved playlist support:
   - list saved playlists
   - load a playlist into the queue
@@ -15,6 +19,10 @@ Planning reference for useful missing features and polish ideas.
   - move selected songs to top or bottom
   - show song details
   - add selected songs to a saved playlist
+- Add library context menu actions:
+  - play selected song/album/artist now
+  - replace queue with selected song/album/artist
+  - show details for selected item
 - Add MPD output/device control for enabling and disabling outputs.
 - Extract the embedded MPRIS implementation in `src/ext/mpris` into a standalone shard.
 - Add proper repeat-current-track support:
@@ -31,8 +39,10 @@ Planning reference for useful missing features and polish ideas.
   - duration
   - track and disc number
   - available audio details from MPD
+- Add album/artist details summaries in the library.
 - Add named connection profiles for multiple MPD servers.
 - Add recently played history with quick re-add/play actions.
+- Add optional confirmation for destructive queue actions such as clearing the queue.
 
 ## Keyboard And Input Polish
 
@@ -40,8 +50,8 @@ Planning reference for useful missing features and polish ideas.
   - Space for play/pause
   - Left/Right for seeking
   - Ctrl+Up/Ctrl+Down for volume
-  - Ctrl+F or `/` for search focus
-  - Enter to play the selected queue/database song
+  - `/` as an alternate library search shortcut
+  - Enter to play the selected database song
 - Support mouse wheel volume changes over the volume button or slider.
 - Support keyboard seek steps on the progress slider.
 - Add larger seek steps with Shift+Left/Shift+Right.
