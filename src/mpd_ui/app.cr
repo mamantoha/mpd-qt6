@@ -4,6 +4,7 @@ module MPDUI
     include AppTray
     include AppMPDConnection
     include AppMPRIS
+    include AppLastFM
     include AppAboutDialog
     include AppPlayer
     include AppQueue
@@ -83,6 +84,7 @@ module MPDUI
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
     @mpris_service : MPRIS::Service?
+    @lastfm_scrobbler : LastFM::Scrobbler?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
@@ -120,6 +122,7 @@ module MPDUI
       end
       @event_bridge = EventBridge.new(@qt_app)
       bind_event_bridge
+      setup_lastfm
     end
 
     def run : Nil
@@ -778,7 +781,10 @@ module MPDUI
       parent = @window
       return unless parent
 
-      connect if SettingsDialog.edit(parent, @settings)
+      if SettingsDialog.edit(parent, @settings)
+        setup_lastfm
+        connect
+      end
     end
 
     private def setup_progress_tooltip(slider : Qt6::Slider) : Nil

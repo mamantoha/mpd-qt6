@@ -9,6 +9,7 @@ module MPDUI
         @elapsed = elapsed
         update_progress
         sync_mpris_position
+        sync_lastfm_state(@mpris_song)
       end
 
       @event_bridge.random_changed.connect do |enabled|
@@ -116,6 +117,7 @@ module MPDUI
         update_tray_tooltip("State: #{state.capitalize}", "#{@settings.host}:#{@settings.port}")
       end
       sync_mpris_state(song)
+      sync_lastfm_state(song)
     rescue ex
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))

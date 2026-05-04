@@ -42,7 +42,8 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Connection settings dialog for MPD host and port
 - System tray integration with tray menu, close-to-tray behavior, restore/show toggle, and playback actions
 - MPRISv2 integration for Linux desktop media controls, metadata, position, volume, shuffle/repeat state, and cover art
-- Settings persisted in the user config directory, including connection details, UI visibility, blurred cover background, expanded window size, and library/queue splitter sizes
+- Optional Last.fm scrobbling with one-time authentication, now-playing updates, threshold-based scrobbles, and retry cache for failed scrobbles
+- Settings persisted in the user config directory, including connection details, Last.fm session details, UI visibility, blurred cover background, expanded window size, and library/queue splitter sizes
 
 ## Requirements
 
@@ -82,9 +83,11 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `queue.cr` handles the queue table, context menu, multi-select deletion, drag/drop reordering, and database-to-queue drops
   - `database.cr` handles the MPD database tree, artist/album/song grouping, sorting, search, custom item rendering, context menu, multi-selection, and database drag sources
   - `mpris.cr` connects the app's MPD/Qt state to the generic MPRIS service
+  - `lastfm.cr` feeds MPD playback snapshots into the Last.fm scrobbler
   - `tray.cr` handles system tray integration, close-to-tray behavior, and tray menu actions
   - `about_dialog.cr` and `settings_dialog.cr` keep dialogs isolated from the main UI setup
 - `src/ext/mpris` contains a small Crystal MPRIS/DBus implementation kept separate from Qt-specific app code
+- `src/ext/lastfm` contains the Last.fm API client, request signing, scrobble timing, and retry cache
 - One MPD client handles commands and status reads
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread
