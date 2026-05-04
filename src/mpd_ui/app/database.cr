@@ -73,7 +73,7 @@ module MPDUI
 
       search_panel.hbox do |row|
         row.spacing = 4
-        row.set_contents_margins(0, 0, 0, 0)
+        row.set_contents_margins(4, 4, 4, 2)
         row << search_edit
         row << close_search_button
       end
