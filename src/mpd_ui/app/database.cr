@@ -65,6 +65,11 @@ module MPDUI
       end
 
       close_search_button.on_clicked { hide_database_search }
+      escape_shortcut = Qt6::Shortcut.new("Esc", search_edit)
+      escape_shortcut.context = Qt6::ShortcutContext::WidgetShortcut
+      escape_shortcut.on_activated do
+        hide_database_search if search_edit.has_focus?
+      end
 
       search_panel.hbox do |row|
         row.spacing = 4
@@ -82,6 +87,7 @@ module MPDUI
 
       @database_search_panel = search_panel
       @database_search_edit = search_edit
+      @database_search_escape_shortcut = escape_shortcut
       @database_tree = tree
       @database_context_menu = context_menu
       @database_model = model

@@ -62,6 +62,7 @@ module MPDUI
     @tray_menu : Qt6::Menu?
     @database_search_panel : Qt6::Widget?
     @database_search_edit : Qt6::LineEdit?
+    @database_search_escape_shortcut : Qt6::Shortcut?
     @database_tree : Qt6::TreeView?
     @database_context_menu : Qt6::Menu?
     @database_model : Qt6::StandardItemModel?
