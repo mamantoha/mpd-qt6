@@ -253,7 +253,8 @@ module MPDUI
       set_status("Queue cleared")
     end
 
-    private def refresh_playlist(*, song_changed : Bool = false) : Nil
+    private def refresh_playlist : Nil
+      Log.info { "mpd_ui: Refreshing playlist view..." }
       client = @client
       view = @playlist_view
       model = @playlist_model
@@ -296,11 +297,11 @@ module MPDUI
         model.set_item(row, 2, time_item)
       end
 
+      scroll_playlist_to_current_song
+
       if @just_moved_pos && (row = @playlist_positions.index(@just_moved_pos))
         select_playlist_row(row)
         @just_moved_pos = nil
-      elsif song_changed
-        scroll_playlist_to_current_song
       end
     ensure
       @syncing = false

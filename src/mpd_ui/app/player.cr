@@ -83,7 +83,7 @@ module MPDUI
       sync_toggle_buttons
       update_volume_control(@volume)
       update_progress
-      refresh_playlist(song_changed: previous_song_pos != @current_song_pos)
+      refresh_playlist
 
       if song
         file = song["file"]?
