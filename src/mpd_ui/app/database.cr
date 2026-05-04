@@ -375,12 +375,12 @@ module MPDUI
         artist_item = database_item(artist, "#{artist_albums.size} #{artist_albums.size == 1 ? "Album" : "Albums"}")
         artist_item.icon = artist_icon unless artist_icon.null?
 
-        artist_albums.keys.sort.each do |album|
+        artist_albums.keys.sort_by { |album| album_sort_key(album, artist_albums[album]) }.each do |album|
           album_songs = artist_albums[album]
           album_item = database_item(album, database_album_summary(album_songs))
           album_item.icon = album_icon unless album_icon.null?
 
-          album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
+          album_songs.sort_by { |song| song_sort_key(song) }.each do |song|
             song_item = database_item(database_song_title(song), playlist_duration(song), song["file"]?)
             song_item.icon = song_icon unless song_icon.null?
             album_item << song_item
@@ -393,6 +393,32 @@ module MPDUI
       end
 
       @database_tree.try(&.expand_all) if filtered
+    end
+
+    private def album_sort_key(album : String, songs : Array(Hash(String, String))) : Tuple(Int32, String)
+      {album_year(songs), album.downcase}
+    end
+
+    private def album_year(songs : Array(Hash(String, String))) : Int32
+      years = songs.compact_map { |song| song_year(song) }
+      years.min? || Int32::MAX
+    end
+
+    private def song_year(song : Hash(String, String)) : Int32?
+      {"Date", "OriginalDate", "Year"}.each do |key|
+        value = song[key]?
+        next unless value
+
+        if match = value.match(/\d{4}/)
+          return match[0].to_i?
+        end
+      end
+
+      nil
+    end
+
+    private def song_sort_key(song : Hash(String, String)) : Tuple(Int32, Int32, String)
+      {disc_number(song), track_number(song), database_song_label(song).downcase}
     end
 
     private def database_item(title : String, subtitle : String? = nil, file : String? = nil) : Qt6::StandardItem

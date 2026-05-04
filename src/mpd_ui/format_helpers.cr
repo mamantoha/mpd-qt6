@@ -71,7 +71,29 @@ module MPDUI
     end
 
     private def track_number(song : Hash(String, String)) : Int32
-      song["Track"]?.try(&.split('/').first).try(&.to_i?) || Int32::MAX
+      metadata_number(song, "Track")
+    end
+
+    private def disc_number(song : Hash(String, String)) : Int32
+      metadata_number(song, "Disc", "DiscNumber", "Discnumber")
+    end
+
+    private def metadata_number(song : Hash(String, String), *keys : String) : Int32
+      keys.each do |key|
+        value = song[key]?
+        next unless value
+
+        part = value.split('/').first.strip
+        if number = part.to_i?
+          return number
+        end
+
+        if match = part.match(/\d+/)
+          return match[0].to_i
+        end
+      end
+
+      Int32::MAX
     end
 
     private def song_tooltip(song : Hash(String, String)) : String
