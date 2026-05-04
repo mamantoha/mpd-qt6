@@ -10,28 +10,39 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 
 - Playback controls for play, pause, previous, and next
 - Interactive progress slider with elapsed and total time display
+- Progress tooltip while hovering or dragging the progress slider
+- Playback controls and progress slider disable cleanly when playback is stopped
 - Shuffle and repeat toggles
 - Volume button with a dropdown vertical slider and percentage display
 - Live track, artist, and album metadata updates
 - Window title updates to reflect the current song
-- Album art loading from MPD when available
+- Album art loading from MPD when available, including a full-size cover tooltip
+- Click the album art to toggle the expanded interface
+- Optional blurred album-art playback header background
 - Queue view with current-track state icons, multi-select, auto-scroll, and current-song selection sync
-- Double-click a queue row to start playback instantly
+- Double-click or press Enter on a queue row to start playback instantly
 - Queue reordering with drag and drop
 - Remove selected queue rows with Delete
+- Queue context menu for playing the selected song now or removing selected songs
 - Clear queue action from the main menu and keyboard shortcut
-- Database browser grouped as artist → album → songs with item icons
+- Database browser grouped as artist → album → songs with item icons and two-line rows
+- Database browser album sorting by year and song sorting by disc and track number
+- Database search/filter by artist, album, title, and file path with `Ctrl+F` and `Esc` to close
+- Reload Database updates MPD's database before refreshing the local browser
 - Multi-select artists, albums, or songs in the database browser
+- Library context menu for adding the selected artist, album, or song selection to the queue
+- Song information tooltips in both the queue and database browser
 - Toggleable expanded interface and library panel
 - Drag and drop selected songs, albums, or artists from the database into the queue
 - Drop-position queue insertion for fast playlist building
 - Main menu with About, Settings, Library, and Queue actions
-- Top-right Options menu with Settings, Reload Database, Expanded Interface, Show Main Menu, and About actions
+- Top-right Options menu reusing main-menu actions
 - Toggleable main menu bar with persisted visibility and `Ctrl+M` shortcut
 - About dialog with application details and live MPD server statistics
 - Connection settings dialog for MPD host and port
 - System tray integration with tray menu, close-to-tray behavior, restore/show toggle, and playback actions
-- Settings persisted in the user config directory, including host, port, expanded interface, library visibility, and main menu visibility
+- MPRISv2 integration for Linux desktop media controls, metadata, position, volume, shuffle/repeat state, and cover art
+- Settings persisted in the user config directory, including connection details, UI visibility, blurred cover background, expanded window size, and library/queue splitter sizes
 
 ## Requirements
 
@@ -67,16 +78,18 @@ Tested on Linux and macOS with Qt6. Windows are untested.
 
 - `src/mpd_ui/app.cr` owns the main `App` class, shared UI state, top-level layout, menus, and persisted visibility controls
 - Feature modules under `src/mpd_ui/app/` split the app by responsibility:
-  - `player.cr` handles playback state, progress, volume, cover art, and current-song UI updates
-  - `queue.cr` handles the queue table, multi-select deletion, drag/drop reordering, and database-to-queue drops
-  - `database.cr` handles the MPD database tree, artist/album/song grouping, tree icons, multi-selection, and database drag sources
+  - `player.cr` handles playback state, progress, volume, cover art, blurred header background, MPRIS state sync, and current-song UI updates
+  - `queue.cr` handles the queue table, context menu, multi-select deletion, drag/drop reordering, and database-to-queue drops
+  - `database.cr` handles the MPD database tree, artist/album/song grouping, sorting, search, custom item rendering, context menu, multi-selection, and database drag sources
+  - `mpris.cr` connects the app's MPD/Qt state to the generic MPRIS service
   - `tray.cr` handles system tray integration, close-to-tray behavior, and tray menu actions
   - `about_dialog.cr` and `settings_dialog.cr` keep dialogs isolated from the main UI setup
+- `src/ext/mpris` contains a small Crystal MPRIS/DBus implementation kept separate from Qt-specific app code
 - One MPD client handles commands and status reads
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread
-- `Settings` wraps `QSettings` persistence for connection details and UI visibility preferences
-- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, table views, tree views, and standard item models
+- `Settings` wraps `QSettings` persistence for connection details, UI visibility preferences, layout size, and splitter state
+- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, table views, tree views, standard item models, custom item delegates, event filters, shortcuts, and graphics effects
 
 ## License
 
