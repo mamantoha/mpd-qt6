@@ -489,7 +489,6 @@ module MPDUI
       about_action = Qt6::Action.new("About", window)
       about_icon = Qt6::QIcon.from_theme("help-about")
       about_action.icon = about_icon unless about_icon.null?
-      about_action.status_tip = "Show application and MPD server information"
       about_action.on_triggered { open_about_dialog }
       app_menu.add_action(about_action)
       app_menu.add_separator
@@ -499,7 +498,6 @@ module MPDUI
       expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
       expanded_interface_action.checkable = true
       expanded_interface_action.checked = @settings.expanded_interface
-      expanded_interface_action.status_tip = "Show or hide the library and queue panels"
       expanded_interface_action.on_toggled { |checked| set_expanded_interface_visible(checked) }
       app_menu.add_action(expanded_interface_action)
 
@@ -508,7 +506,6 @@ module MPDUI
       blurred_cover_background_action.icon = blurred_cover_icon unless blurred_cover_icon.null?
       blurred_cover_background_action.checkable = true
       blurred_cover_background_action.checked = @settings.blurred_cover_background
-      blurred_cover_background_action.status_tip = "Use album art as a blurred playback header background"
       blurred_cover_background_action.on_toggled { |checked| set_blurred_cover_background_enabled(checked) }
       app_menu.add_action(blurred_cover_background_action)
       app_menu.add_separator
@@ -519,7 +516,6 @@ module MPDUI
       show_main_menu_action.checkable = true
       show_main_menu_action.checked = @settings.show_main_menu
       show_main_menu_action.shortcut = "Ctrl+M"
-      show_main_menu_action.status_tip = "Show or hide the main menu bar"
       show_main_menu_action.on_toggled do |checked|
         window.menu_bar.visible = checked
         if @settings.show_main_menu != checked
@@ -536,7 +532,6 @@ module MPDUI
       settings_icon = Qt6::QIcon.from_theme("preferences-system")
       settings_action.icon = settings_icon unless settings_icon.null?
       settings_action.shortcut = "Ctrl+,"
-      settings_action.status_tip = "Open connection settings"
       settings_action.on_triggered { open_settings_dialog }
       app_menu.add_action(settings_action)
       window.add_action(settings_action)
@@ -546,7 +541,6 @@ module MPDUI
       quit_icon = Qt6::QIcon.from_theme("application-exit")
       quit_action.icon = quit_icon unless quit_icon.null?
       quit_action.shortcut = "Ctrl+Q"
-      quit_action.status_tip = "Quit the application"
       quit_action.on_triggered { quit_application }
       app_menu.add_action(quit_action)
       window.add_action(quit_action)
@@ -562,7 +556,6 @@ module MPDUI
       show_library_action.icon = library_icon unless library_icon.null?
       show_library_action.checkable = true
       show_library_action.checked = @settings.show_library
-      show_library_action.status_tip = "Show or hide the library panel"
       show_library_action.on_toggled { |checked| set_library_panel_visible(checked) }
       library_menu.add_action(show_library_action)
       library_menu.add_separator
@@ -571,7 +564,6 @@ module MPDUI
       search_icon = Qt6::QIcon.from_theme("edit-find")
       search_library_action.icon = search_icon unless search_icon.null?
       search_library_action.shortcut = "Ctrl+F"
-      search_library_action.status_tip = "Search the library"
       search_library_action.on_triggered { show_database_search }
       library_menu.add_action(search_library_action)
       window.add_action(search_library_action)
@@ -582,7 +574,6 @@ module MPDUI
       reload_icon = Qt6::QIcon.from_theme("view-refresh")
       reload_action.icon = reload_icon unless reload_icon.null?
       reload_action.shortcut = "F5"
-      reload_action.status_tip = "Reload the music database from MPD"
       reload_action.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
       library_menu.add_action(reload_action)
       window.add_action(reload_action)
@@ -594,7 +585,6 @@ module MPDUI
       clear_icon = Qt6::QIcon.from_theme("edit-clear")
       clear_action.icon = clear_icon unless clear_icon.null?
       clear_action.shortcut = "Ctrl+L"
-      clear_action.status_tip = "Remove all songs from the queue"
       clear_action.on_triggered { clear_queue }
       queue_menu.add_action(clear_action)
       window.add_action(clear_action)
