@@ -1,3 +1,5 @@
+require "json"
+
 module MPDUI
   module AppDatabase
     private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
@@ -141,9 +143,11 @@ module MPDUI
     private def build_database_item_delegate(tree : Qt6::TreeView, model : Qt6::StandardItemModel) : Qt6::StyledItemDelegate
       delegate = Qt6::StyledItemDelegate.new(tree)
       delegate.on_paint do |painter, option, index|
-        title = index.data(model, Qt6::ItemDataRole::Display).as?(String)
-        subtitle = index.data(model, Qt6::ItemDataRole::StatusTip).as?(String)
-        next false unless title && subtitle && !subtitle.empty?
+        payload = parse_database_item_payload(index.data(model).as?(String))
+        next false unless payload
+
+        title = payload["title"].not_nil!
+        subtitle = payload["subtitle"]?
 
         option.draw_background(painter)
         option.draw_decoration(painter)
@@ -160,7 +164,7 @@ module MPDUI
         subtitle_metrics = subtitle_font.metrics
         title_height = title_metrics.height
         subtitle_height = subtitle_metrics.height
-        text_height = title_height + subtitle_height
+        text_height = subtitle && !subtitle.empty? ? title_height + subtitle_height : title_height
         top = rect.y + Math.max(0.0, (rect.height - text_height) / 2.0)
 
         palette = option.palette
@@ -171,14 +175,17 @@ module MPDUI
         painter.font = title_font
         painter.pen = title_color
         painter.draw_text(Qt6::RectF.new(rect.x, top, rect.width, title_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, title)
-        painter.font = subtitle_font
-        painter.pen = subtitle_color
-        painter.draw_text(Qt6::RectF.new(rect.x, top + title_height, rect.width, subtitle_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, subtitle)
+        if subtitle && !subtitle.empty?
+          painter.font = subtitle_font
+          painter.pen = subtitle_color
+          painter.draw_text(Qt6::RectF.new(rect.x, top + title_height, rect.width, subtitle_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, subtitle)
+        end
         painter.restore
         true
       end
       delegate.on_size_hint do |_option, index|
-        subtitle = index.data(model, Qt6::ItemDataRole::StatusTip).as?(String)
+        payload = parse_database_item_payload(index.data(model).as?(String))
+        subtitle = payload.try(&.["subtitle"]?)
         subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
       end
       delegate
@@ -374,12 +381,8 @@ module MPDUI
           album_item.icon = album_icon unless album_icon.null?
 
           album_songs.sort_by { |song| {track_number(song), database_song_label(song).downcase} }.each do |song|
-            song_item = database_item(database_song_title(song), playlist_duration(song))
+            song_item = database_item(database_song_title(song), playlist_duration(song), song["file"]?)
             song_item.icon = song_icon unless song_icon.null?
-            song_item.set_data(song_tooltip(song), Qt6::ItemDataRole::ToolTip)
-            if file = song["file"]?
-              song_item.set_data(file, Qt6::ItemDataRole::User)
-            end
             album_item << song_item
           end
 
@@ -392,10 +395,37 @@ module MPDUI
       @database_tree.try(&.expand_all) if filtered
     end
 
-    private def database_item(title : String, subtitle : String? = nil) : Qt6::StandardItem
-      item = Qt6::StandardItem.new(title)
-      item.set_data(subtitle, Qt6::ItemDataRole::StatusTip) if subtitle
-      item
+    private def database_item(title : String, subtitle : String? = nil, file : String? = nil) : Qt6::StandardItem
+      Qt6::StandardItem.new(build_database_item_payload(title, subtitle, file))
+    end
+
+    private def build_database_item_payload(title : String, subtitle : String? = nil, file : String? = nil) : String
+      JSON.build do |json|
+        json.object do
+          json.field "title", title
+          json.field "subtitle", subtitle if subtitle
+          json.field "file", file if file
+        end
+      end
+    end
+
+    private def parse_database_item_payload(value : String?) : Hash(String, String)?
+      return nil unless value
+
+      json = JSON.parse(value)
+      title = json["title"]?.try(&.as_s?)
+      return nil unless title
+
+      payload = {"title" => title}
+      if subtitle = json["subtitle"]?.try(&.as_s?)
+        payload["subtitle"] = subtitle
+      end
+      if file = json["file"]?.try(&.as_s?)
+        payload["file"] = file
+      end
+      payload
+    rescue JSON::ParseException
+      nil
     end
 
     private def database_album_summary(songs : Array(Hash(String, String))) : String
@@ -468,9 +498,8 @@ module MPDUI
     end
 
     private def collect_database_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
-      case data = item.data(Qt6::ItemDataRole::User)
-      when String
-        uris << data unless data.empty?
+      if file = parse_database_item_payload(item.text).try(&.["file"]?)
+        uris << file unless file.empty?
       end
 
       item.row_count.times do |row|
