@@ -383,6 +383,7 @@ module MPDUI
           album_songs.sort_by { |song| song_sort_key(song) }.each do |song|
             song_item = database_item(database_song_title(song), playlist_duration(song), song["file"]?)
             song_item.icon = song_icon unless song_icon.null?
+            song_item.set_data(song_tooltip(song), Qt6::ItemDataRole::ToolTip)
             album_item << song_item
           end
 
