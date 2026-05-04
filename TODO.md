@@ -43,6 +43,10 @@ Planning reference for useful missing features and polish ideas.
 - Add named connection profiles for multiple MPD servers.
 - Add recently played history with quick re-add/play actions.
 - Add optional confirmation for destructive queue actions such as clearing the queue.
+- Add Last.fm account polish:
+  - reset/disconnect the stored Last.fm session
+  - show the last scrobble status in Settings or the status bar
+  - add a manual test-authentication action
 
 ## Keyboard And Input Polish
 
