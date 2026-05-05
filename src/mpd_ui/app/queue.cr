@@ -254,8 +254,8 @@ module MPDUI
     end
 
     private def refresh_playlist : Nil
-      Log.info { "mpd_ui: Refreshing playlist view..." }
       client = @client
+      Log.info { "mpd_ui: Refreshing playlist view..." }
       view = @playlist_view
       model = @playlist_model
       return unless client && view && model
