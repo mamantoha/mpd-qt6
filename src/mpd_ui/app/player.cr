@@ -57,9 +57,13 @@ module MPDUI
       song = client.currentsong
 
       state = status.fetch("state", "stop")
+      previous_state = @state
       previous_song_pos = @current_song_pos
+      previous_playlist_version = @playlist_version
+      playlist_version = status["playlist"]?
       @state = state
       @current_song_pos = status["song"]?.try(&.to_i?)
+      @playlist_version = playlist_version
       if state == "stop" || previous_song_pos != @current_song_pos
         @dragging_progress = false
       end
@@ -83,7 +87,18 @@ module MPDUI
       sync_toggle_buttons
       update_volume_control(@volume)
       update_progress
-      refresh_playlist(song_changed: previous_song_pos != @current_song_pos)
+
+      playlist_changed = previous_playlist_version != playlist_version || @playlist_positions.empty?
+      song_changed = previous_song_pos != @current_song_pos
+      state_changed = previous_state != state
+      if playlist_changed
+        refresh_playlist(scroll_to_current: state != "stop")
+      elsif song_changed
+        sync_playlist_indicators(previous_song_pos)
+        scroll_playlist_to_current_song unless state == "stop"
+      elsif state_changed
+        sync_playlist_indicators(previous_song_pos)
+      end
 
       if song
         file = song["file"]?

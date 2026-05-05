@@ -36,7 +36,8 @@ module MPDUI
     @volume_widget_action : Qt6::WidgetAction?
     @options_button : Qt6::PushButton?
     @options_menu : Qt6::Menu?
-    @playlist_table : Qt6::TableWidget?
+    @playlist_view : Qt6::TreeView?
+    @playlist_model : Qt6::StandardItemModel?
     @queue_context_menu : Qt6::Menu?
     @queue_play_now_action : Qt6::Action?
     @play_queue_return_action : Qt6::Action?
@@ -91,6 +92,7 @@ module MPDUI
     @stop_icon : Qt6::QIcon?
     @state : String = "stop"
     @current_song_pos : Int32? = nil
+    @playlist_version : String? = nil
     @playlist_positions : Array(Int32) = [] of Int32
     @playlist_ids : Array(Int32) = [] of Int32
     @just_moved_pos : Int32? = nil
@@ -434,8 +436,8 @@ module MPDUI
         playback_header_content.raise_to_front
 
         setup_system_tray(window)
-        playlist_table = build_playlist(central)
-        setup_queue_drop_target(playlist_table)
+        playlist_view = build_playlist(central)
+        setup_queue_drop_target(playlist_view)
         database_browser = build_database_browser(central)
 
         browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
@@ -457,7 +459,7 @@ module MPDUI
         queue_panel.vbox do |queue_column|
           queue_column.spacing = 4
           queue_column.set_contents_margins(0, 0, 0, 0)
-          queue_column << playlist_table
+          queue_column << playlist_view
         end
 
         browsers << database_panel
@@ -484,7 +486,7 @@ module MPDUI
         @browsers = browsers
         @compact_spacer = compact_spacer
         @database_panel = database_panel
-        @playlist_table = playlist_table
+        @playlist_view = playlist_view
         sync_playback_controls
       end
 
