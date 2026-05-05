@@ -60,7 +60,7 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 git clone https://github.com/mamantoha/mpd-qt6
 cd mpd-qt6
 shards install
-shards build --release
+shards build --release -Dpreview_mt
 ./bin/mpd-qt6
 ```
 

@@ -129,7 +129,7 @@ module MPDUI
 
     def run : Nil
       build_ui
-      # setup_mpris
+      setup_mpris
       connect
       @window.try(&.show)
       exit(@qt_app.run)
