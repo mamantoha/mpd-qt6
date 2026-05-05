@@ -212,8 +212,8 @@ module LastFM
   #
   # scrobbler = LastFM::Scrobbler.new(
   #   "my-player",
-  #   ->{ settings.scrobbling_enabled? },
-  #   ->{ session.key },
+  #   -> { settings.scrobbling_enabled? },
+  #   -> { session.key },
   #   client
   # )
   #

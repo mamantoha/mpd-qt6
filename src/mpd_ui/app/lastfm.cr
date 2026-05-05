@@ -10,8 +10,8 @@ module MPDUI
     private def setup_lastfm : Nil
       @lastfm_scrobbler = LastFM::Scrobbler.new(
         Settings::APPLICATION,
-        ->{ @settings.lastfm_enabled },
-        ->{ @settings.lastfm_session_key },
+        -> { @settings.lastfm_enabled },
+        -> { @settings.lastfm_session_key },
         lastfm_client
       )
     end
