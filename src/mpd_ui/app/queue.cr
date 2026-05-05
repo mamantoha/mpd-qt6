@@ -253,7 +253,7 @@ module MPDUI
       set_status("Queue cleared")
     end
 
-    private def refresh_playlist : Nil
+    private def refresh_playlist(*, scroll_to_current : Bool = true) : Nil
       client = @client
       Log.info { "mpd_ui: Refreshing playlist view..." }
       view = @playlist_view
@@ -297,11 +297,11 @@ module MPDUI
         model.set_item(row, 2, time_item)
       end
 
-      scroll_playlist_to_current_song
-
       if @just_moved_pos && (row = @playlist_positions.index(@just_moved_pos))
         select_playlist_row(row)
         @just_moved_pos = nil
+      elsif scroll_to_current
+        scroll_playlist_to_current_song
       end
     ensure
       @syncing = false
@@ -315,6 +315,30 @@ module MPDUI
       header.set_section_resize_mode(2, Qt6::HeaderResizeMode::Fixed)
       header.resize_section(0, 36)
       header.resize_section(2, 64)
+    end
+
+    private def sync_playlist_indicators(previous_song_pos : Int32? = nil) : Nil
+      model = @playlist_model
+      return unless model
+
+      positions = [previous_song_pos, @current_song_pos].compact.uniq
+      positions.each do |pos|
+        row = @playlist_positions.index(pos)
+        update_playlist_indicator(row) if row
+      end
+    end
+
+    private def update_playlist_indicator(row : Int32) : Nil
+      model = @playlist_model
+      return unless model
+      return if row < 0 || row >= model.row_count
+
+      item = model.item(row, 0)
+      return unless item
+
+      pos = @playlist_positions[row]?
+      icon = pos ? playlist_indicator_icon(pos) : nil
+      item.icon = icon && !icon.null? ? icon : Qt6::QIcon.new
     end
 
     private def scroll_playlist_to_current_song : Nil

@@ -92,6 +92,7 @@ module MPDUI
     @stop_icon : Qt6::QIcon?
     @state : String = "stop"
     @current_song_pos : Int32? = nil
+    @playlist_version : String? = nil
     @playlist_positions : Array(Int32) = [] of Int32
     @playlist_ids : Array(Int32) = [] of Int32
     @just_moved_pos : Int32? = nil
