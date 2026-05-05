@@ -101,6 +101,7 @@ module MPDUI
     @random : Bool = false
     @repeat : Bool = false
     @volume : Int32? = nil
+    @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @syncing : Bool = false
     @syncing_progress : Bool = false
     @syncing_volume : Bool = false
@@ -110,6 +111,7 @@ module MPDUI
     @mpris_art_url : String = ""
     @mpris_cover_path : String?
     @mpris_last_position_second : Int64? = nil
+    @cover_art_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @quitting : Bool = false
     @tray_message_shown : Bool = false
 
@@ -664,7 +666,7 @@ module MPDUI
       end
 
       if enabled
-        load_cover_art(@current_file) unless @current_file.empty?
+        request_cover_art(@current_file, @mpris_song) unless @current_file.empty?
       else
         reset_cover_background
       end

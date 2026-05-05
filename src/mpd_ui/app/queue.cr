@@ -253,14 +253,18 @@ module MPDUI
       set_status("Queue cleared")
     end
 
-    private def refresh_playlist(*, scroll_to_current : Bool = true) : Nil
-      client = @client
+    private def refresh_playlist(songs : Array(Hash(String, String))? = nil, *, scroll_to_current : Bool = true) : Nil
       Log.info { "mpd_ui: Refreshing playlist view..." }
       view = @playlist_view
       model = @playlist_model
-      return unless client && view && model
+      return unless view && model
 
-      songs = client.playlistinfo
+      unless songs
+        client = @client
+        return unless client
+
+        songs = client.playlistinfo
+      end
       return unless songs
 
       @syncing = true
