@@ -28,7 +28,7 @@ module MPDUI
           border: none;
         }
         QTreeView::item {
-          padding: 0px;
+          padding: 3px 0px;
         }
       CSS
 
