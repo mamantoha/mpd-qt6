@@ -293,13 +293,14 @@ module MPDUI
         return CoverArtResult.new(uri, bytes, cover_art_metadata(bytes), generation)
       end
 
-      client = nil
       client = MPD::Client.new(host, port)
+
       response = begin
         client.readpicture(uri)
       rescue
         nil
       end
+
       response ||= begin
         client.albumart(uri)
       rescue
