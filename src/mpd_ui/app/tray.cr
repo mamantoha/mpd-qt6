@@ -147,6 +147,7 @@ module MPDUI
     private def quit_application : Nil
       save_expanded_layout_settings
       @quitting = true
+      @event_bridge.shutdown
       @mpris_service.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
