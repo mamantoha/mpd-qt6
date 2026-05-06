@@ -111,7 +111,7 @@ module MPDUI
       playback = playback_state_from_status(status, song)
       @playback_state = playback
       if playback.stopped? || previous_playback.song_position != playback.song_position
-        @dragging_progress = false
+        @player_header_view.try(&.cancel_progress_drag)
       end
 
       if button = @play_pause_button
@@ -177,14 +177,10 @@ module MPDUI
     private def update_progress : Nil
       slider = @progress_slider
       return unless slider
-      return if @dragging_progress
+      return if @player_header_view.try(&.dragging_progress?)
 
-      @syncing_progress = true
       playback = @playback_state
-      pct = playback.duration > 0 ? ((playback.elapsed / playback.duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
-      slider.value = pct
-      @time_label.try(&.text = "#{format_time(playback.elapsed)} / #{format_time(playback.duration)}")
-      @syncing_progress = false
+      @player_header_view.try(&.show_progress(playback.elapsed, playback.duration))
     end
 
     private def sync_playback_controls : Nil

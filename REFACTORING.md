@@ -196,6 +196,8 @@ Current progress:
 
 ### Step 4: Extract Player Header View
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/views/player_header_view.cr`
@@ -228,6 +230,14 @@ Expected result:
 - `build_ui` becomes much smaller.
 - UI layout can be understood without reading MPD logic.
 - Player logic can update the header through named methods.
+
+Current progress:
+
+- Added `PlayerHeaderView`.
+- Moved playback header layout from `App#build_ui` into the view.
+- Moved cover label, title/subtitle labels, progress slider, time label, playback buttons, volume menu, options button, blurred background label/effect, progress tooltip filter, and album-art click filter into the view.
+- Exposed command callbacks for previous, play/pause, next, shuffle, repeat, seek, volume, and cover click.
+- Kept MPD command execution and playback state ownership in `App`.
 
 ### Step 5: Extract Player Controller
 
