@@ -7,14 +7,38 @@ module MPDUI
         desktop_entry: Settings::APPLICATION,
         cache_prefix: Settings::APPLICATION
       )
-      service.on_raise = -> { @qt_app.invoke_later { show_main_window } }
-      service.on_quit = -> { @qt_app.invoke_later { quit_application } }
-      service.on_play = -> { @qt_app.invoke_later { mpd_action { |client| client.play } } }
-      service.on_pause = -> { @qt_app.invoke_later { mpd_action { |client| client.pause(true) } } }
-      service.on_play_pause = -> { @qt_app.invoke_later { toggle_play_pause } }
-      service.on_stop = -> { @qt_app.invoke_later { mpd_action { |client| client.stop } } }
-      service.on_next = -> { @qt_app.invoke_later { mpd_action { |client| client.next } } }
-      service.on_previous = -> { @qt_app.invoke_later { mpd_action { |client| client.previous } } }
+      service.on_raise = -> do
+        @qt_app.invoke_later { show_main_window }
+      end
+
+      service.on_quit = -> do
+        @qt_app.invoke_later { quit_application }
+      end
+
+      service.on_play = -> do
+        @qt_app.invoke_later { mpd_action { |client| client.play } }
+      end
+
+      service.on_pause = -> do
+        @qt_app.invoke_later { mpd_action { |client| client.pause(true) } }
+      end
+
+      service.on_play_pause = -> do
+        @qt_app.invoke_later { toggle_play_pause }
+      end
+
+      service.on_stop = -> do
+        @qt_app.invoke_later { mpd_action { |client| client.stop } }
+      end
+
+      service.on_next = -> do
+        @qt_app.invoke_later { mpd_action { |client| client.next } }
+      end
+
+      service.on_previous = -> do
+        @qt_app.invoke_later { mpd_action { |client| client.previous } }
+      end
+
       service.on_seek = ->(offset_us : Int64) do
         @qt_app.invoke_later do
           seconds = offset_us / 1_000_000
@@ -24,35 +48,41 @@ module MPDUI
           mpd_action { |client| client.seekcur(value) }
         end
       end
+
       service.on_set_position = ->(_track_id : String, position_us : Int64) do
         @qt_app.invoke_later do
           seconds = (position_us / 1_000_000).clamp(0_i64, Int32::MAX.to_i64)
           mpd_action { |client| client.seekcur(seconds.to_i) }
         end
       end
+
       service.on_set_volume = ->(volume : Float64) do
         @qt_app.invoke_later do
           percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
           mpd_action { |client| client.setvol(percent) }
         end
       end
+
       service.on_set_shuffle = ->(enabled : Bool) do
         @qt_app.invoke_later do
           mpd_action { |client| client.random(enabled) }
         end
       end
+
       service.on_set_loop_status = ->(status : String) do
         @qt_app.invoke_later do
           next unless status == "Playlist" || status == "Track" || status == "None"
 
-          enabled = case status
-                    when "Track"
-                      !@repeat
-                    when "Playlist"
-                      true
-                    else
-                      false
-                    end
+          enabled =
+            case status
+            when "Track"
+              !@repeat
+            when "Playlist"
+              true
+            else
+              false
+            end
+
           mpd_action { |client| client.repeat(enabled) }
         end
       end
@@ -78,14 +108,16 @@ module MPDUI
       song ||= @mpris_song
 
       state = MPRIS::State.new
-      state.playback_status = case @state
-                              when "play"
-                                "Playing"
-                              when "pause"
-                                "Paused"
-                              else
-                                "Stopped"
-                              end
+      state.playback_status =
+        case @state
+        when "play"
+          "Playing"
+        when "pause"
+          "Paused"
+        else
+          "Stopped"
+        end
+
       state.position_us = (@elapsed * 1_000_000).round.to_i64
       @mpris_last_position_second = @elapsed.floor.to_i64
       state.length_us = (@duration * 1_000_000).round.to_i64
