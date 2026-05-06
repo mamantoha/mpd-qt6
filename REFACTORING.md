@@ -115,6 +115,8 @@ Current progress:
 
 ### Step 2: Extract Cover Art Service
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/cover_art_service.cr`
@@ -140,6 +142,14 @@ Expected result:
 - `player.cr` no longer knows how cover bytes are fetched.
 - Cover cache behavior becomes easy to test.
 - Future standalone cover-art logic is possible.
+
+Current progress:
+
+- Added `CoverArtService`.
+- Moved MPD `readpicture` / `albumart` fetching to the service.
+- Moved persistent disk cache key/path generation to the service.
+- Moved cache read/write and MIME detection to the service.
+- Kept Qt pixmap rendering, cover tooltip HTML, blurred background rendering, and MPRIS temp cover file handling in `player.cr`.
 
 ### Step 3: Add a Small Background Helper
 

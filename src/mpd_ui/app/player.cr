@@ -7,9 +7,7 @@ module MPDUI
       error : String?
 
     private record CoverArtResult,
-      uri : String,
-      bytes : Bytes?,
-      metadata : Hash(String, String),
+      result : CoverArtService::Result,
       generation : Int32
 
     private def bind_event_bridge : Nil
@@ -283,17 +281,15 @@ module MPDUI
 
     private def request_cover_art(uri : String, song : Song? = nil) : Nil
       generation = @cover_art_generation.add(1) + 1
-      host = @settings.host
-      port = @settings.port
-      cache_path = cover_art_cache_path(uri, song)
+      service = CoverArtService.new(@settings.host, @settings.port, Settings::APPLICATION)
 
       Thread.new do
-        result = fetch_cover_art(host, port, uri, cache_path, generation)
+        result = CoverArtResult.new(service.fetch(uri, song), generation)
         next if @quitting
 
         @qt_app.invoke_later do
           next if @quitting
-          next unless @current_file == result.uri
+          next unless @current_file == result.result.uri
           next unless @cover_art_generation.get == result.generation
 
           apply_cover_art_result(result)
@@ -301,46 +297,15 @@ module MPDUI
       end
     end
 
-    private def fetch_cover_art(host : String, port : Int32, uri : String, cache_path : String, generation : Int32) : CoverArtResult
-      if bytes = read_cover_art_cache(cache_path)
-        return CoverArtResult.new(uri, bytes, cover_art_metadata(bytes), generation)
-      end
-
-      client = MPD::Client.new(host, port)
-
-      response = begin
-        client.readpicture(uri)
-      rescue
-        nil
-      end
-
-      response ||= begin
-        client.albumart(uri)
-      rescue
-        nil
-      end
-
-      return CoverArtResult.new(uri, nil, {} of String => String, generation) unless response
-
-      metadata, io = response
-      io.rewind
-      bytes = io.to_slice.dup
-      write_cover_art_cache(cache_path, bytes)
-      CoverArtResult.new(uri, bytes, metadata, generation)
-    rescue
-      CoverArtResult.new(uri, nil, {} of String => String, generation)
-    ensure
-      client.try(&.disconnect)
-    end
-
     private def apply_cover_art_result(result : CoverArtResult) : Nil
-      if bytes = result.bytes
+      cover = result.result
+      if bytes = cover.bytes
         pixmap = Qt6::QPixmap.from_data(bytes)
 
         if pixmap.null?
           clear_cover_art
         else
-          @mpris_art_url = cache_mpris_cover_art(result.uri, result.metadata, bytes)
+          @mpris_art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
           @cover_label.try(&.tool_tip = cover_art_tooltip(@mpris_art_url, pixmap))
           apply_cover_background(pixmap)
           scaled = pixmap.scaled(
@@ -356,7 +321,7 @@ module MPDUI
         clear_cover_art
       end
     rescue ex
-      Log.debug { "cover art: failed to apply cover for #{result.uri}: #{ex.message || ex}" }
+      Log.debug { "cover art: failed to apply cover for #{result.result.uri}: #{ex.message || ex}" }
       clear_cover_art
     end
 
@@ -407,57 +372,6 @@ module MPDUI
         label.pixmap = background
         label.visible = true
       end
-    end
-
-    private def cover_art_cache_path(uri : String, song : Song?) : String
-      File.join(cover_art_cache_dir, "#{Digest::SHA1.hexdigest(cover_art_cache_key(uri, song))}.cover")
-    end
-
-    private def cover_art_cache_key(uri : String, song : Song?) : String
-      source = ["mpd", @settings.host, @settings.port.to_s]
-      return (source + ["file", uri]).join("\0") unless song
-
-      album = song.album || ""
-      return (source + ["file", uri]).join("\0") if album.empty?
-
-      artist = song.album_artist || song.artist || ""
-      date = song.date || ""
-      (source + ["album", artist, album, date]).join("\0")
-    end
-
-    private def cover_art_cache_dir : String
-      cache_home = ENV["XDG_CACHE_HOME"]? || File.join(ENV["HOME"]? || Dir.tempdir, ".cache")
-      File.join(cache_home, Settings::APPLICATION, "covers")
-    end
-
-    private def read_cover_art_cache(path : String) : Bytes?
-      return unless File.exists?(path)
-
-      File.read(path).to_slice.dup
-    rescue ex
-      Log.debug { "cover art: failed to read cache #{path}: #{ex.message || ex}" }
-      nil
-    end
-
-    private def write_cover_art_cache(path : String, bytes : Bytes) : Nil
-      Dir.mkdir_p(File.dirname(path))
-      File.write(path, bytes)
-    rescue ex
-      Log.debug { "cover art: failed to write cache #{path}: #{ex.message || ex}" }
-    end
-
-    private def cover_art_metadata(bytes : Bytes) : Hash(String, String)
-      type = cover_art_mime_type(bytes)
-      type ? {"type" => type} : {} of String => String
-    end
-
-    private def cover_art_mime_type(bytes : Bytes) : String?
-      return "image/jpeg" if bytes.size >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
-      return "image/png" if bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
-      return "image/gif" if bytes.size >= 6 && String.new(bytes[0, 6]) =~ /\AGIF8[79]a\z/
-      return "image/webp" if bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
-
-      nil
     end
 
     private def reset_cover_background : Nil
