@@ -20,7 +20,7 @@ module MPDUI
       on_show_library_changed : Bool ->,
       on_search_library : ->,
       on_reload_database : ->,
-      on_clear_queue : ->
+      on_clear_queue : ->,
     )
       menu_bar = window.menu_bar
 

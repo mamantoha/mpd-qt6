@@ -11,7 +11,7 @@ module MPDUI
       window : Qt6::MainWindow,
       player_header : PlayerHeaderView,
       database_browser : Qt6::Widget,
-      queue_view : QueueView
+      queue_view : QueueView,
     )
       @player_header = player_header
       @central = Qt6::Widget.new(window)

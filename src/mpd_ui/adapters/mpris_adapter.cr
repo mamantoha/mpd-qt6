@@ -24,7 +24,7 @@ module MPDUI
       on_set_position : Proc(String, Int64, Nil)? = nil,
       on_set_volume : Proc(Float64, Nil)? = nil,
       on_set_shuffle : Proc(Bool, Nil)? = nil,
-      on_set_loop_status : Proc(String, Nil)? = nil
+      on_set_loop_status : Proc(String, Nil)? = nil,
     )
       @service = MPRIS::Service.new(
         app_id: app_id,
