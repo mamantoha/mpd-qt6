@@ -185,7 +185,7 @@ module LastFM
       signed = params.dup
 
       source = String.build do |io|
-        params.keys.sort.each do |key|
+        params.keys.sort!.each do |key|
           next if key == "format" || key == "callback"
 
           io << key << params[key]
@@ -302,7 +302,7 @@ module LastFM
     private def build_track(song : Hash(String, String), elapsed : Float64, duration : Float64) : Track?
       artist = song["Artist"]?.try(&.strip)
       title = song["Title"]?.try(&.strip)
-      return nil unless artist && !artist.empty? && title && !title.empty?
+      return unless artist && !artist.empty? && title && !title.empty?
 
       duration_seconds = (duration > 0 ? duration : song_duration(song)).round.to_i
       timestamp = Time.utc.to_unix - elapsed.round.to_i
@@ -315,7 +315,7 @@ module LastFM
     end
 
     private def metadata_number(song : Hash(String, String), key : String) : Int32?
-      value = song[key]? || return nil
+      value = song[key]? || return
       part = value.split('/').first.strip
       part.to_i?
     end

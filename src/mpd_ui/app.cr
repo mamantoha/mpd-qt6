@@ -239,7 +239,7 @@ module MPDUI
 
             Qt6::ToolTip.hide_text
             target = duration * progress_slider.value / 1000.0
-            mpd_action { |c| c.seekcur(target.to_i) }
+            mpd_action(&.seekcur(target.to_i))
           end
 
           row << progress_slider
@@ -331,23 +331,23 @@ module MPDUI
           shuffle_button.checkable = true
           repeat_button.checkable = true
 
-          prev_button.on_clicked { mpd_action { |c| c.previous } }
+          prev_button.on_clicked { mpd_action(&.previous) }
           play_pause_button.on_clicked { toggle_play_pause }
-          next_button.on_clicked { mpd_action { |c| c.next } }
+          next_button.on_clicked { mpd_action(&.next) }
           shuffle_button.on_toggled do |checked|
             next if @syncing
 
-            mpd_action { |c| c.random(checked) }
+            mpd_action(&.random(checked))
           end
           repeat_button.on_toggled do |checked|
             next if @syncing
 
-            mpd_action { |c| c.repeat(checked) }
+            mpd_action(&.repeat(checked))
           end
           volume_slider.on_value_changed do |value|
             next if @syncing_volume
 
-            mpd_action { |c| c.setvol(value) }
+            mpd_action(&.setvol(value))
           end
 
           row.add_stretch

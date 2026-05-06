@@ -120,7 +120,7 @@ module MPDUI
 
     def year : Int32?
       date.try do |value|
-        value.match(/\d{4}/).try { |match| match[0].to_i? }
+        value.match(/\d{4}/).try(&.[0].to_i?)
       end
     end
 

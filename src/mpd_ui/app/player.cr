@@ -431,7 +431,7 @@ module MPDUI
     end
 
     private def read_cover_art_cache(path : String) : Bytes?
-      return nil unless File.exists?(path)
+      return unless File.exists?(path)
 
       File.read(path).to_slice.dup
     rescue ex

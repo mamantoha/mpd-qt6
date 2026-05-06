@@ -43,7 +43,7 @@ module MPDUI
         QTreeView::item {
           padding: 0px;
         }
-      CSS
+        CSS
 
       delegate = build_database_item_delegate(tree, model)
       tree.item_delegate = delegate
@@ -307,7 +307,7 @@ module MPDUI
       model << Qt6::StandardItem.new(message)
     end
 
-    private def database_song_entries(entries : MPD::Object | MPD::Objects | Nil) : Array(Song)
+    private def database_song_entries(entries : MPD::Object | MPD::Objects?) : Array(Song)
       return [] of Song unless entries
 
       case entries
@@ -376,12 +376,12 @@ module MPDUI
       album_icon = themed_icon("media-optical-audio", "media-optical")
       song_icon = themed_icon("audio-x-generic", "music.note.list")
 
-      library.keys.sort.each do |artist|
+      library.keys.sort!.each do |artist|
         artist_albums = library[artist]
         artist_item = database_item(artist, "#{artist_albums.size} #{artist_albums.size == 1 ? "Album" : "Albums"}")
         artist_item.icon = artist_icon unless artist_icon.null?
 
-        artist_albums.keys.sort_by { |album| album_sort_key(album, artist_albums[album]) }.each do |album|
+        artist_albums.keys.sort_by! { |album| album_sort_key(album, artist_albums[album]) }.each do |album|
           album_songs = artist_albums[album]
           album_item = database_item(album, database_album_summary(album_songs))
           album_item.icon = album_icon unless album_icon.null?
@@ -430,11 +430,11 @@ module MPDUI
     end
 
     private def parse_database_item_payload(value : String?) : Hash(String, String)?
-      return nil unless value
+      return unless value
 
       json = JSON.parse(value)
       title = json["title"]?.try(&.as_s?)
-      return nil unless title
+      return unless title
 
       payload = {"title" => title}
       if subtitle = json["subtitle"]?.try(&.as_s?)

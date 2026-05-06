@@ -30,7 +30,7 @@ module MPDUI
         QTreeView::item {
           padding: 3px 0px;
         }
-      CSS
+        CSS
 
       view.header.stretch_last_section = false
       configure_playlist_header(view)
@@ -176,7 +176,7 @@ module MPDUI
     end
 
     private def drag_is_database_drop?(event : Qt6::DropEvent) : Bool
-      @drag_source_type == :database && !!event.mime_data && @dragged_database_uris.any?
+      @drag_source_type == :database && !!event.mime_data && @dragged_database_uris.present?
     end
 
     private def queue_drop_row_for(event : Qt6::DropEvent) : Int32
@@ -205,7 +205,7 @@ module MPDUI
       view = @playlist_view
       return false unless view
 
-      selected_rows = selected_playlist_rows(view).select { |row| row >= 0 && row < @playlist_ids.size }.sort.uniq
+      selected_rows = selected_playlist_rows(view).select { |row| row >= 0 && row < @playlist_ids.size }.sort!.uniq!
       return false if selected_rows.empty?
 
       selected_ids = selected_rows.compact_map { |row| @playlist_ids[row]? }
@@ -325,7 +325,7 @@ module MPDUI
       model = @playlist_model
       return unless model
 
-      positions = [previous_song_pos, @playback_state.song_position].compact.uniq
+      positions = [previous_song_pos, @playback_state.song_position].compact.uniq!
       positions.each do |pos|
         row = @playlist_positions.index(pos)
         update_playlist_indicator(row) if row
@@ -368,7 +368,7 @@ module MPDUI
       pos = @playlist_positions[row]?
       return unless pos
 
-      mpd_action { |c| c.play(pos) }
+      mpd_action(&.play(pos))
     end
 
     private def delete_selected_playlist_row : Nil
@@ -444,7 +444,7 @@ module MPDUI
 
     private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
       playback = @playback_state
-      return nil unless pos == playback.song_position
+      return unless pos == playback.song_position
 
       if playback.playing?
         @play_icon

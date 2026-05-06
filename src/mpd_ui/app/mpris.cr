@@ -16,11 +16,11 @@ module MPDUI
       end
 
       service.on_play = -> do
-        @qt_app.invoke_later { mpd_action { |client| client.play } }
+        @qt_app.invoke_later { mpd_action(&.play) }
       end
 
       service.on_pause = -> do
-        @qt_app.invoke_later { mpd_action { |client| client.pause(true) } }
+        @qt_app.invoke_later { mpd_action(&.pause(true)) }
       end
 
       service.on_play_pause = -> do
@@ -28,15 +28,15 @@ module MPDUI
       end
 
       service.on_stop = -> do
-        @qt_app.invoke_later { mpd_action { |client| client.stop } }
+        @qt_app.invoke_later { mpd_action(&.stop) }
       end
 
       service.on_next = -> do
-        @qt_app.invoke_later { mpd_action { |client| client.next } }
+        @qt_app.invoke_later { mpd_action(&.next) }
       end
 
       service.on_previous = -> do
-        @qt_app.invoke_later { mpd_action { |client| client.previous } }
+        @qt_app.invoke_later { mpd_action(&.previous) }
       end
 
       service.on_seek = ->(offset_us : Int64) do
@@ -45,27 +45,27 @@ module MPDUI
           next if seconds == 0
 
           value = seconds > 0 ? "+#{seconds}" : seconds.to_s
-          mpd_action { |client| client.seekcur(value) }
+          mpd_action(&.seekcur(value))
         end
       end
 
       service.on_set_position = ->(_track_id : String, position_us : Int64) do
         @qt_app.invoke_later do
           seconds = (position_us / 1_000_000).clamp(0_i64, Int32::MAX.to_i64)
-          mpd_action { |client| client.seekcur(seconds.to_i) }
+          mpd_action(&.seekcur(seconds.to_i))
         end
       end
 
       service.on_set_volume = ->(volume : Float64) do
         @qt_app.invoke_later do
           percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
-          mpd_action { |client| client.setvol(percent) }
+          mpd_action(&.setvol(percent))
         end
       end
 
       service.on_set_shuffle = ->(enabled : Bool) do
         @qt_app.invoke_later do
-          mpd_action { |client| client.random(enabled) }
+          mpd_action(&.random(enabled))
         end
       end
 
@@ -83,7 +83,7 @@ module MPDUI
               false
             end
 
-          mpd_action { |client| client.repeat(enabled) }
+          mpd_action(&.repeat(enabled))
         end
       end
 
