@@ -69,7 +69,7 @@ module MPDUI
     @database_context_menu : Qt6::Menu?
     @database_model : Qt6::StandardItemModel?
     @database_item_delegate : Qt6::StyledItemDelegate?
-    @database_songs : Array(Hash(String, String)) = [] of Hash(String, String)
+    @database_songs : Array(Song) = [] of Song
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
@@ -90,24 +90,17 @@ module MPDUI
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
     @stop_icon : Qt6::QIcon?
-    @state : String = "stop"
-    @current_song_pos : Int32? = nil
-    @playlist_version : String? = nil
+    @playback_state : PlaybackState = PlaybackState.new
     @playlist_positions : Array(Int32) = [] of Int32
     @playlist_ids : Array(Int32) = [] of Int32
     @just_moved_pos : Int32? = nil
-    @elapsed : Float64 = 0.0
-    @duration : Float64 = 0.0
-    @random : Bool = false
-    @repeat : Bool = false
-    @volume : Int32? = nil
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @syncing : Bool = false
     @syncing_progress : Bool = false
     @syncing_volume : Bool = false
     @dragging_progress : Bool = false
     @current_file : String = ""
-    @mpris_song : Hash(String, String)?
+    @mpris_song : Song?
     @mpris_art_url : String = ""
     @mpris_cover_path : String?
     @mpris_last_position_second : Int64? = nil
@@ -231,19 +224,21 @@ module MPDUI
           end
 
           progress_slider.on_value_changed do |value|
-            next if @syncing_progress || @duration <= 0
+            duration = @playback_state.duration
+            next if @syncing_progress || duration <= 0
             @dragging_progress = true
-            target = @duration * value / 1000.0
-            @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
+            target = duration * value / 1000.0
+            @time_label.try(&.text = "#{format_time(target)} / #{format_time(duration)}")
             show_progress_tooltip(progress_slider, slider_position_for_value(progress_slider, value), target)
           end
 
           progress_slider.on_released do
             @dragging_progress = false
-            next if @syncing_progress || @duration <= 0
+            duration = @playback_state.duration
+            next if @syncing_progress || duration <= 0
 
             Qt6::ToolTip.hide_text
-            target = @duration * progress_slider.value / 1000.0
+            target = duration * progress_slider.value / 1000.0
             mpd_action { |c| c.seekcur(target.to_i) }
           end
 
@@ -815,7 +810,8 @@ module MPDUI
     end
 
     private def show_progress_tooltip(slider : Qt6::Slider, position : Qt6::PointF, seconds : Float64? = nil) : Nil
-      if @duration <= 0
+      duration = @playback_state.duration
+      if duration <= 0
         slider.tool_tip = ""
         Qt6::ToolTip.hide_text
         return
@@ -825,7 +821,7 @@ module MPDUI
       return if width <= 0
 
       x = position.x.clamp(0.0, width.to_f64)
-      target = seconds || (@duration * x / width)
+      target = seconds || (duration * x / width)
       text = format_time(target)
       slider.tool_tip = text
       Qt6::ToolTip.show_text(slider, Qt6::PointF.new(x, 0.0), text)

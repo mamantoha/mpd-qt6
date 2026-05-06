@@ -54,6 +54,8 @@ Several places use `Thread.new` and `@qt_app.invoke_later` directly. That works,
 
 ### Step 1: Add Domain Objects
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/song.cr`
@@ -96,6 +98,20 @@ Suggested first usage:
 
 - Convert `FormatHelpers` methods to accept `Song` where practical.
 - Keep compatibility helpers for raw hashes during transition.
+
+Current progress:
+
+- Added `Song`.
+- Added `PlaybackState`.
+- Routed shared formatting, duration, queue title, database label, track/disc parsing, and song tooltip helpers through `Song`.
+- Kept raw `Hash(String, String)` helper overloads so existing UI code can be migrated gradually.
+- Migrated player display, MPRIS sync, Last.fm sync, cover-art cache keys, queue row display, and database row display/sorting to use `Song`.
+- Added `@playback_state` and keep it synchronized with existing scalar playback fields as a transition step.
+- Migrated loaded database storage to `Array(Song)` and moved database grouping/filtering/album summaries to `Song`.
+- Migrated MPD status refresh current-song and playlist results to `Song`, so queue refresh now consumes `Array(Song)`.
+- Migrated read-only playback consumers to `PlaybackState`: progress display/seek tooltip, playback controls, queue current-track icon, toggle button sync, MPRIS sync, and Last.fm sync.
+- Made `PlaybackState` the primary playback state by removing the old scalar playback fields from `App`.
+- Removed raw-hash song helper compatibility overloads from `FormatHelpers`; app song display helpers now expect `Song`.
 
 ### Step 2: Extract Cover Art Service
 

@@ -253,7 +253,7 @@ module MPDUI
       set_status("Queue cleared")
     end
 
-    private def refresh_playlist(songs : Array(Hash(String, String))? = nil, *, scroll_to_current : Bool = true) : Nil
+    private def refresh_playlist(songs : Array(Song)? = nil, *, scroll_to_current : Bool = true) : Nil
       Log.info { "mpd_ui: Refreshing playlist view..." }
       view = @playlist_view
       model = @playlist_model
@@ -263,7 +263,7 @@ module MPDUI
         client = @client
         return unless client
 
-        songs = client.playlistinfo
+        songs = client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) })
       end
       return unless songs
 
@@ -278,8 +278,8 @@ module MPDUI
       configure_playlist_header(view)
 
       songs.each_with_index do |song, row|
-        pos = song["Pos"]?.try(&.to_i?) || row
-        id = song["Id"]?.try(&.to_i?) || pos
+        pos = song.pos || row
+        id = song.id || pos
         @playlist_positions << pos
         @playlist_ids << id
 
@@ -325,7 +325,7 @@ module MPDUI
       model = @playlist_model
       return unless model
 
-      positions = [previous_song_pos, @current_song_pos].compact.uniq
+      positions = [previous_song_pos, @playback_state.song_position].compact.uniq
       positions.each do |pos|
         row = @playlist_positions.index(pos)
         update_playlist_indicator(row) if row
@@ -347,7 +347,7 @@ module MPDUI
 
     private def scroll_playlist_to_current_song : Nil
       view = @playlist_view
-      current_song_pos = @current_song_pos
+      current_song_pos = @playback_state.song_position
       return unless view && current_song_pos
 
       row = @playlist_positions.index(current_song_pos)
@@ -443,12 +443,12 @@ module MPDUI
     end
 
     private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
-      return nil unless pos == @current_song_pos
+      playback = @playback_state
+      return nil unless pos == playback.song_position
 
-      case @state
-      when "play"
+      if playback.playing?
         @play_icon
-      when "pause"
+      elsif playback.paused?
         @pause_icon
       else
         @stop_icon

@@ -76,7 +76,7 @@ module MPDUI
           enabled =
             case status
             when "Track"
-              !@repeat
+              !@playback_state.repeat
             when "Playlist"
               true
             else
@@ -93,46 +93,46 @@ module MPDUI
     end
 
     private def sync_mpris_position : Nil
-      second = @elapsed.floor.to_i64
+      second = @playback_state.elapsed.floor.to_i64
       return if @mpris_last_position_second == second
 
       @mpris_last_position_second = second
       sync_mpris_state
     end
 
-    private def sync_mpris_state(song : Hash(String, String)? = nil) : Nil
+    private def sync_mpris_state(song : Song? = nil) : Nil
       service = @mpris_service
       return unless service
 
       @mpris_song = song if song
       song ||= @mpris_song
 
+      playback = @playback_state
       state = MPRIS::State.new
       state.playback_status =
-        case @state
-        when "play"
+        if playback.playing?
           "Playing"
-        when "pause"
+        elsif playback.paused?
           "Paused"
         else
           "Stopped"
         end
 
-      state.position_us = (@elapsed * 1_000_000).round.to_i64
-      @mpris_last_position_second = @elapsed.floor.to_i64
-      state.length_us = (@duration * 1_000_000).round.to_i64
-      state.volume = @volume ? (@volume.not_nil!.clamp(0, 100) / 100.0) : 1.0
-      state.shuffle = @random
-      state.repeat = @repeat
+      state.position_us = (playback.elapsed * 1_000_000).round.to_i64
+      @mpris_last_position_second = playback.elapsed.floor.to_i64
+      state.length_us = (playback.duration * 1_000_000).round.to_i64
+      state.volume = playback.volume ? (playback.volume.not_nil!.clamp(0, 100) / 100.0) : 1.0
+      state.shuffle = playback.random
+      state.repeat = playback.repeat
 
       if song
-        file = song["file"]?
+        file = song.file
         state.file = file || ""
-        state.title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "")
-        state.artist = song["Artist"]? || ""
-        state.album = song["Album"]? || ""
+        state.title = song.display_title
+        state.artist = song.artist || ""
+        state.album = song.album || ""
         state.art_url = @mpris_art_url
-        state.track_id = song["Id"]?.try(&.to_i?)
+        state.track_id = song.id
       end
 
       service.update_state(state)

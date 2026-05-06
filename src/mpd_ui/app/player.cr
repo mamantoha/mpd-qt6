@@ -2,8 +2,8 @@ module MPDUI
   module AppPlayer
     private record StatusRefresh,
       status : Hash(String, String)?,
-      song : Hash(String, String)?,
-      playlist : Array(Hash(String, String))?,
+      song : Song?,
+      playlist : Array(Song)?,
       error : String?
 
     private record CoverArtResult,
@@ -18,26 +18,26 @@ module MPDUI
       end
 
       @event_bridge.progress_requested.connect do |elapsed|
-        @elapsed = elapsed
+        @playback_state = @playback_state.with_elapsed(elapsed)
         update_progress
         sync_mpris_position
         sync_lastfm_state(@mpris_song)
       end
 
       @event_bridge.random_changed.connect do |enabled|
-        @random = enabled
+        @playback_state = @playback_state.with_random(enabled)
         sync_toggle_buttons
         sync_mpris_state
       end
 
       @event_bridge.repeat_changed.connect do |enabled|
-        @repeat = enabled
+        @playback_state = @playback_state.with_repeat(enabled)
         sync_toggle_buttons
         sync_mpris_state
       end
 
       @event_bridge.volume_changed.connect do |volume|
-        @volume = volume
+        @playback_state = @playback_state.with_volume(volume)
         update_volume_control(volume)
         sync_mpris_state
       end
@@ -45,7 +45,7 @@ module MPDUI
 
     private def toggle_play_pause : Nil
       mpd_action do |client|
-        if @state == "play"
+        if @playback_state.playing?
           client.pause(true)
         else
           client.play
@@ -54,14 +54,14 @@ module MPDUI
     end
 
     private def refresh_status : Nil
-      apply_status_refresh(fetch_status_refresh(@playlist_version, @playlist_positions.empty?))
+      apply_status_refresh(fetch_status_refresh(@playback_state.playlist_version, @playlist_positions.empty?))
     end
 
     private def request_status_refresh : Nil
       return if @quitting
       return if @status_refresh_pending.swap(true)
 
-      previous_playlist_version = @playlist_version
+      previous_playlist_version = @playback_state.playlist_version
       playlist_empty = @playlist_positions.empty?
 
       Thread.new do
@@ -87,10 +87,10 @@ module MPDUI
       status = client.status
       return StatusRefresh.new(nil, nil, nil, nil) unless status
 
-      song = client.currentsong
+      song = client.currentsong.try { |metadata| Song.from_mpd(metadata) }
       playlist_version = status["playlist"]?
       playlist = if previous_playlist_version != playlist_version || playlist_empty
-                   client.playlistinfo
+                   client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) })
                  end
 
       StatusRefresh.new(status, song, playlist, nil)
@@ -117,62 +117,46 @@ module MPDUI
 
       song = snapshot.song
 
-      state = status.fetch("state", "stop")
-      previous_state = @state
-      previous_song_pos = @current_song_pos
-      previous_playlist_version = @playlist_version
-      playlist_version = status["playlist"]?
-      @state = state
-      @current_song_pos = status["song"]?.try(&.to_i?)
-      @playlist_version = playlist_version
-      if state == "stop" || previous_song_pos != @current_song_pos
+      previous_playback = @playback_state
+      playback = playback_state_from_status(status, song)
+      @playback_state = playback
+      if playback.stopped? || previous_playback.song_position != playback.song_position
         @dragging_progress = false
       end
-      if state == "stop"
-        @elapsed = 0.0
-        @duration = 0.0
-      else
-        @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
-        @duration = status["duration"]?.try(&.to_f?) || @duration
-      end
-      @random = status["random"]? == "1"
-      @repeat = status["repeat"]? == "1"
-      @volume = status["volume"]?.try(&.to_i?)
 
       if button = @play_pause_button
-        if icon = (state == "play" ? @pause_icon : @play_icon)
+        if icon = (playback.playing? ? @pause_icon : @play_icon)
           button.icon = icon
         end
       end
       sync_playback_controls
       sync_toggle_buttons
-      update_volume_control(@volume)
+      update_volume_control(playback.volume)
       update_progress
 
-      playlist_changed = previous_playlist_version != playlist_version || @playlist_positions.empty?
-      song_changed = previous_song_pos != @current_song_pos
-      state_changed = previous_state != state
+      playlist_changed = previous_playback.playlist_version != playback.playlist_version || @playlist_positions.empty?
+      song_changed = previous_playback.song_position != playback.song_position
+      state_changed = previous_playback.state != playback.state
       if playlist_changed
         if playlist = snapshot.playlist
-          refresh_playlist(playlist, scroll_to_current: state != "stop")
+          refresh_playlist(playlist, scroll_to_current: !playback.stopped?)
         end
       elsif song_changed
-        sync_playlist_indicators(previous_song_pos)
-        scroll_playlist_to_current_song unless state == "stop"
+        sync_playlist_indicators(previous_playback.song_position)
+        scroll_playlist_to_current_song unless playback.stopped?
       elsif state_changed
-        sync_playlist_indicators(previous_song_pos)
+        sync_playlist_indicators(previous_playback.song_position)
       end
 
       if song
-        file = song["file"]?
-        title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-        artist = song["Artist"]?
-        album = song["Album"]?
-        subtitle = [artist, album].compact.join(" • ")
+        file = song.file
+        title = song.display_title
+        artist = song.artist
+        subtitle = song.subtitle
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle.empty? ? " " : subtitle)
-        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
+        set_status("State: #{playback.state.capitalize} • #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = artist ? "#{artist} — #{title}" : title)
         update_tray_tooltip(title, subtitle)
 
@@ -183,7 +167,7 @@ module MPDUI
           @cover_art_generation.add(1)
           clear_cover_art
         end
-      elsif state == "stop"
+      elsif playback.stopped?
         @current_file = ""
         @cover_art_generation.add(1)
         clear_cover_art
@@ -193,8 +177,8 @@ module MPDUI
         @window.try(&.window_title = App::WINDOW_TITLE)
         update_tray_tooltip("Stopped", "#{@settings.host}:#{@settings.port}")
       else
-        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
-        update_tray_tooltip("State: #{state.capitalize}", "#{@settings.host}:#{@settings.port}")
+        set_status("State: #{playback.state.capitalize} • #{@settings.host}:#{@settings.port}")
+        update_tray_tooltip("State: #{playback.state.capitalize}", "#{@settings.host}:#{@settings.port}")
       end
       sync_mpris_state(song)
       sync_lastfm_state(song)
@@ -206,14 +190,15 @@ module MPDUI
       return if @dragging_progress
 
       @syncing_progress = true
-      pct = @duration > 0 ? ((@elapsed / @duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
+      playback = @playback_state
+      pct = playback.duration > 0 ? ((playback.elapsed / playback.duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
       slider.value = pct
-      @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
+      @time_label.try(&.text = "#{format_time(playback.elapsed)} / #{format_time(playback.duration)}")
       @syncing_progress = false
     end
 
     private def sync_playback_controls : Nil
-      enabled = @state != "stop"
+      enabled = !@playback_state.stopped?
       @previous_button.try(&.enabled = enabled)
       @play_pause_button.try(&.enabled = enabled)
       @next_button.try(&.enabled = enabled)
@@ -268,7 +253,35 @@ module MPDUI
       button.tool_tip = volume ? "#{volume}%" : "Volume unavailable"
     end
 
-    private def request_cover_art(uri : String, song : Hash(String, String)? = nil) : Nil
+    private def playback_state_from_status(status : Hash(String, String), song : Song?) : PlaybackState
+      state = status.fetch("state", "stop")
+      elapsed =
+        if state == "stop"
+          0.0
+        else
+          status["elapsed"]?.try(&.to_f?) || @playback_state.elapsed
+        end
+      duration =
+        if state == "stop"
+          0.0
+        else
+          status["duration"]?.try(&.to_f?) || @playback_state.duration
+        end
+
+      PlaybackState.new(
+        state,
+        song,
+        status["song"]?.try(&.to_i?),
+        status["playlist"]?,
+        elapsed,
+        duration,
+        status["random"]? == "1",
+        status["repeat"]? == "1",
+        status["volume"]?.try(&.to_i?)
+      )
+    end
+
+    private def request_cover_art(uri : String, song : Song? = nil) : Nil
       generation = @cover_art_generation.add(1) + 1
       host = @settings.host
       port = @settings.port
@@ -396,19 +409,19 @@ module MPDUI
       end
     end
 
-    private def cover_art_cache_path(uri : String, song : Hash(String, String)?) : String
+    private def cover_art_cache_path(uri : String, song : Song?) : String
       File.join(cover_art_cache_dir, "#{Digest::SHA1.hexdigest(cover_art_cache_key(uri, song))}.cover")
     end
 
-    private def cover_art_cache_key(uri : String, song : Hash(String, String)?) : String
+    private def cover_art_cache_key(uri : String, song : Song?) : String
       source = ["mpd", @settings.host, @settings.port.to_s]
       return (source + ["file", uri]).join("\0") unless song
 
-      album = song["Album"]?.try(&.strip) || ""
+      album = song.album || ""
       return (source + ["file", uri]).join("\0") if album.empty?
 
-      artist = song["AlbumArtist"]?.try(&.strip) || song["Artist"]?.try(&.strip) || ""
-      date = song["Date"]?.try(&.strip) || ""
+      artist = song.album_artist || song.artist || ""
+      date = song.date || ""
       (source + ["album", artist, album, date]).join("\0")
     end
 
@@ -488,8 +501,8 @@ module MPDUI
 
     private def sync_toggle_buttons : Nil
       @syncing = true
-      @shuffle_button.try(&.checked = @random)
-      @repeat_button.try(&.checked = @repeat)
+      @shuffle_button.try(&.checked = @playback_state.random)
+      @repeat_button.try(&.checked = @playback_state.repeat)
       @syncing = false
     end
   end

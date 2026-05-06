@@ -307,27 +307,27 @@ module MPDUI
       model << Qt6::StandardItem.new(message)
     end
 
-    private def database_song_entries(entries : MPD::Object | MPD::Objects | Nil) : Array(Hash(String, String))
-      return [] of Hash(String, String) unless entries
+    private def database_song_entries(entries : MPD::Object | MPD::Objects | Nil) : Array(Song)
+      return [] of Song unless entries
 
       case entries
       when Array
-        entries.select { |entry| !!entry["file"]? }
+        entries.select { |entry| !!entry["file"]? }.map { |entry| Song.from_mpd(entry) }
       else
-        entries["file"]? ? [entries] : [] of Hash(String, String)
+        entries["file"]? ? [Song.from_mpd(entries)] : [] of Song
       end
     end
 
-    private def build_database_library(songs : Array(Hash(String, String))) : Hash(String, Hash(String, Array(Hash(String, String))))
-      library = Hash(String, Hash(String, Array(Hash(String, String)))).new do |artists, artist|
-        artists[artist] = Hash(String, Array(Hash(String, String))).new do |albums, album|
-          albums[album] = [] of Hash(String, String)
+    private def build_database_library(songs : Array(Song)) : Hash(String, Hash(String, Array(Song)))
+      library = Hash(String, Hash(String, Array(Song))).new do |artists, artist|
+        artists[artist] = Hash(String, Array(Song)).new do |albums, album|
+          albums[album] = [] of Song
         end
       end
 
       songs.each do |song|
-        artist = display_name(song["Artist"]?, "[Unknown Artist]")
-        album = display_name(song["Album"]?, "[Unknown Album]")
+        artist = display_name(song.artist, "[Unknown Artist]")
+        album = display_name(song.album, "[Unknown Album]")
         library[artist][album] << song
       end
 
@@ -349,18 +349,18 @@ module MPDUI
       end
     end
 
-    private def database_song_matches?(song : Hash(String, String), terms : Array(String)) : Bool
+    private def database_song_matches?(song : Song, terms : Array(String)) : Bool
       haystack = [
-        song["Artist"]?,
-        song["Album"]?,
-        song["Title"]?,
-        song["file"]?,
+        song.artist,
+        song.album,
+        song.title,
+        song.file,
       ].compact.join(" ").downcase
 
       terms.all? { |term| haystack.includes?(term) }
     end
 
-    private def populate_database_tree(library : Hash(String, Hash(String, Array(Hash(String, String)))), *, filtered : Bool = false) : Nil
+    private def populate_database_tree(library : Hash(String, Hash(String, Array(Song))), *, filtered : Bool = false) : Nil
       model = @database_model
       return unless model
 
@@ -387,7 +387,7 @@ module MPDUI
           album_item.icon = album_icon unless album_icon.null?
 
           album_songs.sort_by { |song| song_sort_key(song) }.each do |song|
-            song_item = database_item(database_song_title(song), playlist_duration(song), song["file"]?)
+            song_item = database_item(database_song_title(song), playlist_duration(song), song.file)
             song_item.icon = song_icon unless song_icon.null?
             song_item.set_data(song_tooltip(song), Qt6::ItemDataRole::ToolTip)
             album_item << song_item
@@ -402,29 +402,16 @@ module MPDUI
       @database_tree.try(&.expand_all) if filtered
     end
 
-    private def album_sort_key(album : String, songs : Array(Hash(String, String))) : Tuple(Int32, String)
+    private def album_sort_key(album : String, songs : Array(Song)) : Tuple(Int32, String)
       {album_year(songs), album.downcase}
     end
 
-    private def album_year(songs : Array(Hash(String, String))) : Int32
-      years = songs.compact_map { |song| song_year(song) }
+    private def album_year(songs : Array(Song)) : Int32
+      years = songs.compact_map(&.year)
       years.min? || Int32::MAX
     end
 
-    private def song_year(song : Hash(String, String)) : Int32?
-      {"Date", "OriginalDate", "Year"}.each do |key|
-        value = song[key]?
-        next unless value
-
-        if match = value.match(/\d{4}/)
-          return match[0].to_i?
-        end
-      end
-
-      nil
-    end
-
-    private def song_sort_key(song : Hash(String, String)) : Tuple(Int32, Int32, String)
+    private def song_sort_key(song : Song) : Tuple(Int32, Int32, String)
       {disc_number(song), track_number(song), database_song_label(song).downcase}
     end
 
@@ -461,21 +448,13 @@ module MPDUI
       nil
     end
 
-    private def database_album_summary(songs : Array(Hash(String, String))) : String
-      duration = songs.sum { |song| song["duration"]?.try(&.to_f?) || song["Time"]?.try(&.to_f?) || 0.0 }
+    private def database_album_summary(songs : Array(Song)) : String
+      duration = songs.sum { |song| song.duration || 0.0 }
       "#{songs.size} #{songs.size == 1 ? "Track" : "Tracks"}#{duration > 0 ? " (#{format_time(duration)})" : ""}"
     end
 
-    private def database_song_title(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
-      track = song["Track"]?.try(&.split('/').first)
-
-      if track && !track.empty?
-        "#{track.rjust(2, '0')}. #{title}"
-      else
-        title
-      end
+    private def database_song_title(song : Song) : String
+      song.database_label.split(" • ", 2).first
     end
 
     private def themed_icon(*names : String) : Qt6::QIcon

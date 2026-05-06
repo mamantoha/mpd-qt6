@@ -16,8 +16,9 @@ module MPDUI
       )
     end
 
-    private def sync_lastfm_state(song : Hash(String, String)?) : Nil
-      @lastfm_scrobbler.try(&.update(song, @state, @elapsed, @duration))
+    private def sync_lastfm_state(song : Song?) : Nil
+      playback = @playback_state
+      @lastfm_scrobbler.try(&.update(song.try(&.metadata), playback.state, playback.elapsed, playback.duration))
     end
   end
 end
