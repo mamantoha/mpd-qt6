@@ -399,6 +399,8 @@ Current progress:
 
 ### Step 9: Reduce `App` to Composition Root
 
+Status: complete.
+
 After the extractions above, `MPDUI::App` should mostly:
 
 - load settings
@@ -412,6 +414,16 @@ After the extractions above, `MPDUI::App` should mostly:
 Expected result:
 
 - `App` becomes the place where objects are wired together, not the place where every feature is implemented.
+
+Current progress:
+
+- Added `src/mpd_ui/views/application_menu.cr`.
+- Moved main menu construction, menu actions, shortcuts, and menu-specific visibility behavior into `ApplicationMenu`.
+- Added `src/mpd_ui/views/app_layout_view.cr`.
+- Moved top-level central widget layout, player header placement, library/queue panel wrapping, browser splitter, and compact spacer construction into `AppLayoutView`.
+- Simplified `App#build_ui` so it now creates the window, builds/wires menus, header, library, queue, and shell layout, then stores only the references needed by existing modules.
+- Removed direct action instance variables from `App`; settings/header code now reaches menu actions through `ApplicationMenu`.
+- Reduced `src/mpd_ui/app.cr` from roughly 500 lines to roughly 375 lines while keeping existing behavior unchanged.
 
 ## Suggested Order
 
