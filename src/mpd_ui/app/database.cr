@@ -523,8 +523,7 @@ module MPDUI
 
       mpd_action do |client|
         client.with_command_list do
-          if insert_row && insert_row < @playlist_positions.size
-            base_position = @playlist_positions[insert_row]? || insert_row
+          if base_position = @queue_controller.base_position_for_insert(insert_row)
             uris.each_with_index do |uri, offset|
               client.addid(uri, base_position + offset)
             end

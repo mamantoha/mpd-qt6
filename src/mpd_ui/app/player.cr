@@ -46,7 +46,7 @@ module MPDUI
     end
 
     private def refresh_status : Nil
-      apply_status_refresh(@player_controller.fetch_status_refresh(@playback_state.playlist_version, @playlist_positions.empty?))
+      apply_status_refresh(@player_controller.fetch_status_refresh(@playback_state.playlist_version, @queue_controller.empty?))
     end
 
     private def request_status_refresh : Nil
@@ -54,7 +54,7 @@ module MPDUI
       return if @status_refresh_pending.swap(true)
 
       previous_playlist_version = @playback_state.playlist_version
-      playlist_empty = @playlist_positions.empty?
+      playlist_empty = @queue_controller.empty?
 
       run_background(->(snapshot : PlayerController::StatusRefresh) {
         @status_refresh_pending.set(false)
@@ -84,7 +84,7 @@ module MPDUI
       song = snapshot.song
 
       previous_playback = @playback_state
-      transition = @player_controller.transition_from_status(status, song, previous_playback, @playlist_positions.empty?)
+      transition = @player_controller.transition_from_status(status, song, previous_playback, @queue_controller.empty?)
       playback = transition.playback
       @playback_state = playback
       if playback.stopped? || previous_playback.song_position != playback.song_position

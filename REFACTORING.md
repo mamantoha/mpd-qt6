@@ -277,6 +277,8 @@ Current progress:
 
 ### Step 6: Extract Queue View and Queue Controller
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/views/queue_view.cr`
@@ -294,16 +296,32 @@ Add:
 
 `QueueController` should own:
 
-- play selected row
-- remove selected rows
-- clear queue
-- reorder selected rows
-- append/insert database selection into queue
+- queue positions and MPD ids
+- selected-row to queue-position mapping
+- insert-position lookup for database drops
+- reorder planning for selected rows
+
+Keep in `AppQueue` for now:
+
+- MPD command execution
+- status/error UI updates
+- database selection integration
+- drag source coordination between library and queue
 
 Expected result:
 
 - Drag/drop code becomes easier to isolate.
 - Queue rendering and MPD queue commands stop being interleaved.
+
+Current progress:
+
+- Added `QueueView`.
+- Moved queue `QTreeView`, `StandardItemModel`, header sizing, row rendering, context menu, keyboard shortcuts, selection helpers, current-row helpers, indicator updates, and drop-position calculation into the view.
+- Moved queue drop event filtering into `QueueView`, with callbacks back into the app for MPD/database behavior.
+- Added `QueueController`.
+- Moved queue row metadata, selected-row position lookup, database insert-position lookup, and playlist reorder planning into the controller.
+- Removed queue model/action instance variables from `App`; `AppQueue` now wires `QueueView` callbacks to existing MPD operations.
+- Kept actual MPD queue commands in `AppQueue` so behavior stays unchanged and the controller remains independent from the MPD client.
 
 ### Step 7: Extract Library Index and Library View
 

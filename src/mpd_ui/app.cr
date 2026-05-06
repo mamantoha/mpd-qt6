@@ -34,13 +34,9 @@ module MPDUI
     @volume_slider : Qt6::Slider?
     @volume_label : Qt6::Label?
     @player_header_view : PlayerHeaderView?
+    @queue_view : QueueView?
+    @queue_controller : QueueController
     @playlist_view : Qt6::TreeView?
-    @playlist_model : Qt6::StandardItemModel?
-    @queue_context_menu : Qt6::Menu?
-    @queue_play_now_action : Qt6::Action?
-    @play_queue_return_action : Qt6::Action?
-    @play_queue_enter_action : Qt6::Action?
-    @delete_queue_action : Qt6::Action?
     @about_action : Qt6::Action?
     @settings_action : Qt6::Action?
     @search_library_action : Qt6::Action?
@@ -88,8 +84,6 @@ module MPDUI
     @pause_icon : Qt6::QIcon?
     @stop_icon : Qt6::QIcon?
     @playback_state : PlaybackState = PlaybackState.new
-    @playlist_positions : Array(Int32) = [] of Int32
-    @playlist_ids : Array(Int32) = [] of Int32
     @just_moved_pos : Int32? = nil
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @syncing : Bool = false
@@ -114,6 +108,7 @@ module MPDUI
       end
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
+      @queue_controller = QueueController.new
       bind_event_bridge
       setup_lastfm
     end
@@ -163,8 +158,9 @@ module MPDUI
         player_header.on_cover_clicked = -> { toggle_expanded_interface }
 
         setup_system_tray(window)
-        playlist_view = build_playlist(central)
-        setup_queue_drop_target(playlist_view)
+        queue_view = build_playlist(central)
+        playlist_view = queue_view.view
+        setup_queue_drop_target(queue_view)
         database_browser = build_database_browser(central)
 
         browsers = Qt6::Splitter.new(Qt6::Orientation::Horizontal, central)
@@ -225,6 +221,7 @@ module MPDUI
         @browsers = browsers
         @compact_spacer = compact_spacer
         @database_panel = database_panel
+        @queue_view = queue_view
         @playlist_view = playlist_view
         sync_playback_controls
       end
