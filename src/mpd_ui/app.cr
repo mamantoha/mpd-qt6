@@ -74,6 +74,7 @@ module MPDUI
     @playback_state : PlaybackState = PlaybackState.new
     @just_moved_pos : Int32? = nil
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
+    @status_retry_scheduled : Bool = false
     @syncing : Bool = false
     @syncing_volume : Bool = false
     @current_file : String = ""

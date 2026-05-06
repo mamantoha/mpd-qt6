@@ -10,6 +10,8 @@ module MPDUI
       end
 
       @event_bridge.progress_requested.connect do |elapsed|
+        next if @playback_state.stopped?
+
         @playback_state = @playback_state.with_elapsed(elapsed)
         update_progress
         sync_mpris_position
@@ -58,6 +60,7 @@ module MPDUI
 
       run_background(->(snapshot : PlayerController::StatusRefresh) {
         @status_refresh_pending.set(false)
+        @status_retry_scheduled = false
         apply_status_refresh(snapshot)
       }) do
         @player_controller.fetch_status_refresh(previous_playlist_version, playlist_empty)
@@ -75,9 +78,7 @@ module MPDUI
 
       status = snapshot.status
       unless status
-        Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
-        set_status("Reconnecting to #{@settings.host}:#{@settings.port}…")
-        update_tray_tooltip("Reconnecting", "#{@settings.host}:#{@settings.port}")
+        wait_for_status_after_reconnect
         return
       end
 
@@ -146,6 +147,31 @@ module MPDUI
       end
       sync_mpris_state(song)
       sync_lastfm_state(song)
+    end
+
+    private def wait_for_status_after_reconnect : Nil
+      Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
+      @playback_state = PlaybackState.new
+      @current_file = ""
+      @cover_art_generation.add(1)
+      clear_cover_art
+      @title_label.try(&.text = "Reconnecting")
+      @subtitle_label.try(&.text = "#{@settings.host}:#{@settings.port}")
+      set_status("Reconnecting to #{@settings.host}:#{@settings.port}…")
+      update_tray_tooltip("Reconnecting", "#{@settings.host}:#{@settings.port}")
+      @window.try(&.window_title = App::WINDOW_TITLE)
+      sync_playback_controls
+      sync_toggle_buttons
+      update_progress
+      sync_mpris_state(nil)
+
+      return if @status_retry_scheduled
+
+      @status_retry_scheduled = true
+      Qt6::QTimer.single_shot(500) do
+        @status_retry_scheduled = false
+        request_status_refresh unless @quitting
+      end
     end
 
     private def update_progress : Nil

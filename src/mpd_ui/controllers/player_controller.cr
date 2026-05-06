@@ -45,7 +45,7 @@ module MPDUI
         if state == "stop"
           0.0
         else
-          status["duration"]?.try(&.to_f?) || previous.duration
+          status["duration"]?.try(&.to_f?) || song.try(&.duration) || (same_song?(song, previous.song) ? previous.duration : 0.0)
         end
 
       PlaybackState.new(
@@ -69,6 +69,16 @@ module MPDUI
         previous.song_position != playback.song_position,
         previous.state != playback.state
       )
+    end
+
+    private def same_song?(current : Song?, previous : Song?) : Bool
+      return false unless current && previous
+
+      if current_id = current.id
+        return current_id == previous.id
+      end
+
+      current.file == previous.file
     end
   end
 end
