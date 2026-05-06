@@ -325,6 +325,8 @@ Current progress:
 
 ### Step 7: Extract Library Index and Library View
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/library_index.cr`
@@ -351,6 +353,16 @@ Expected result:
 
 - Library sorting/filtering becomes testable without Qt.
 - `database.cr` becomes smaller and easier to navigate.
+
+Current progress:
+
+- Added `LibraryIndex`.
+- Moved MPD database entry conversion, search filtering, artist/album grouping, album sorting by year, and song sorting by disc/track into `LibraryIndex`.
+- Added `LibraryView`.
+- Moved the search panel, tree view, model, custom item delegate, JSON item payloads, context menu, drag filter, tree rendering, message rendering, and selected URI collection into `LibraryView`.
+- Reworked `AppDatabase` so it wires `LibraryView` callbacks to existing MPD queue/database operations.
+- Replaced app-level database model/search/tree ivars with `@library_view` and `@library_index`.
+- Kept MPD database loading/updating, status messages, and add-to-queue commands in `AppDatabase` so behavior stays unchanged.
 
 ### Step 8: Clarify Service Adapters
 

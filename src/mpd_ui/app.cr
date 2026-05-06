@@ -56,14 +56,8 @@ module MPDUI
     @database_panel : Qt6::Widget?
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
-    @database_search_panel : Qt6::Widget?
-    @database_search_edit : Qt6::LineEdit?
-    @database_search_escape_shortcut : Qt6::Shortcut?
-    @database_tree : Qt6::TreeView?
-    @database_context_menu : Qt6::Menu?
-    @database_model : Qt6::StandardItemModel?
-    @database_item_delegate : Qt6::StyledItemDelegate?
-    @database_songs : Array(Song) = [] of Song
+    @library_view : LibraryView?
+    @library_index : LibraryIndex
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
@@ -109,6 +103,7 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @queue_controller = QueueController.new
+      @library_index = LibraryIndex.new
       bind_event_bridge
       setup_lastfm
     end
