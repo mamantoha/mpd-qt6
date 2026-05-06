@@ -108,10 +108,10 @@ module MPDUI
             show_database_context_menu(tree, viewport, mouse_event.position)
             true
           else
-          @playlist_drag_source_row = nil
-          @dragged_database_uris.clear
-          @drag_source_type = :database
-          false
+            @playlist_drag_source_row = nil
+            @dragged_database_uris.clear
+            @drag_source_type = :database
+            false
           end
         when Qt6::EventType::DragEnter
           @drag_source_type = :database
