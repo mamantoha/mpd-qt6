@@ -366,6 +366,8 @@ Current progress:
 
 ### Step 8: Clarify Service Adapters
 
+Status: complete.
+
 Keep generic modules in `src/ext`:
 
 - `src/ext/mpris`
@@ -384,6 +386,16 @@ Later, rename app glue to adapter classes:
 Expected result:
 
 - It becomes clear which code is reusable shard code and which code is app integration.
+
+Current progress:
+
+- Added `src/mpd_ui/adapters/mpris_adapter.cr`.
+- Moved MPRIS service ownership, callback registration, playback-state to `MPRIS::State` mapping, current MPRIS song tracking, artwork URL state, and MPRIS position throttling into `MprisAdapter`.
+- Added `src/mpd_ui/adapters/lastfm_adapter.cr`.
+- Moved Last.fm client/scrobbler construction and playback sync into `LastfmAdapter`.
+- Kept reusable MPRIS and Last.fm implementations under `src/ext` unchanged.
+- Kept Qt-thread handoff and MPD command behavior in `src/mpd_ui/app/mpris.cr`, now as adapter wiring.
+- Updated settings authentication to use `LastfmAdapter.client`.
 
 ### Step 9: Reduce `App` to Composition Root
 

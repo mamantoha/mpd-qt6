@@ -148,7 +148,7 @@ module MPDUI
       save_expanded_layout_settings
       @quitting = true
       @event_bridge.shutdown
-      @mpris_service.try(&.stop)
+      @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
     end

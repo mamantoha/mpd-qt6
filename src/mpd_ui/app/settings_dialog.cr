@@ -99,7 +99,7 @@ module MPDUI
 
             if lastfm_enabled.checked? && !password.empty?
               begin
-                lastfm_client = LastFM::Client.new(AppLastFM::LASTFM_API_KEY, AppLastFM::LASTFM_SHARED_SECRET)
+                lastfm_client = LastfmAdapter.client
                 session = lastfm_client.mobile_session(username, password)
                 settings.lastfm_username = session.username
                 settings.lastfm_session_key = session.key

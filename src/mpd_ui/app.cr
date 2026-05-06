@@ -71,8 +71,8 @@ module MPDUI
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
     @player_controller : PlayerController
-    @mpris_service : MPRIS::Service?
-    @lastfm_scrobbler : LastFM::Scrobbler?
+    @mpris_adapter : MprisAdapter?
+    @lastfm_adapter : LastfmAdapter?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
@@ -83,10 +83,6 @@ module MPDUI
     @syncing : Bool = false
     @syncing_volume : Bool = false
     @current_file : String = ""
-    @mpris_song : Song?
-    @mpris_art_url : String = ""
-    @mpris_cover_path : String?
-    @mpris_last_position_second : Int64? = nil
     @cover_art_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @quitting : Bool = false
     @tray_message_shown : Bool = false
@@ -395,7 +391,7 @@ module MPDUI
       end
 
       if enabled
-        request_cover_art(@current_file, @mpris_song) unless @current_file.empty?
+        request_cover_art(@current_file, @mpris_adapter.try(&.song)) unless @current_file.empty?
       else
         reset_cover_background
       end

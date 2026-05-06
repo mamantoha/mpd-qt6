@@ -1,141 +1,79 @@
 module MPDUI
   module AppMPRIS
     private def setup_mpris : Nil
-      service = MPRIS::Service.new(
+      adapter = MprisAdapter.new(
         app_id: Settings::APPLICATION,
         identity: App::WINDOW_TITLE,
         desktop_entry: Settings::APPLICATION,
-        cache_prefix: Settings::APPLICATION
+        cache_prefix: Settings::APPLICATION,
+        on_raise: -> { @qt_app.invoke_later { show_main_window } },
+        on_quit: -> { @qt_app.invoke_later { quit_application } },
+        on_play: -> { @qt_app.invoke_later { mpd_action(&.play) } },
+        on_pause: -> { @qt_app.invoke_later { mpd_action(&.pause(true)) } },
+        on_play_pause: -> { @qt_app.invoke_later { toggle_play_pause } },
+        on_stop: -> { @qt_app.invoke_later { mpd_action(&.stop) } },
+        on_next: -> { @qt_app.invoke_later { mpd_action(&.next) } },
+        on_previous: -> { @qt_app.invoke_later { mpd_action(&.previous) } },
+        on_seek: ->(offset_us : Int64) { handle_mpris_seek(offset_us) },
+        on_set_position: ->(_track_id : String, position_us : Int64) { handle_mpris_set_position(position_us) },
+        on_set_volume: ->(volume : Float64) { handle_mpris_set_volume(volume) },
+        on_set_shuffle: ->(enabled : Bool) { @qt_app.invoke_later { mpd_action(&.random(enabled)) } },
+        on_set_loop_status: ->(status : String) { handle_mpris_set_loop_status(status) }
       )
-      service.on_raise = -> do
-        @qt_app.invoke_later { show_main_window }
-      end
 
-      service.on_quit = -> do
-        @qt_app.invoke_later { quit_application }
-      end
-
-      service.on_play = -> do
-        @qt_app.invoke_later { mpd_action(&.play) }
-      end
-
-      service.on_pause = -> do
-        @qt_app.invoke_later { mpd_action(&.pause(true)) }
-      end
-
-      service.on_play_pause = -> do
-        @qt_app.invoke_later { toggle_play_pause }
-      end
-
-      service.on_stop = -> do
-        @qt_app.invoke_later { mpd_action(&.stop) }
-      end
-
-      service.on_next = -> do
-        @qt_app.invoke_later { mpd_action(&.next) }
-      end
-
-      service.on_previous = -> do
-        @qt_app.invoke_later { mpd_action(&.previous) }
-      end
-
-      service.on_seek = ->(offset_us : Int64) do
-        @qt_app.invoke_later do
-          seconds = offset_us / 1_000_000
-          next if seconds == 0
-
-          value = seconds > 0 ? "+#{seconds}" : seconds.to_s
-          mpd_action(&.seekcur(value))
-        end
-      end
-
-      service.on_set_position = ->(_track_id : String, position_us : Int64) do
-        @qt_app.invoke_later do
-          seconds = (position_us / 1_000_000).clamp(0_i64, Int32::MAX.to_i64)
-          mpd_action(&.seekcur(seconds.to_i))
-        end
-      end
-
-      service.on_set_volume = ->(volume : Float64) do
-        @qt_app.invoke_later do
-          percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
-          mpd_action(&.setvol(percent))
-        end
-      end
-
-      service.on_set_shuffle = ->(enabled : Bool) do
-        @qt_app.invoke_later do
-          mpd_action(&.random(enabled))
-        end
-      end
-
-      service.on_set_loop_status = ->(status : String) do
-        @qt_app.invoke_later do
-          next unless status == "Playlist" || status == "Track" || status == "None"
-
-          enabled =
-            case status
-            when "Track"
-              !@playback_state.repeat
-            when "Playlist"
-              true
-            else
-              false
-            end
-
-          mpd_action(&.repeat(enabled))
-        end
-      end
-
-      @mpris_service = service
-      service.start
+      @mpris_adapter = adapter
+      adapter.start
       sync_mpris_state(nil)
     end
 
-    private def sync_mpris_position : Nil
-      second = @playback_state.elapsed.floor.to_i64
-      return if @mpris_last_position_second == second
+    private def handle_mpris_seek(offset_us : Int64) : Nil
+      @qt_app.invoke_later do
+        seconds = offset_us / 1_000_000
+        next if seconds == 0
 
-      @mpris_last_position_second = second
-      sync_mpris_state
+        value = seconds > 0 ? "+#{seconds}" : seconds.to_s
+        mpd_action(&.seekcur(value))
+      end
+    end
+
+    private def handle_mpris_set_position(position_us : Int64) : Nil
+      @qt_app.invoke_later do
+        seconds = (position_us / 1_000_000).clamp(0_i64, Int32::MAX.to_i64)
+        mpd_action(&.seekcur(seconds.to_i))
+      end
+    end
+
+    private def handle_mpris_set_volume(volume : Float64) : Nil
+      @qt_app.invoke_later do
+        percent = (volume.clamp(0.0, 1.0) * 100).round.to_i
+        mpd_action(&.setvol(percent))
+      end
+    end
+
+    private def handle_mpris_set_loop_status(status : String) : Nil
+      @qt_app.invoke_later do
+        next unless status == "Playlist" || status == "Track" || status == "None"
+
+        enabled =
+          case status
+          when "Track"
+            !@playback_state.repeat
+          when "Playlist"
+            true
+          else
+            false
+          end
+
+        mpd_action(&.repeat(enabled))
+      end
+    end
+
+    private def sync_mpris_position : Nil
+      @mpris_adapter.try(&.sync_position(@playback_state))
     end
 
     private def sync_mpris_state(song : Song? = nil) : Nil
-      service = @mpris_service
-      return unless service
-
-      @mpris_song = song if song
-      song ||= @mpris_song
-
-      playback = @playback_state
-      state = MPRIS::State.new
-      state.playback_status =
-        if playback.playing?
-          "Playing"
-        elsif playback.paused?
-          "Paused"
-        else
-          "Stopped"
-        end
-
-      state.position_us = (playback.elapsed * 1_000_000).round.to_i64
-      @mpris_last_position_second = playback.elapsed.floor.to_i64
-      state.length_us = (playback.duration * 1_000_000).round.to_i64
-      state.volume = playback.volume ? (playback.volume.not_nil!.clamp(0, 100) / 100.0) : 1.0
-      state.shuffle = playback.random
-      state.repeat = playback.repeat
-
-      if song
-        file = song.file
-        state.file = file || ""
-        state.title = song.display_title
-        state.artist = song.artist || ""
-        state.album = song.album || ""
-        state.art_url = @mpris_art_url
-        state.track_id = song.id
-      end
-
-      service.update_state(state)
+      @mpris_adapter.try(&.sync(@playback_state, song))
     end
   end
 end

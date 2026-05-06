@@ -13,7 +13,7 @@ module MPDUI
         @playback_state = @playback_state.with_elapsed(elapsed)
         update_progress
         sync_mpris_position
-        sync_lastfm_state(@mpris_song)
+        sync_lastfm_state(@mpris_adapter.try(&.song))
       end
 
       @event_bridge.random_changed.connect do |enabled|
@@ -234,8 +234,9 @@ module MPDUI
         if pixmap.null?
           clear_cover_art
         else
-          @mpris_art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
-          @cover_label.try(&.tool_tip = cover_art_tooltip(@mpris_art_url, pixmap))
+          art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
+          @mpris_adapter.try(&.art_url = art_url)
+          @cover_label.try(&.tool_tip = cover_art_tooltip(art_url, pixmap))
           apply_cover_background(pixmap)
           scaled = pixmap.scaled(
             App::COVER_ART_SIZE,
@@ -258,7 +259,7 @@ module MPDUI
       @cover_label.try(&.pixmap = nil)
       @cover_label.try(&.text = "No Cover")
       @cover_label.try(&.tool_tip = "")
-      @mpris_art_url = ""
+      @mpris_adapter.try(&.art_url = "")
       reset_cover_background
     end
 
@@ -326,16 +327,16 @@ module MPDUI
           ".img"
         end
 
-      cache_prefix = @mpris_service.try(&.options.cache_prefix) || Settings::APPLICATION
+      cache_prefix = @mpris_adapter.try(&.cache_prefix) || Settings::APPLICATION
       cache_key = "#{uri.hash.to_s(16)}-#{bytes.hash.to_s(16)}"
       path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}-#{cache_key}#{extension}")
 
-      if old_path = @mpris_cover_path
+      if old_path = @mpris_adapter.try(&.cover_path)
         File.delete(old_path) if old_path != path && File.exists?(old_path)
       end
 
       File.write(path, bytes)
-      @mpris_cover_path = path
+      @mpris_adapter.try(&.cover_path = path)
       "file://#{URI.encode_path(path)}"
     rescue ex
       Log.debug { "mpris: failed to cache cover art for #{uri}: #{ex.message || ex}" }
