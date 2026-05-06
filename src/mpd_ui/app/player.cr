@@ -1,15 +1,7 @@
 module MPDUI
   module AppPlayer
-    private record StatusRefresh,
-      status : Hash(String, String)?,
-      song : Hash(String, String)?,
-      playlist : Array(Hash(String, String))?,
-      error : String?
-
     private record CoverArtResult,
-      uri : String,
-      bytes : Bytes?,
-      metadata : Hash(String, String),
+      result : CoverArtService::Result,
       generation : Int32
 
     private def bind_event_bridge : Nil
@@ -18,26 +10,26 @@ module MPDUI
       end
 
       @event_bridge.progress_requested.connect do |elapsed|
-        @elapsed = elapsed
+        @playback_state = @playback_state.with_elapsed(elapsed)
         update_progress
         sync_mpris_position
-        sync_lastfm_state(@mpris_song)
+        sync_lastfm_state(@mpris_adapter.try(&.song))
       end
 
       @event_bridge.random_changed.connect do |enabled|
-        @random = enabled
+        @playback_state = @playback_state.with_random(enabled)
         sync_toggle_buttons
         sync_mpris_state
       end
 
       @event_bridge.repeat_changed.connect do |enabled|
-        @repeat = enabled
+        @playback_state = @playback_state.with_repeat(enabled)
         sync_toggle_buttons
         sync_mpris_state
       end
 
       @event_bridge.volume_changed.connect do |volume|
-        @volume = volume
+        @playback_state = @playback_state.with_volume(volume)
         update_volume_control(volume)
         sync_mpris_state
       end
@@ -45,7 +37,7 @@ module MPDUI
 
     private def toggle_play_pause : Nil
       mpd_action do |client|
-        if @state == "play"
+        if @playback_state.playing?
           client.pause(true)
         else
           client.play
@@ -54,51 +46,25 @@ module MPDUI
     end
 
     private def refresh_status : Nil
-      apply_status_refresh(fetch_status_refresh(@playlist_version, @playlist_positions.empty?))
+      apply_status_refresh(@player_controller.fetch_status_refresh(@playback_state.playlist_version, @queue_controller.empty?))
     end
 
     private def request_status_refresh : Nil
       return if @quitting
       return if @status_refresh_pending.swap(true)
 
-      previous_playlist_version = @playlist_version
-      playlist_empty = @playlist_positions.empty?
+      previous_playlist_version = @playback_state.playlist_version
+      playlist_empty = @queue_controller.empty?
 
-      Thread.new do
-        snapshot = fetch_status_refresh(previous_playlist_version, playlist_empty)
-        if @quitting
-          @status_refresh_pending.set(false)
-          next
-        end
-
-        @qt_app.invoke_later do
-          @status_refresh_pending.set(false)
-          next if @quitting
-
-          apply_status_refresh(snapshot)
-        end
+      run_background(->(snapshot : PlayerController::StatusRefresh) {
+        @status_refresh_pending.set(false)
+        apply_status_refresh(snapshot)
+      }) do
+        @player_controller.fetch_status_refresh(previous_playlist_version, playlist_empty)
       end
     end
 
-    private def fetch_status_refresh(previous_playlist_version : String?, playlist_empty : Bool) : StatusRefresh
-      client = @client
-      return StatusRefresh.new(nil, nil, nil, nil) unless client
-
-      status = client.status
-      return StatusRefresh.new(nil, nil, nil, nil) unless status
-
-      song = client.currentsong
-      playlist_version = status["playlist"]?
-      playlist = if previous_playlist_version != playlist_version || playlist_empty
-                   client.playlistinfo
-                 end
-
-      StatusRefresh.new(status, song, playlist, nil)
-    rescue ex
-      StatusRefresh.new(nil, nil, nil, ex.message || ex.to_s)
-    end
-
-    private def apply_status_refresh(snapshot : StatusRefresh) : Nil
+    private def apply_status_refresh(snapshot : PlayerController::StatusRefresh) : Nil
       if error = snapshot.error
         @title_label.try(&.text = "Error")
         @subtitle_label.try(&.text = error)
@@ -117,62 +83,44 @@ module MPDUI
 
       song = snapshot.song
 
-      state = status.fetch("state", "stop")
-      previous_state = @state
-      previous_song_pos = @current_song_pos
-      previous_playlist_version = @playlist_version
-      playlist_version = status["playlist"]?
-      @state = state
-      @current_song_pos = status["song"]?.try(&.to_i?)
-      @playlist_version = playlist_version
-      if state == "stop" || previous_song_pos != @current_song_pos
-        @dragging_progress = false
+      previous_playback = @playback_state
+      transition = @player_controller.transition_from_status(status, song, previous_playback, @queue_controller.empty?)
+      playback = transition.playback
+      @playback_state = playback
+      if playback.stopped? || previous_playback.song_position != playback.song_position
+        @player_header_view.try(&.cancel_progress_drag)
       end
-      if state == "stop"
-        @elapsed = 0.0
-        @duration = 0.0
-      else
-        @elapsed = status["elapsed"]?.try(&.to_f?) || @elapsed
-        @duration = status["duration"]?.try(&.to_f?) || @duration
-      end
-      @random = status["random"]? == "1"
-      @repeat = status["repeat"]? == "1"
-      @volume = status["volume"]?.try(&.to_i?)
 
       if button = @play_pause_button
-        if icon = (state == "play" ? @pause_icon : @play_icon)
+        if icon = (playback.playing? ? @pause_icon : @play_icon)
           button.icon = icon
         end
       end
       sync_playback_controls
       sync_toggle_buttons
-      update_volume_control(@volume)
+      update_volume_control(playback.volume)
       update_progress
 
-      playlist_changed = previous_playlist_version != playlist_version || @playlist_positions.empty?
-      song_changed = previous_song_pos != @current_song_pos
-      state_changed = previous_state != state
-      if playlist_changed
+      if transition.playlist_changed
         if playlist = snapshot.playlist
-          refresh_playlist(playlist, scroll_to_current: state != "stop")
+          refresh_playlist(playlist, scroll_to_current: !playback.stopped?)
         end
-      elsif song_changed
-        sync_playlist_indicators(previous_song_pos)
-        scroll_playlist_to_current_song unless state == "stop"
-      elsif state_changed
-        sync_playlist_indicators(previous_song_pos)
+      elsif transition.song_changed
+        sync_playlist_indicators(previous_playback.song_position)
+        scroll_playlist_to_current_song unless playback.stopped?
+      elsif transition.state_changed
+        sync_playlist_indicators(previous_playback.song_position)
       end
 
       if song
-        file = song["file"]?
-        title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-        artist = song["Artist"]?
-        album = song["Album"]?
-        subtitle = [artist, album].compact.join(" • ")
+        file = song.file
+        title = song.display_title
+        artist = song.artist
+        subtitle = song.subtitle
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle.empty? ? " " : subtitle)
-        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
+        set_status("State: #{playback.state.capitalize} • #{@settings.host}:#{@settings.port}")
         @window.try(&.window_title = artist ? "#{artist} — #{title}" : title)
         update_tray_tooltip(title, subtitle)
 
@@ -183,7 +131,7 @@ module MPDUI
           @cover_art_generation.add(1)
           clear_cover_art
         end
-      elsif state == "stop"
+      elsif playback.stopped?
         @current_file = ""
         @cover_art_generation.add(1)
         clear_cover_art
@@ -193,8 +141,8 @@ module MPDUI
         @window.try(&.window_title = App::WINDOW_TITLE)
         update_tray_tooltip("Stopped", "#{@settings.host}:#{@settings.port}")
       else
-        set_status("State: #{state.capitalize} • #{@settings.host}:#{@settings.port}")
-        update_tray_tooltip("State: #{state.capitalize}", "#{@settings.host}:#{@settings.port}")
+        set_status("State: #{playback.state.capitalize} • #{@settings.host}:#{@settings.port}")
+        update_tray_tooltip("State: #{playback.state.capitalize}", "#{@settings.host}:#{@settings.port}")
       end
       sync_mpris_state(song)
       sync_lastfm_state(song)
@@ -203,17 +151,14 @@ module MPDUI
     private def update_progress : Nil
       slider = @progress_slider
       return unless slider
-      return if @dragging_progress
+      return if @player_header_view.try(&.dragging_progress?)
 
-      @syncing_progress = true
-      pct = @duration > 0 ? ((@elapsed / @duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
-      slider.value = pct
-      @time_label.try(&.text = "#{format_time(@elapsed)} / #{format_time(@duration)}")
-      @syncing_progress = false
+      playback = @playback_state
+      @player_header_view.try(&.show_progress(playback.elapsed, playback.duration))
     end
 
     private def sync_playback_controls : Nil
-      enabled = @state != "stop"
+      enabled = !@playback_state.stopped?
       @previous_button.try(&.enabled = enabled)
       @play_pause_button.try(&.enabled = enabled)
       @next_button.try(&.enabled = enabled)
@@ -268,67 +213,30 @@ module MPDUI
       button.tool_tip = volume ? "#{volume}%" : "Volume unavailable"
     end
 
-    private def request_cover_art(uri : String, song : Hash(String, String)? = nil) : Nil
+    private def request_cover_art(uri : String, song : Song? = nil) : Nil
       generation = @cover_art_generation.add(1) + 1
-      host = @settings.host
-      port = @settings.port
-      cache_path = cover_art_cache_path(uri, song)
+      service = CoverArtService.new(@settings.host, @settings.port, Settings::APPLICATION)
 
-      Thread.new do
-        result = fetch_cover_art(host, port, uri, cache_path, generation)
-        next if @quitting
-
-        @qt_app.invoke_later do
-          next if @quitting
-          next unless @current_file == result.uri
-          next unless @cover_art_generation.get == result.generation
-
+      run_background(->(result : CoverArtResult) {
+        if @current_file == result.result.uri && @cover_art_generation.get == result.generation
           apply_cover_art_result(result)
         end
+      }) do
+        CoverArtResult.new(service.fetch(uri, song), generation)
       end
-    end
-
-    private def fetch_cover_art(host : String, port : Int32, uri : String, cache_path : String, generation : Int32) : CoverArtResult
-      if bytes = read_cover_art_cache(cache_path)
-        return CoverArtResult.new(uri, bytes, cover_art_metadata(bytes), generation)
-      end
-
-      client = MPD::Client.new(host, port)
-
-      response = begin
-        client.readpicture(uri)
-      rescue
-        nil
-      end
-
-      response ||= begin
-        client.albumart(uri)
-      rescue
-        nil
-      end
-
-      return CoverArtResult.new(uri, nil, {} of String => String, generation) unless response
-
-      metadata, io = response
-      io.rewind
-      bytes = io.to_slice.dup
-      write_cover_art_cache(cache_path, bytes)
-      CoverArtResult.new(uri, bytes, metadata, generation)
-    rescue
-      CoverArtResult.new(uri, nil, {} of String => String, generation)
-    ensure
-      client.try(&.disconnect)
     end
 
     private def apply_cover_art_result(result : CoverArtResult) : Nil
-      if bytes = result.bytes
+      cover = result.result
+      if bytes = cover.bytes
         pixmap = Qt6::QPixmap.from_data(bytes)
 
         if pixmap.null?
           clear_cover_art
         else
-          @mpris_art_url = cache_mpris_cover_art(result.uri, result.metadata, bytes)
-          @cover_label.try(&.tool_tip = cover_art_tooltip(@mpris_art_url, pixmap))
+          art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
+          @mpris_adapter.try(&.art_url = art_url)
+          @cover_label.try(&.tool_tip = cover_art_tooltip(art_url, pixmap))
           apply_cover_background(pixmap)
           scaled = pixmap.scaled(
             App::COVER_ART_SIZE,
@@ -343,7 +251,7 @@ module MPDUI
         clear_cover_art
       end
     rescue ex
-      Log.debug { "cover art: failed to apply cover for #{result.uri}: #{ex.message || ex}" }
+      Log.debug { "cover art: failed to apply cover for #{result.result.uri}: #{ex.message || ex}" }
       clear_cover_art
     end
 
@@ -351,7 +259,7 @@ module MPDUI
       @cover_label.try(&.pixmap = nil)
       @cover_label.try(&.text = "No Cover")
       @cover_label.try(&.tool_tip = "")
-      @mpris_art_url = ""
+      @mpris_adapter.try(&.art_url = "")
       reset_cover_background
     end
 
@@ -396,57 +304,6 @@ module MPDUI
       end
     end
 
-    private def cover_art_cache_path(uri : String, song : Hash(String, String)?) : String
-      File.join(cover_art_cache_dir, "#{Digest::SHA1.hexdigest(cover_art_cache_key(uri, song))}.cover")
-    end
-
-    private def cover_art_cache_key(uri : String, song : Hash(String, String)?) : String
-      source = ["mpd", @settings.host, @settings.port.to_s]
-      return (source + ["file", uri]).join("\0") unless song
-
-      album = song["Album"]?.try(&.strip) || ""
-      return (source + ["file", uri]).join("\0") if album.empty?
-
-      artist = song["AlbumArtist"]?.try(&.strip) || song["Artist"]?.try(&.strip) || ""
-      date = song["Date"]?.try(&.strip) || ""
-      (source + ["album", artist, album, date]).join("\0")
-    end
-
-    private def cover_art_cache_dir : String
-      cache_home = ENV["XDG_CACHE_HOME"]? || File.join(ENV["HOME"]? || Dir.tempdir, ".cache")
-      File.join(cache_home, Settings::APPLICATION, "covers")
-    end
-
-    private def read_cover_art_cache(path : String) : Bytes?
-      return nil unless File.exists?(path)
-
-      File.read(path).to_slice.dup
-    rescue ex
-      Log.debug { "cover art: failed to read cache #{path}: #{ex.message || ex}" }
-      nil
-    end
-
-    private def write_cover_art_cache(path : String, bytes : Bytes) : Nil
-      Dir.mkdir_p(File.dirname(path))
-      File.write(path, bytes)
-    rescue ex
-      Log.debug { "cover art: failed to write cache #{path}: #{ex.message || ex}" }
-    end
-
-    private def cover_art_metadata(bytes : Bytes) : Hash(String, String)
-      type = cover_art_mime_type(bytes)
-      type ? {"type" => type} : {} of String => String
-    end
-
-    private def cover_art_mime_type(bytes : Bytes) : String?
-      return "image/jpeg" if bytes.size >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
-      return "image/png" if bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
-      return "image/gif" if bytes.size >= 6 && String.new(bytes[0, 6]) =~ /\AGIF8[79]a\z/
-      return "image/webp" if bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
-
-      nil
-    end
-
     private def reset_cover_background : Nil
       @playback_header.try(&.style_sheet = "")
       @playback_header_background.try do |label|
@@ -470,16 +327,16 @@ module MPDUI
           ".img"
         end
 
-      cache_prefix = @mpris_service.try(&.options.cache_prefix) || Settings::APPLICATION
+      cache_prefix = @mpris_adapter.try(&.cache_prefix) || Settings::APPLICATION
       cache_key = "#{uri.hash.to_s(16)}-#{bytes.hash.to_s(16)}"
       path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}-#{cache_key}#{extension}")
 
-      if old_path = @mpris_cover_path
+      if old_path = @mpris_adapter.try(&.cover_path)
         File.delete(old_path) if old_path != path && File.exists?(old_path)
       end
 
       File.write(path, bytes)
-      @mpris_cover_path = path
+      @mpris_adapter.try(&.cover_path = path)
       "file://#{URI.encode_path(path)}"
     rescue ex
       Log.debug { "mpris: failed to cache cover art for #{uri}: #{ex.message || ex}" }
@@ -488,8 +345,8 @@ module MPDUI
 
     private def sync_toggle_buttons : Nil
       @syncing = true
-      @shuffle_button.try(&.checked = @random)
-      @repeat_button.try(&.checked = @repeat)
+      @shuffle_button.try(&.checked = @playback_state.random)
+      @repeat_button.try(&.checked = @playback_state.repeat)
       @syncing = false
     end
   end

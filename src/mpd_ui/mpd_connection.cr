@@ -9,7 +9,7 @@ module MPDUI
 
       @client = MPD::Client.new(@settings.host, @settings.port)
       Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
-      @database_songs.clear
+      @library_index.replace([] of Song)
       @database_loaded = false
       @database_loading = false
       show_database_message("Open the Database tab to load your library")
@@ -18,7 +18,7 @@ module MPDUI
       @callback_generation.set(generation)
       start_callback_listener(generation)
       refresh_status
-      ensure_database_loaded(force: true) if @database_model
+      ensure_database_loaded(force: true) if @library_view
     rescue ex
       Log.error { "mpd_ui: failed to connect to #{@settings.host}:#{@settings.port}: #{ex.message || ex}" }
       @title_label.try(&.text = "Connection failed")

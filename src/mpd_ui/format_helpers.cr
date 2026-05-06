@@ -1,8 +1,7 @@
 module MPDUI
   module FormatHelpers
     private def format_time(seconds : Float64) : String
-      t = seconds.to_i
-      "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
+      Song.format_time(seconds)
     end
 
     private def format_stats_duration(raw_seconds : String?) : String
@@ -37,107 +36,28 @@ module MPDUI
       end
     end
 
-    private def playlist_title(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-      artist = song["Artist"]?
-      text = [artist, title].compact.join(" — ")
-      text.empty? ? title : text
+    private def playlist_title(song : Song) : String
+      song.queue_title
     end
 
-    private def playlist_duration(song : Hash(String, String)) : String
-      if seconds = song["Time"]?.try(&.to_i?)
-        format_time(seconds.to_f)
-      elsif seconds = song["duration"]?.try(&.to_f?)
-        format_time(seconds)
-      else
-        ""
-      end
+    private def playlist_duration(song : Song) : String
+      song.duration_label
     end
 
-    private def database_song_label(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = display_name(song["Title"]?, file ? File.basename(file, File.extname(file)) : "Unknown")
-      track = song["Track"]?.try(&.split('/').first)
-      duration = playlist_duration(song)
-
-      base = if track && !track.empty?
-               "#{track.rjust(2, '0')}. #{title}"
-             else
-               title
-             end
-
-      duration.empty? ? base : "#{base} • #{duration}"
+    private def database_song_label(song : Song) : String
+      song.database_label
     end
 
-    private def track_number(song : Hash(String, String)) : Int32
-      metadata_number(song, "Track")
+    private def track_number(song : Song) : Int32
+      song.track_number || Int32::MAX
     end
 
-    private def disc_number(song : Hash(String, String)) : Int32
-      metadata_number(song, "Disc", "DiscNumber", "Discnumber")
+    private def disc_number(song : Song) : Int32
+      song.disc_number || Int32::MAX
     end
 
-    private def metadata_number(song : Hash(String, String), *keys : String) : Int32
-      keys.each do |key|
-        value = song[key]?
-        next unless value
-
-        part = value.split('/').first.strip
-        if number = part.to_i?
-          return number
-        end
-
-        if match = part.match(/\d+/)
-          return match[0].to_i
-        end
-      end
-
-      Int32::MAX
-    end
-
-    private def song_tooltip(song : Hash(String, String)) : String
-      file = song["file"]?
-      title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-      duration = playlist_duration(song)
-
-      rows = [] of Tuple(String, String)
-      rows << {"Title", title}
-      add_metadata_row(rows, "Artist", song["Artist"]?)
-      add_metadata_row(rows, "Album", song["Album"]?)
-      add_metadata_row(rows, "Track number", song["Track"]?.try(&.split('/').first))
-      add_metadata_row(rows, "Disc number", song["Disc"]?.try(&.split('/').first))
-      add_metadata_row(rows, "Genre", song["Genre"]?)
-      add_metadata_row(rows, "Year", song["Date"]?)
-      rows << {"Length", duration} unless duration.empty?
-
-      String.build do |html|
-        html << "<table cellspacing=\"3\">"
-        rows.each do |label, value|
-          html << "<tr><td align=\"right\"><b>"
-          html << html_escape(label)
-          html << ":</b></td><td>"
-          html << html_escape(value)
-          html << "</td></tr>"
-        end
-        html << "</table>"
-
-        if file && !file.empty?
-          html << "<div style=\"margin-top: 8px;\"><i>"
-          html << html_escape(file)
-          html << "</i></div>"
-        end
-      end
-    end
-
-    private def add_metadata_row(rows : Array(Tuple(String, String)), label : String, value : String?) : Nil
-      return unless value && !value.strip.empty?
-
-      rows << {label, value}
-    end
-
-    private def html_escape(value : String) : String
-      value.gsub('&', "&amp;").gsub('<', "&lt;").gsub('>', "&gt;").gsub('"', "&quot;")
+    private def song_tooltip(song : Song) : String
+      song.tooltip_html
     end
   end
 end

@@ -77,22 +77,39 @@ Tested on Linux and macOS with Qt6. Windows are untested.
 
 ## Architecture notes
 
-- `src/mpd_ui/app.cr` owns the main `App` class, shared UI state, top-level layout, menus, and persisted visibility controls
-- Feature modules under `src/mpd_ui/app/` split the app by responsibility:
-  - `player.cr` handles playback state, progress, volume, cover art, blurred header background, MPRIS state sync, and current-song UI updates
-  - `queue.cr` handles the queue table, context menu, multi-select deletion, drag/drop reordering, and database-to-queue drops
-  - `database.cr` handles the MPD database tree, artist/album/song grouping, sorting, search, custom item rendering, context menu, multi-selection, and database drag sources
-  - `mpris.cr` connects the app's MPD/Qt state to the generic MPRIS service
-  - `lastfm.cr` feeds MPD playback snapshots into the Last.fm scrobbler
+- `src/mpd_ui/app.cr` owns the main `App` class and acts mostly as the composition root: it loads settings, creates the Qt application/window, wires views/controllers/adapters together, starts MPD, and runs the Qt event loop
+- Domain/service objects keep non-Qt behavior isolated:
+  - `song.cr` and `playback_state.cr` wrap MPD song metadata and current playback state
+  - `cover_art_service.cr` fetches MPD cover art and handles the disk cover cache
+  - `library_index.cr` handles database filtering, artist/album/song grouping, album sorting by year, and song sorting by disc/track
+  - `background_task.cr` centralizes short worker-thread jobs and Qt-main-thread callbacks
+- View classes under `src/mpd_ui/views/` own Qt widget construction and rendering:
+  - `application_menu.cr` builds the main menu/actions and menu shortcuts
+  - `app_layout_view.cr` arranges the player header, library/queue splitter, and compact spacer
+  - `player_header_view.cr` owns the playback header widgets, controls, volume popup, cover click handling, and progress tooltip
+  - `queue_view.cr` owns the queue `QTreeView`, model rendering, context menu, shortcuts, selection helpers, drop filter, and row indicators
+  - `library_view.cr` owns the database browser tree, search panel, custom item delegate, context menu, drag filter, and selected URI collection
+- Controller classes under `src/mpd_ui/controllers/` keep state transitions and queue calculations away from Qt widget setup:
+  - `player_controller.cr` reads MPD status/current-song/playlist snapshots and converts them into `PlaybackState` transitions
+  - `queue_controller.cr` tracks queue positions/ids and plans multi-row reorders
+- App glue modules under `src/mpd_ui/app/` connect views/controllers/services to MPD commands and UI state:
+  - `player.cr` handles playback refresh, progress, volume, cover rendering, blurred header background, and current-song UI updates
+  - `queue.cr` wires `QueueView`/`QueueController` to MPD queue commands and database-to-queue drops
+  - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, and add-to-queue behavior
+  - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
+  - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
   - `tray.cr` handles system tray integration, close-to-tray behavior, and tray menu actions
   - `about_dialog.cr` and `settings_dialog.cr` keep dialogs isolated from the main UI setup
+- `src/mpd_ui/adapters/` contains app-specific integration adapters:
+  - `mpris_adapter.cr` owns `MPRIS::Service`, callback registration, playback-state mapping, current MPRIS song/artwork state, and position sync throttling
+  - `lastfm_adapter.cr` owns Last.fm client/scrobbler construction and playback sync
 - `src/ext/mpris` contains a small Crystal MPRIS/DBus implementation kept separate from Qt-specific app code
 - `src/ext/lastfm` contains the Last.fm API client, request signing, scrobble timing, and retry cache
 - One MPD client handles commands and status reads
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread
 - `Settings` wraps `QSettings` persistence for connection details, UI visibility preferences, layout size, and splitter state
-- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, table views, tree views, standard item models, custom item delegates, event filters, shortcuts, and graphics effects
+- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, tree views, standard item models, custom item delegates, event filters, shortcuts, and graphics effects
 
 ## License
 

@@ -20,7 +20,7 @@ module MPDUI
       previous_action = Qt6::Action.new("Previous", window)
       previous_icon = Qt6::QIcon.from_theme("media-skip-backward")
       previous_action.icon = previous_icon unless previous_icon.null?
-      previous_action.on_triggered { mpd_action { |c| c.previous } }
+      previous_action.on_triggered { mpd_action(&.previous) }
       menu.add_action(previous_action)
 
       play_pause_action = Qt6::Action.new("Play/Pause", window)
@@ -31,7 +31,7 @@ module MPDUI
       next_action = Qt6::Action.new("Next", window)
       next_icon = Qt6::QIcon.from_theme("media-skip-forward")
       next_action.icon = next_icon unless next_icon.null?
-      next_action.on_triggered { mpd_action { |c| c.next } }
+      next_action.on_triggered { mpd_action(&.next) }
       menu.add_action(next_action)
 
       menu.add_separator
@@ -148,7 +148,7 @@ module MPDUI
       save_expanded_layout_settings
       @quitting = true
       @event_bridge.shutdown
-      @mpris_service.try(&.stop)
+      @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
     end
