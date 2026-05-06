@@ -151,14 +151,14 @@ module MPDUI
           @show_main_menu_action,
           @about_action
         )
-        player_header.on_previous = ->{ mpd_action(&.previous) }
-        player_header.on_play_pause = ->{ toggle_play_pause }
-        player_header.on_next = ->{ mpd_action(&.next) }
+        player_header.on_previous = -> { mpd_action(&.previous) }
+        player_header.on_play_pause = -> { toggle_play_pause }
+        player_header.on_next = -> { mpd_action(&.next) }
         player_header.on_shuffle_changed = ->(checked : Bool) { mpd_action(&.random(checked)) unless @syncing }
         player_header.on_repeat_changed = ->(checked : Bool) { mpd_action(&.repeat(checked)) unless @syncing }
         player_header.on_volume_changed = ->(value : Int32) { mpd_action(&.setvol(value)) unless @syncing_volume }
         player_header.on_seek = ->(seconds : Int32) { mpd_action(&.seekcur(seconds)) }
-        player_header.on_cover_clicked = ->{ toggle_expanded_interface }
+        player_header.on_cover_clicked = -> { toggle_expanded_interface }
 
         setup_system_tray(window)
         playlist_view = build_playlist(central)

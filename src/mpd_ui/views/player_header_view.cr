@@ -46,7 +46,7 @@ module MPDUI
       expanded_interface_action : Qt6::Action? = nil,
       blurred_cover_background_action : Qt6::Action? = nil,
       show_main_menu_action : Qt6::Action? = nil,
-      about_action : Qt6::Action? = nil
+      about_action : Qt6::Action? = nil,
     )
       @root = Qt6::EventWidget.new(parent)
       @background = Qt6::Label.new("", @root)
@@ -108,7 +108,7 @@ module MPDUI
       expanded_interface_action : Qt6::Action?,
       blurred_cover_background_action : Qt6::Action?,
       show_main_menu_action : Qt6::Action?,
-      about_action : Qt6::Action?
+      about_action : Qt6::Action?,
     ) : Nil
       @cover_label.set_fixed_size(cover_art_size, cover_art_size)
       @cover_label.scaled_contents = false
