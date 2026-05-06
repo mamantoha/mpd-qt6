@@ -62,19 +62,11 @@ module MPDUI
       previous_playlist_version = @playback_state.playlist_version
       playlist_empty = @playlist_positions.empty?
 
-      Thread.new do
-        snapshot = fetch_status_refresh(previous_playlist_version, playlist_empty)
-        if @quitting
-          @status_refresh_pending.set(false)
-          next
-        end
-
-        @qt_app.invoke_later do
-          @status_refresh_pending.set(false)
-          next if @quitting
-
-          apply_status_refresh(snapshot)
-        end
+      run_background(->(snapshot : StatusRefresh) {
+        @status_refresh_pending.set(false)
+        apply_status_refresh(snapshot)
+      }) do
+        fetch_status_refresh(previous_playlist_version, playlist_empty)
       end
     end
 
@@ -283,17 +275,12 @@ module MPDUI
       generation = @cover_art_generation.add(1) + 1
       service = CoverArtService.new(@settings.host, @settings.port, Settings::APPLICATION)
 
-      Thread.new do
-        result = CoverArtResult.new(service.fetch(uri, song), generation)
-        next if @quitting
-
-        @qt_app.invoke_later do
-          next if @quitting
-          next unless @current_file == result.result.uri
-          next unless @cover_art_generation.get == result.generation
-
+      run_background(->(result : CoverArtResult) {
+        if @current_file == result.result.uri && @cover_art_generation.get == result.generation
           apply_cover_art_result(result)
         end
+      }) do
+        CoverArtResult.new(service.fetch(uri, song), generation)
       end
     end
 

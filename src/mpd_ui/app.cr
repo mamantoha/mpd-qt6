@@ -9,6 +9,7 @@ module MPDUI
     include AppPlayer
     include AppQueue
     include AppDatabase
+    include BackgroundTask
 
     WINDOW_TITLE             = "Crystal MPD"
     COVER_ART_SIZE           = 84

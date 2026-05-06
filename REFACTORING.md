@@ -153,6 +153,8 @@ Current progress:
 
 ### Step 3: Add a Small Background Helper
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/background_task.cr`
@@ -182,6 +184,15 @@ Expected result:
 - Easier to see which code runs on a worker thread.
 - Easier to see which code runs on the Qt main thread.
 - Fewer shutdown-related edge cases.
+
+Current progress:
+
+- Added `BackgroundTask#run_background`.
+- Migrated status refresh to `run_background`.
+- Migrated cover-art fetch to `run_background`.
+- Migrated database load/update to `run_background`.
+- Left the MPD callback listener as a direct `Thread.new` because it is a long-lived listener, not a short background task.
+- Left direct `invoke_later` calls in MPRIS callbacks, tray restore actions, and `EventBridge` because those are already explicit UI-thread handoffs rather than background task results.
 
 ### Step 4: Extract Player Header View
 

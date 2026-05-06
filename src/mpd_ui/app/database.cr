@@ -259,33 +259,30 @@ module MPDUI
       host = @settings.host
       port = @settings.port
 
-      Thread.new do
+      run_background(
+        ->(songs : Array(Song)) {
+          @database_songs = songs
+          @database_loaded = true
+          @database_loading = false
+          apply_database_filter
+        },
+        ->(ex : Exception) {
+          @database_loaded = false
+          @database_loading = false
+          show_database_message("Failed to load database")
+          set_status("Database load failed: #{ex.message || ex}")
+        }
+      ) do
         db_client = nil
-        begin
-          db_client = MPD::Client.new(host, port)
-          if update_mpd
-            db_client.update
-            wait_for_mpd_database_update(db_client)
-          end
-          raw_entries = db_client.listallinfo
-          songs = database_song_entries(raw_entries)
-
-          @qt_app.invoke_later do
-            @database_songs = songs
-            @database_loaded = true
-            @database_loading = false
-            apply_database_filter
-          end
-        rescue ex
-          @qt_app.invoke_later do
-            @database_loaded = false
-            @database_loading = false
-            show_database_message("Failed to load database")
-            set_status("Database load failed: #{ex.message || ex}")
-          end
-        ensure
-          db_client.try(&.disconnect)
+        db_client = MPD::Client.new(host, port)
+        if update_mpd
+          db_client.update
+          wait_for_mpd_database_update(db_client)
         end
+        raw_entries = db_client.listallinfo
+        database_song_entries(raw_entries)
+      ensure
+        db_client.try(&.disconnect)
       end
     end
 
