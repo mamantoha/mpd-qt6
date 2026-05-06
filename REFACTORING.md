@@ -241,6 +241,8 @@ Current progress:
 
 ### Step 5: Extract Player Controller
 
+Status: complete.
+
 Add:
 
 - `src/mpd_ui/controllers/player_controller.cr`
@@ -250,6 +252,11 @@ Responsibilities:
 - consume MPD status snapshots
 - update `PlaybackState`
 - decide when current song changed
+- decide when playlist contents changed
+- keep raw MPD status parsing outside the Qt view code
+
+Keep in `AppPlayer` for now:
+
 - request cover art
 - sync MPRIS and Last.fm
 - update `PlayerHeaderView`
@@ -259,6 +266,14 @@ Expected result:
 
 - `AppPlayer` can shrink or disappear.
 - Playback logic becomes easier to follow from one controller.
+
+Current progress:
+
+- Added `PlayerController`.
+- Moved MPD status/current-song/playlist snapshot fetching to the controller.
+- Moved MPD status to `PlaybackState` conversion to the controller.
+- Added a small `Transition` result so playlist, current song, and playback state changes are detected in one place.
+- Kept Qt widget updates, cover rendering, MPRIS sync, and Last.fm sync in `AppPlayer` so this step stays focused and behavior remains unchanged.
 
 ### Step 6: Extract Queue View and Queue Controller
 

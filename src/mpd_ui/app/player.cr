@@ -1,11 +1,5 @@
 module MPDUI
   module AppPlayer
-    private record StatusRefresh,
-      status : Hash(String, String)?,
-      song : Song?,
-      playlist : Array(Song)?,
-      error : String?
-
     private record CoverArtResult,
       result : CoverArtService::Result,
       generation : Int32
@@ -52,7 +46,7 @@ module MPDUI
     end
 
     private def refresh_status : Nil
-      apply_status_refresh(fetch_status_refresh(@playback_state.playlist_version, @playlist_positions.empty?))
+      apply_status_refresh(@player_controller.fetch_status_refresh(@playback_state.playlist_version, @playlist_positions.empty?))
     end
 
     private def request_status_refresh : Nil
@@ -62,33 +56,15 @@ module MPDUI
       previous_playlist_version = @playback_state.playlist_version
       playlist_empty = @playlist_positions.empty?
 
-      run_background(->(snapshot : StatusRefresh) {
+      run_background(->(snapshot : PlayerController::StatusRefresh) {
         @status_refresh_pending.set(false)
         apply_status_refresh(snapshot)
       }) do
-        fetch_status_refresh(previous_playlist_version, playlist_empty)
+        @player_controller.fetch_status_refresh(previous_playlist_version, playlist_empty)
       end
     end
 
-    private def fetch_status_refresh(previous_playlist_version : String?, playlist_empty : Bool) : StatusRefresh
-      client = @client
-      return StatusRefresh.new(nil, nil, nil, nil) unless client
-
-      status = client.status
-      return StatusRefresh.new(nil, nil, nil, nil) unless status
-
-      song = client.currentsong.try { |metadata| Song.from_mpd(metadata) }
-      playlist_version = status["playlist"]?
-      playlist = if previous_playlist_version != playlist_version || playlist_empty
-                   client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) })
-                 end
-
-      StatusRefresh.new(status, song, playlist, nil)
-    rescue ex
-      StatusRefresh.new(nil, nil, nil, ex.message || ex.to_s)
-    end
-
-    private def apply_status_refresh(snapshot : StatusRefresh) : Nil
+    private def apply_status_refresh(snapshot : PlayerController::StatusRefresh) : Nil
       if error = snapshot.error
         @title_label.try(&.text = "Error")
         @subtitle_label.try(&.text = error)
@@ -108,7 +84,8 @@ module MPDUI
       song = snapshot.song
 
       previous_playback = @playback_state
-      playback = playback_state_from_status(status, song)
+      transition = @player_controller.transition_from_status(status, song, previous_playback, @playlist_positions.empty?)
+      playback = transition.playback
       @playback_state = playback
       if playback.stopped? || previous_playback.song_position != playback.song_position
         @player_header_view.try(&.cancel_progress_drag)
@@ -124,17 +101,14 @@ module MPDUI
       update_volume_control(playback.volume)
       update_progress
 
-      playlist_changed = previous_playback.playlist_version != playback.playlist_version || @playlist_positions.empty?
-      song_changed = previous_playback.song_position != playback.song_position
-      state_changed = previous_playback.state != playback.state
-      if playlist_changed
+      if transition.playlist_changed
         if playlist = snapshot.playlist
           refresh_playlist(playlist, scroll_to_current: !playback.stopped?)
         end
-      elsif song_changed
+      elsif transition.song_changed
         sync_playlist_indicators(previous_playback.song_position)
         scroll_playlist_to_current_song unless playback.stopped?
-      elsif state_changed
+      elsif transition.state_changed
         sync_playlist_indicators(previous_playback.song_position)
       end
 
@@ -237,34 +211,6 @@ module MPDUI
       icon = Qt6::QIcon.from_theme(icon_name)
       button.icon = icon unless icon.null?
       button.tool_tip = volume ? "#{volume}%" : "Volume unavailable"
-    end
-
-    private def playback_state_from_status(status : Hash(String, String), song : Song?) : PlaybackState
-      state = status.fetch("state", "stop")
-      elapsed =
-        if state == "stop"
-          0.0
-        else
-          status["elapsed"]?.try(&.to_f?) || @playback_state.elapsed
-        end
-      duration =
-        if state == "stop"
-          0.0
-        else
-          status["duration"]?.try(&.to_f?) || @playback_state.duration
-        end
-
-      PlaybackState.new(
-        state,
-        song,
-        status["song"]?.try(&.to_i?),
-        status["playlist"]?,
-        elapsed,
-        duration,
-        status["random"]? == "1",
-        status["repeat"]? == "1",
-        status["volume"]?.try(&.to_i?)
-      )
     end
 
     private def request_cover_art(uri : String, song : Song? = nil) : Nil

@@ -80,6 +80,7 @@ module MPDUI
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @event_bridge : EventBridge
+    @player_controller : PlayerController
     @mpris_service : MPRIS::Service?
     @lastfm_scrobbler : LastFM::Scrobbler?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
@@ -112,6 +113,7 @@ module MPDUI
         end
       end
       @event_bridge = EventBridge.new(@qt_app)
+      @player_controller = PlayerController.new(-> { @client })
       bind_event_bridge
       setup_lastfm
     end
