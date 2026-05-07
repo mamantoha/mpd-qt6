@@ -89,14 +89,17 @@ module MPDUI
         tooltip = song.tooltip_html
 
         indicator_item = Qt6::StandardItem.new("")
+        configure_queue_item(indicator_item)
         icon = yield pos
         indicator_item.icon = icon.not_nil! if icon && !icon.not_nil!.null?
         indicator_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
 
         title_item = Qt6::StandardItem.new(song.queue_title)
+        configure_queue_item(title_item)
         title_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
 
         time_item = Qt6::StandardItem.new(song.duration_label)
+        configure_queue_item(time_item)
         time_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
         time_item.set_data((Qt6::AlignmentFlag::Right | Qt6::AlignmentFlag::VCenter).value, Qt6::ItemDataRole::TextAlignment)
 
@@ -197,6 +200,10 @@ module MPDUI
       @model.set_horizontal_header_label(0, "State")
       @model.set_horizontal_header_label(1, "Track")
       @model.set_horizontal_header_label(2, "Time")
+    end
+
+    private def configure_queue_item(item : Qt6::StandardItem) : Nil
+      item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
     end
 
     private def configure_view : Nil
