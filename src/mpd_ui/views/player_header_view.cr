@@ -33,6 +33,9 @@ module MPDUI
 
     @progress_tooltip_filter : Qt6::EventFilter?
     @cover_click_filter : Qt6::EventFilter?
+    @volume_wheel_filter : Qt6::EventFilter?
+    @volume_menu_wheel_filter : Qt6::EventFilter?
+    @volume_panel_wheel_filter : Qt6::EventFilter?
 
     def initialize(
       parent : Qt6::Widget,
@@ -307,6 +310,7 @@ module MPDUI
         volume_widget_action.default_widget = volume_panel
         volume_menu.add_action(volume_widget_action)
         @volume_button.menu = volume_menu
+        setup_volume_wheel(volume_menu, volume_panel)
 
         @shuffle_button.checkable = true
         @repeat_button.checkable = true
@@ -354,6 +358,50 @@ module MPDUI
 
       @cover_label.install_event_filter(filter)
       @cover_click_filter = filter
+    end
+
+    private def setup_volume_wheel(volume_menu : Qt6::Menu, volume_panel : Qt6::Widget) : Nil
+      filter = Qt6::EventFilter.new(@volume_button)
+      filter.on_event do |_watched, event|
+        next false unless event.type == Qt6::EventType::Wheel
+
+        change_volume_from_wheel(event)
+      end
+
+      @volume_button.install_event_filter(filter)
+      @volume_wheel_filter = filter
+
+      menu_filter = Qt6::EventFilter.new(volume_menu)
+      menu_filter.on_event do |_watched, event|
+        next false unless event.type == Qt6::EventType::Wheel
+
+        change_volume_from_wheel(event)
+      end
+      volume_menu.install_event_filter(menu_filter)
+      @volume_menu_wheel_filter = menu_filter
+
+      panel_filter = Qt6::EventFilter.new(volume_panel)
+      panel_filter.on_event do |_watched, event|
+        next false unless event.type == Qt6::EventType::Wheel
+
+        change_volume_from_wheel(event)
+      end
+      volume_panel.install_event_filter(panel_filter)
+      @volume_panel_wheel_filter = panel_filter
+    end
+
+    private def change_volume_from_wheel(event : Qt6::QEvent) : Bool
+      return false unless @volume_slider.enabled?
+
+      wheel_event = event.wheel_event
+      delta = wheel_event.angle_delta.y
+      delta = wheel_event.pixel_delta.y if delta == 0.0
+      return false if delta == 0.0
+
+      step = delta > 0.0 ? 5 : -5
+      @volume_slider.value = (@volume_slider.value + step).clamp(0, 100)
+      event.accept
+      true
     end
 
     private def setup_progress_tooltip : Nil
