@@ -88,7 +88,7 @@ module MPDUI
 
     def show_progress(elapsed : Float64, duration : Float64) : Nil
       @duration = duration
-      pct = duration > 0 ? ((elapsed / duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
+      pct = duration.positive? ? ((elapsed / duration) * 1000.0).clamp(0.0, 1000.0).round.to_i : 0
       @syncing_progress = true
       @progress_slider.value = pct
       @time_label.text = "#{Song.format_time(elapsed)} / #{Song.format_time(duration)}"
@@ -395,10 +395,10 @@ module MPDUI
 
       wheel_event = event.wheel_event
       delta = wheel_event.angle_delta.y
-      delta = wheel_event.pixel_delta.y if delta == 0.0
-      return false if delta == 0.0
+      delta = wheel_event.pixel_delta.y if delta.zero?
+      return false if delta.zero?
 
-      step = delta > 0.0 ? 5 : -5
+      step = delta.positive? ? 5 : -5
       @volume_slider.value = (@volume_slider.value + step).clamp(0, 100)
       event.accept
       true
@@ -446,7 +446,7 @@ module MPDUI
 
     private def slider_position_for_value(value : Int32) : Qt6::PointF
       width = @progress_slider.size.width
-      x = width > 0 ? (width * value / 1000.0).clamp(0.0, width.to_f64) : 0.0
+      x = width.positive? ? (width * value / 1000.0).clamp(0.0, width.to_f64) : 0.0
       Qt6::PointF.new(x, 0.0)
     end
   end

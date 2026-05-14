@@ -29,9 +29,9 @@ module MPDUI
     private def handle_mpris_seek(offset_us : Int64) : Nil
       @qt_app.invoke_later do
         seconds = offset_us / 1_000_000
-        next if seconds == 0
+        next if seconds.zero?
 
-        value = seconds > 0 ? "+#{seconds}" : seconds.to_s
+        value = seconds.positive? ? "+#{seconds}" : seconds.to_s
         mpd_action(&.seekcur(value))
       end
     end

@@ -238,7 +238,7 @@ module MPDUI
         title_font = option.font
         title_font.bold = true
         subtitle_font = option.font
-        if subtitle_font.point_size > 0
+        if subtitle_font.point_size.positive?
           subtitle_font.point_size = Math.max(1, (subtitle_font.point_size * 0.86).round.to_i)
         end
 

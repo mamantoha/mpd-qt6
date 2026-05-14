@@ -304,7 +304,7 @@ module MPDUI
 
     private def restore_library_queue_splitter_sizes(splitter : Qt6::Splitter) : Nil
       sizes = @settings.library_queue_splitter_sizes
-      return unless sizes.size == 2 && sizes.all? { |size| size > 0 }
+      return unless sizes.size == 2 && sizes.all? { |size| size.positive? }
 
       splitter.set_sizes(sizes)
     end

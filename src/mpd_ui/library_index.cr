@@ -10,7 +10,7 @@ module MPDUI
       songs : Array(Song) do
       def summary : String
         duration = songs.sum { |song| song.duration || 0.0 }
-        "#{songs.size} #{songs.size == 1 ? "Track" : "Tracks"}#{duration > 0 ? " (#{Song.format_time(duration)})" : ""}"
+        "#{songs.size} #{songs.size == 1 ? "Track" : "Tracks"}#{duration.positive? ? " (#{Song.format_time(duration)})" : ""}"
       end
     end
 

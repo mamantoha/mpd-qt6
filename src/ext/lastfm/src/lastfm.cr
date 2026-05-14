@@ -305,7 +305,7 @@ module LastFM
 
       return if !artist || !title
 
-      duration_seconds = (duration > 0 ? duration : song_duration(song)).round.to_i
+      duration_seconds = (duration.positive? ? duration : song_duration(song)).round.to_i
       timestamp = Time.utc.to_unix - elapsed.round.to_i
       id = song["Id"]? || song["file"]? || "#{artist}\u0000#{title}"
       Track.new(id, artist, title, song["Album"]?, duration_seconds, metadata_number(song, "Track"), timestamp)

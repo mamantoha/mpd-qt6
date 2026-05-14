@@ -398,7 +398,7 @@ module MPRIS
         {"CanGoPrevious", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
         {"CanPlay", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
         {"CanPause", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
-        {"CanSeek", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(state.length_us > 0) } }},
+        {"CanSeek", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(state.length_us.positive?) } }},
         {"CanControl", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
       ]
     end
@@ -408,7 +408,7 @@ module MPRIS
     private def write_metadata(w : Writer, state : State) : Nil
       w.write_array("{sv}") do |aw|
         write_dict_variant(aw, "mpris:trackid", "o") { |vw| vw.write_object_path(track_path(state.track_id)) }
-        write_dict_variant(aw, "mpris:length", "x") { |vw| vw.write_i64(state.length_us) } if state.length_us > 0
+        write_dict_variant(aw, "mpris:length", "x") { |vw| vw.write_i64(state.length_us) } if state.length_us.positive?
         write_dict_variant(aw, "xesam:title", "s") { |vw| vw.write_string(state.title) } unless state.title.empty?
         write_dict_variant(aw, "xesam:artist", "as") { |vw| vw.write_array("s", &.write_string(state.artist)) } unless state.artist.empty?
         write_dict_variant(aw, "xesam:album", "s") { |vw| vw.write_string(state.album) } unless state.album.empty?
@@ -540,10 +540,10 @@ module MPRIS
       header = Bytes.new(header_len)
       io.read_fully(header)
       pad_len = (8 - ((16 + header_len) % 8)) % 8
-      io.skip(pad_len) if pad_len > 0
+      io.skip(pad_len) if pad_len.positive?
 
       body = Bytes.new(body_len)
-      io.read_fully(body) if body_len > 0
+      io.read_fully(body) if body_len.positive?
 
       reader = Reader.new(header, "a(yv)")
       path = interface = member = sender = nil
@@ -724,7 +724,7 @@ module MPRIS
       # DBus values must start on type-specific byte boundaries. If alignment
       # is wrong, every following value in the message is read incorrectly.
       remainder = @offset % boundary
-      @offset += boundary - remainder unless remainder == 0
+      @offset += boundary - remainder unless remainder.zero?
     end
   end
 
@@ -753,7 +753,7 @@ module MPRIS
       # DBus values must start on type-specific byte boundaries. Padding bytes
       # are not part of the value; they only move the write cursor forward.
       remainder = @io.pos % boundary
-      (boundary - remainder).times { @io.write_byte(0_u8) } unless remainder == 0
+      (boundary - remainder).times { @io.write_byte(0_u8) } unless remainder.zero?
     end
 
     def write_u8(value : UInt8) : Nil

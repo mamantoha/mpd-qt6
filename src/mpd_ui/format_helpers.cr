@@ -14,10 +14,10 @@ module MPDUI
       minutes = (seconds % 3_600) // 60
       secs = seconds % 60
 
-      parts << "#{days}d" if days > 0
-      parts << "#{hours}h" if hours > 0
-      parts << "#{minutes}m" if minutes > 0
-      parts << "#{secs}s" if secs > 0 || parts.empty?
+      parts << "#{days}d" if days.positive?
+      parts << "#{hours}h" if hours.positive?
+      parts << "#{minutes}m" if minutes.positive?
+      parts << "#{secs}s" if secs.positive? || parts.empty?
       parts.join(' ')
     end
 
