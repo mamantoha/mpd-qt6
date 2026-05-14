@@ -300,9 +300,10 @@ module LastFM
     # Tracks without real artist/title metadata are ignored instead of deriving
     # scrobbles from file names.
     private def build_track(song : Hash(String, String), elapsed : Float64, duration : Float64) : Track?
-      artist = song["Artist"]?.try(&.strip)
-      title = song["Title"]?.try(&.strip)
-      return if artist.nil? || artist.empty? || title.nil? || title.empty?
+      artist = song["Artist"]?.try(&.strip).presence
+      title = song["Title"]?.try(&.strip).presence
+
+      return if !artist || !title
 
       duration_seconds = (duration > 0 ? duration : song_duration(song)).round.to_i
       timestamp = Time.utc.to_unix - elapsed.round.to_i
