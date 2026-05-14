@@ -1,0 +1,8 @@
+Lint/NotNil:
+  Enabled: false
+
+Naming/BlockParameterName:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
