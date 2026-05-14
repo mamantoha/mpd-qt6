@@ -105,8 +105,6 @@ module MPDUI
         value
       when String
         value.to_i?
-      else
-        nil
       end
     end
 

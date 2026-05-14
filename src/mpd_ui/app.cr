@@ -320,7 +320,7 @@ module MPDUI
 
         if splitter = @browsers
           sizes = splitter.sizes
-          @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all? { |size| size > 0 }
+          @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all?(&.>(0))
         end
       elsif expanded_size = @expanded_interface_window_size
         @settings.expanded_window_width = expanded_size.width

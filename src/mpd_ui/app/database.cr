@@ -98,7 +98,6 @@ module MPDUI
           set_status("Database load failed: #{ex.message || ex}")
         }
       ) do
-        db_client = nil
         db_client = MPD::Client.new(host, port)
         if update_mpd
           db_client.update
