@@ -83,12 +83,18 @@ module MPDUI
     end
 
     private def mime_type(bytes : Bytes) : String?
-      return "image/jpeg" if bytes.size >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
-      return "image/png" if bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
-      return "image/gif" if bytes.size >= 6 && String.new(bytes[0, 6]) =~ /\AGIF8[79]a\z/
-      return "image/webp" if bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
-
-      nil
+      case
+      when bytes.size >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
+        "image/jpeg"
+      when bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
+        "image/png"
+      when bytes.size >= 6 && String.new(bytes[0, 6]) =~ /\AGIF8[79]a\z/
+        "image/gif"
+      when bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
+        "image/webp"
+      else
+        nil
+      end
     end
   end
 end
