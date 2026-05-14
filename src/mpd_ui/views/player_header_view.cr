@@ -20,7 +20,7 @@ module MPDUI
     getter stop_icon : Qt6::QIcon
     getter? dragging_progress : Bool = false
 
-    property syncing_progress : Bool = false
+    property? syncing_progress : Bool = false
     property duration : Float64 = 0.0
     property on_previous : Proc(Nil)?
     property on_play_pause : Proc(Nil)?
