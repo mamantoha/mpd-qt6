@@ -138,7 +138,7 @@ module MPDUI
       @window = window
       @status_bar = status_bar
       apply_interface_visibility_settings
-      restore_expanded_window_size if @settings.expanded_interface
+      restore_expanded_window_size if @settings.expanded_interface?
     end
 
     private def build_menu(window : Qt6::MainWindow) : ApplicationMenu
@@ -207,14 +207,14 @@ module MPDUI
     end
 
     private def apply_interface_visibility_settings : Nil
-      if @settings.expanded_interface
+      if @settings.expanded_interface?
         @browsers.try(&.visible = true)
         @compact_spacer.try(&.visible = false)
       else
         set_expanded_interface_visible(false)
       end
 
-      set_library_panel_visible(@settings.show_library)
+      set_library_panel_visible(@settings.show_library?)
     end
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
@@ -222,7 +222,7 @@ module MPDUI
 
       if visible
         restore_expanded_interface_window_resize_limits
-      elsif window && @settings.expanded_interface
+      elsif window && @settings.expanded_interface?
         save_expanded_layout_settings
         @expanded_interface_window_size = window.size
       end
@@ -249,7 +249,7 @@ module MPDUI
       action = @application_menu.try(&.expanded_interface_action)
       action.checked = visible if action && action.checked? != visible
 
-      if @settings.expanded_interface != visible
+      if @settings.expanded_interface? != visible
         @settings.expanded_interface = visible
         @settings.save
       end
@@ -259,7 +259,7 @@ module MPDUI
       action = @application_menu.try(&.blurred_cover_background_action)
       action.checked = enabled if action && action.checked? != enabled
 
-      if @settings.blurred_cover_background != enabled
+      if @settings.blurred_cover_background? != enabled
         @settings.blurred_cover_background = enabled
         @settings.save
       end
@@ -276,7 +276,7 @@ module MPDUI
       if action
         action.checked = !action.checked?
       else
-        set_expanded_interface_visible(!@settings.expanded_interface)
+        set_expanded_interface_visible(!@settings.expanded_interface?)
       end
     end
 
@@ -310,7 +310,7 @@ module MPDUI
     end
 
     private def save_expanded_layout_settings : Nil
-      if @settings.expanded_interface
+      if @settings.expanded_interface?
         if window = @window
           size = window.size
           @settings.expanded_window_width = size.width
@@ -352,7 +352,7 @@ module MPDUI
       action = @application_menu.try(&.show_library_action)
       action.checked = visible if action && action.checked? != visible
 
-      if @settings.show_library != visible
+      if @settings.show_library? != visible
         @settings.show_library = visible
         @settings.save
       end

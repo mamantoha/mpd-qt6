@@ -19,14 +19,14 @@ module MPDUI
 
     property host : String
     property port : Int32
-    property expanded_interface : Bool
-    property show_library : Bool
-    property show_main_menu : Bool
-    property blurred_cover_background : Bool
+    property? expanded_interface : Bool
+    property? show_library : Bool
+    property? show_main_menu : Bool
+    property? blurred_cover_background : Bool
     property expanded_window_width : Int32?
     property expanded_window_height : Int32?
     property library_queue_splitter_sizes : Array(Int32)
-    property lastfm_enabled : Bool
+    property? lastfm_enabled : Bool
     property lastfm_username : String
     property lastfm_session_key : String
 
@@ -50,14 +50,14 @@ module MPDUI
       settings = new
       settings.host = store.value(HOST_KEY, settings.host).as?(String) || settings.host
       settings.port = read_port(store, settings.port)
-      settings.expanded_interface = read_bool(store, EXPANDED_INTERFACE_KEY, settings.expanded_interface)
-      settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library)
-      settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu)
-      settings.blurred_cover_background = read_bool(store, BLURRED_COVER_KEY, settings.blurred_cover_background)
+      settings.expanded_interface = read_bool(store, EXPANDED_INTERFACE_KEY, settings.expanded_interface?)
+      settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library?)
+      settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu?)
+      settings.blurred_cover_background = read_bool(store, BLURRED_COVER_KEY, settings.blurred_cover_background?)
       settings.expanded_window_width = read_int(store, WINDOW_WIDTH_KEY)
       settings.expanded_window_height = read_int(store, WINDOW_HEIGHT_KEY)
       settings.library_queue_splitter_sizes = read_int_array(store, SPLITTER_SIZES_KEY)
-      settings.lastfm_enabled = read_bool(store, LASTFM_ENABLED_KEY, settings.lastfm_enabled)
+      settings.lastfm_enabled = read_bool(store, LASTFM_ENABLED_KEY, settings.lastfm_enabled?)
       settings.lastfm_username = store.value(LASTFM_USERNAME_KEY, settings.lastfm_username).as?(String) || settings.lastfm_username
       settings.lastfm_session_key = store.value(LASTFM_SESSION_KEY, settings.lastfm_session_key).as?(String) || settings.lastfm_session_key
       settings

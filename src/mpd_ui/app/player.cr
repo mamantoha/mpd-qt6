@@ -306,7 +306,7 @@ module MPDUI
 
     private def apply_cover_background(pixmap : Qt6::QPixmap) : Nil
       return reset_cover_background if pixmap.null?
-      return reset_cover_background unless @settings.blurred_cover_background
+      return reset_cover_background unless @settings.blurred_cover_background?
 
       width = 960
       height = 260

@@ -36,7 +36,7 @@ module MPDUI
       expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
       @expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
       @expanded_interface_action.checkable = true
-      @expanded_interface_action.checked = settings.expanded_interface
+      @expanded_interface_action.checked = settings.expanded_interface?
       @expanded_interface_action.on_toggled { |checked| on_expanded_interface_changed.call(checked) }
       app_menu.add_action(@expanded_interface_action)
 
@@ -44,7 +44,7 @@ module MPDUI
       blurred_cover_icon = Qt6::QIcon.from_theme("image-x-generic")
       @blurred_cover_background_action.icon = blurred_cover_icon unless blurred_cover_icon.null?
       @blurred_cover_background_action.checkable = true
-      @blurred_cover_background_action.checked = settings.blurred_cover_background
+      @blurred_cover_background_action.checked = settings.blurred_cover_background?
       @blurred_cover_background_action.on_toggled { |checked| on_blurred_cover_background_changed.call(checked) }
       app_menu.add_action(@blurred_cover_background_action)
       app_menu.add_separator
@@ -53,18 +53,18 @@ module MPDUI
       main_menu_icon = Qt6::QIcon.from_theme("show-menu")
       @show_main_menu_action.icon = main_menu_icon unless main_menu_icon.null?
       @show_main_menu_action.checkable = true
-      @show_main_menu_action.checked = settings.show_main_menu
+      @show_main_menu_action.checked = settings.show_main_menu?
       @show_main_menu_action.shortcut = "Ctrl+M"
       @show_main_menu_action.on_toggled do |checked|
         window.menu_bar.visible = checked
-        if settings.show_main_menu != checked
+        if settings.show_main_menu? != checked
           settings.show_main_menu = checked
           settings.save
         end
       end
       app_menu.add_action(@show_main_menu_action)
       window.add_action(@show_main_menu_action)
-      window.menu_bar.visible = settings.show_main_menu
+      window.menu_bar.visible = settings.show_main_menu?
       app_menu.add_separator
 
       @settings_action = Qt6::Action.new("Settings", window)
@@ -89,7 +89,7 @@ module MPDUI
       library_icon = Qt6::QIcon.from_theme("view-list-tree")
       @show_library_action.icon = library_icon unless library_icon.null?
       @show_library_action.checkable = true
-      @show_library_action.checked = settings.show_library
+      @show_library_action.checked = settings.show_library?
       @show_library_action.on_toggled { |checked| on_show_library_changed.call(checked) }
       library_menu.add_action(@show_library_action)
       library_menu.add_separator

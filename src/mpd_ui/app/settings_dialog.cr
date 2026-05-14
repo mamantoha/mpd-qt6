@@ -13,7 +13,7 @@ module MPDUI
       port_spin.value = settings.port
 
       lastfm_enabled = Qt6::CheckBox.new("Scrobble songs to Last.fm", dialog)
-      lastfm_enabled.checked = settings.lastfm_enabled
+      lastfm_enabled.checked = settings.lastfm_enabled?
 
       lastfm_username = Qt6::LineEdit.new(settings.lastfm_username, dialog)
       lastfm_username.placeholder_text = "Last.fm username"

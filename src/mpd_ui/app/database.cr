@@ -34,8 +34,8 @@ module MPDUI
     end
 
     private def show_database_search : Nil
-      return unless @settings.expanded_interface
-      return unless @settings.show_library
+      return unless @settings.expanded_interface?
+      return unless @settings.show_library?
 
       preserve_window_size do
         set_library_panel_visible(true)
