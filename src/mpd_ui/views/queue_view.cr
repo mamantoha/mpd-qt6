@@ -79,7 +79,7 @@ module MPDUI
       @drop_filter = filter
     end
 
-    def render(songs : Array(Song), &indicator_icon : Int32 -> Qt6::QIcon?) : Nil
+    def render(songs : Array(Song), & : Int32 -> Qt6::QIcon?) : Nil
       @model.clear
       configure_model
       configure_header
