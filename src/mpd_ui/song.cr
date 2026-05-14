@@ -168,7 +168,7 @@ module MPDUI
     end
 
     private def add_metadata_row(rows : Array(Tuple(String, String)), label : String, value : String?) : Nil
-      return unless value && !value.strip.empty?
+      return if value.nil? || value.strip.empty?
 
       rows << {label, value}
     end

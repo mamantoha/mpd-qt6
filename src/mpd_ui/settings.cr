@@ -110,7 +110,7 @@ module MPDUI
 
     private def self.read_int_array(store : Qt6::QSettings, key : String) : Array(Int32)
       value = store.value(key, "").as?(String)
-      return [] of Int32 unless value && !value.empty?
+      return [] of Int32 if value.nil? || value.empty?
 
       JSON.parse(value).as_a.compact_map(&.as_i?)
     rescue

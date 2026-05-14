@@ -302,7 +302,7 @@ module LastFM
     private def build_track(song : Hash(String, String), elapsed : Float64, duration : Float64) : Track?
       artist = song["Artist"]?.try(&.strip)
       title = song["Title"]?.try(&.strip)
-      return unless artist && !artist.empty? && title && !title.empty?
+      return if artist.nil? || artist.empty? || title.nil? || title.empty?
 
       duration_seconds = (duration > 0 ? duration : song_duration(song)).round.to_i
       timestamp = Time.utc.to_unix - elapsed.round.to_i
