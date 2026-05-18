@@ -92,8 +92,6 @@ module MPDUI
         "image/gif"
       when bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
         "image/webp"
-      else
-        nil
       end
     end
   end
