@@ -384,6 +384,7 @@ module MPRIS
 
     private def player_properties
       state = @mutex.synchronize { @state }
+      playable = state.playback_status != "Stopped"
       [
         {"PlaybackStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.playback_status) } }},
         {"LoopStatus", ->(w : Writer) { w.write_variant("s") { |vw| vw.write_string(state.repeat? ? "Playlist" : "None") } }},
@@ -394,11 +395,11 @@ module MPRIS
         {"Position", ->(w : Writer) { w.write_variant("x", &.write_i64(state.position_us)) }},
         {"MinimumRate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
         {"MaximumRate", ->(w : Writer) { w.write_variant("d", &.write_f64(1.0)) }},
-        {"CanGoNext", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
-        {"CanGoPrevious", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
-        {"CanPlay", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
-        {"CanPause", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
-        {"CanSeek", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(state.length_us.positive?) } }},
+        {"CanGoNext", ->(w : Writer) { w.write_variant("b", &.write_bool(playable)) }},
+        {"CanGoPrevious", ->(w : Writer) { w.write_variant("b", &.write_bool(playable)) }},
+        {"CanPlay", ->(w : Writer) { w.write_variant("b", &.write_bool(playable)) }},
+        {"CanPause", ->(w : Writer) { w.write_variant("b", &.write_bool(playable)) }},
+        {"CanSeek", ->(w : Writer) { w.write_variant("b") { |vw| vw.write_bool(playable && state.length_us.positive?) } }},
         {"CanControl", ->(w : Writer) { w.write_variant("b", &.write_bool(true)) }},
       ]
     end
