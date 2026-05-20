@@ -197,6 +197,8 @@ module MPDUI
       configure_model
       @tree.model = @model
       @tree.header_hidden = true
+      @tree.header.stretch_last_section = true
+      @tree.header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Stretch)
       @tree.root_is_decorated = true
       @tree.uniform_row_heights = false
       @tree.icon_size = Qt6::Size.new(24, 24)
