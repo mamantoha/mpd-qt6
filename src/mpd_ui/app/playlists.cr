@@ -3,7 +3,8 @@ module MPDUI
     private def build_playlists(parent : Qt6::Widget) : PlaylistsView
       playlists = PlaylistsView.new(parent)
       playlists.on_refresh = -> { refresh_stored_playlists }
-      playlists.on_load = -> { load_selected_stored_playlist }
+      playlists.on_replace_queue = -> { load_selected_stored_playlist(replace: true) }
+      playlists.on_add_to_queue = -> { load_selected_stored_playlist(replace: false) }
       playlists.on_rename = -> { rename_selected_stored_playlist }
       playlists.on_delete = -> { delete_selected_stored_playlist }
       playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
@@ -111,18 +112,18 @@ module MPDUI
       end
     end
 
-    private def load_selected_stored_playlist : Nil
+    private def load_selected_stored_playlist(*, replace : Bool) : Nil
       name = @playlists_view.try(&.selected_playlist_name)
       return unless name
 
-      set_status("Loading playlist #{name} into Queue…")
+      set_status("#{replace ? "Replacing Queue with" : "Adding"} playlist #{name}…")
       host = @settings.host
       port = @settings.port
 
       run_background(
         ->(songs : Array(Song)) {
           refresh_playlist(songs, scroll_to_current: false)
-          set_status("Loaded playlist #{name} into Queue")
+          set_status("#{replace ? "Replaced Queue with" : "Added"} playlist #{name}")
         },
         ->(ex : Exception) {
           Qt6::MessageBox.warning(@window, title: "Load Playlist Failed", text: ex.message || ex.to_s)
@@ -130,6 +131,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
+          client.clear if replace
           client.load(name)
           client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) }) || [] of Song
         end
