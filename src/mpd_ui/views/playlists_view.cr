@@ -8,7 +8,8 @@ module MPDUI
     getter song_drag_filter : Qt6::EventFilter?
 
     property on_refresh : Proc(Nil)?
-    property on_load : Proc(Nil)?
+    property on_replace_queue : Proc(Nil)?
+    property on_add_to_queue : Proc(Nil)?
     property on_rename : Proc(Nil)?
     property on_delete : Proc(Nil)?
     property on_selection_changed : Proc(String?, Nil)?
@@ -19,7 +20,8 @@ module MPDUI
 
     @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
     @context_menu : Qt6::Menu
-    @load_action : Qt6::Action
+    @replace_queue_action : Qt6::Action
+    @add_to_queue_action : Qt6::Action
     @rename_action : Qt6::Action
     @delete_action : Qt6::Action
 
@@ -34,7 +36,9 @@ module MPDUI
       @context_menu = Qt6::Menu.new("Playlist", @playlist_list)
       add_context_action("Refresh", "view-refresh") { @on_refresh.try(&.call) }
       @context_menu.add_separator
-      @load_action = add_context_action("Load", "media-playback-start") { @on_load.try(&.call) }
+      @replace_queue_action = add_context_action("Replace Play Queue", "media-playback-start") { @on_replace_queue.try(&.call) }
+      @add_to_queue_action = add_context_action("Add To Play Queue", "list-add") { @on_add_to_queue.try(&.call) }
+      @context_menu.add_separator
       @rename_action = add_context_action("Rename", "edit-rename") { @on_rename.try(&.call) }
       @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
       update_action_buttons
@@ -43,7 +47,7 @@ module MPDUI
         update_action_buttons
         @on_selection_changed.try(&.call(selected_playlist_name))
       end
-      @playlist_list.on_item_double_clicked { |_item| @on_load.try(&.call) }
+      @playlist_list.on_item_double_clicked { |_item| @on_add_to_queue.try(&.call) }
       install_context_filter
       install_song_drag_filter
 
@@ -192,7 +196,8 @@ module MPDUI
 
     private def update_action_buttons : Nil
       enabled = !!selected_playlist_name
-      @load_action.enabled = enabled
+      @replace_queue_action.enabled = enabled
+      @add_to_queue_action.enabled = enabled
       @rename_action.enabled = enabled
       @delete_action.enabled = enabled
     end
