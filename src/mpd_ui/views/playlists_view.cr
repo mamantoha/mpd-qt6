@@ -4,6 +4,7 @@ module MPDUI
     getter playlist_list : Qt6::ListWidget
     getter song_view : Qt6::TreeView
     getter song_model : Qt6::StandardItemModel
+    getter context_filter : Qt6::EventFilter?
 
     property on_refresh : Proc(Nil)?
     property on_load : Proc(Nil)?
@@ -11,8 +12,9 @@ module MPDUI
     property on_selection_changed : Proc(String?, Nil)?
 
     @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
-    @load_button : Qt6::PushButton
-    @delete_button : Qt6::PushButton
+    @context_menu : Qt6::Menu
+    @load_action : Qt6::Action
+    @delete_action : Qt6::Action
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -23,18 +25,18 @@ module MPDUI
       configure_song_view
 
       refresh_button = button("Refresh", "view-refresh", @root)
-      @load_button = button("Load", "media-playback-start", @root)
-      @delete_button = button("Delete", "edit-delete", @root)
+      @context_menu = Qt6::Menu.new("Playlist", @playlist_list)
+      @load_action = add_context_action("Load", "media-playback-start") { @on_load.try(&.call) }
+      @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
       update_action_buttons
 
       refresh_button.on_clicked { @on_refresh.try(&.call) }
-      @load_button.on_clicked { @on_load.try(&.call) }
-      @delete_button.on_clicked { @on_delete.try(&.call) }
       @playlist_list.on_current_row_changed do |_row|
         update_action_buttons
         @on_selection_changed.try(&.call(selected_playlist_name))
       end
       @playlist_list.on_item_double_clicked { |_item| @on_load.try(&.call) }
+      install_context_filter
 
       browser = Qt6::Splitter.new(Qt6::Orientation::Horizontal, @root)
       browser.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Expanding)
@@ -49,8 +51,6 @@ module MPDUI
           toolbar.spacing = 4
           toolbar.set_contents_margins(4, 4, 4, 0)
           toolbar << refresh_button
-          toolbar << @load_button
-          toolbar << @delete_button
           toolbar.add_stretch
         end
         column << toolbar_widget
@@ -173,8 +173,57 @@ module MPDUI
 
     private def update_action_buttons : Nil
       enabled = !!selected_playlist_name
-      @load_button.enabled = enabled
-      @delete_button.enabled = enabled
+      @load_action.enabled = enabled
+      @delete_action.enabled = enabled
+    end
+
+    private def install_context_filter : Nil
+      viewport = @playlist_list.viewport
+      filter = Qt6::EventFilter.new(viewport)
+      filter.on_event do |_watched, event|
+        case event.type
+        when Qt6::EventType::MouseButtonPress
+          mouse_event = event.mouse_event
+          if mouse_event.button == 2
+            show_context_menu(viewport, mouse_event.position)
+            true
+          else
+            false
+          end
+        else
+          false
+        end
+      end
+
+      viewport.install_event_filter(filter)
+      @context_filter = filter
+    end
+
+    private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
+      row = row_at(position)
+      return unless row
+
+      @playlist_list.current_row = row
+      update_action_buttons
+      @context_menu.exec_at(viewport, position)
+    end
+
+    private def row_at(position : Qt6::PointF) : Int32?
+      index = @playlist_list.index_at(position)
+      begin
+        index.valid? ? index.row : nil
+      ensure
+        index.release
+      end
+    end
+
+    private def add_context_action(label : String, icon_name : String, &block : ->) : Qt6::Action
+      action = Qt6::Action.new(label, @playlist_list)
+      icon = Qt6::QIcon.from_theme(icon_name)
+      action.icon = icon unless icon.null?
+      action.on_triggered { block.call }
+      @context_menu.add_action(action)
+      action
     end
 
     private def button(text : String, icon_name : String, parent : Qt6::Widget) : Qt6::PushButton
