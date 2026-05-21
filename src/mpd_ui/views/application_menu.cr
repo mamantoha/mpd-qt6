@@ -20,6 +20,7 @@ module MPDUI
       on_show_library_changed : Bool ->,
       on_search_library : ->,
       on_reload_database : ->,
+      on_save_queue_as_playlist : ->,
       on_clear_queue : ->,
     )
       menu_bar = window.menu_bar
@@ -112,6 +113,13 @@ module MPDUI
       window.add_action(@reload_database_action)
 
       queue_menu = menu_bar.add_menu("&Queue")
+      save_playlist_action = Qt6::Action.new("Save Queue as Playlist...", window)
+      save_playlist_icon = Qt6::QIcon.from_theme("document-save")
+      save_playlist_action.icon = save_playlist_icon unless save_playlist_icon.null?
+      save_playlist_action.on_triggered { on_save_queue_as_playlist.call }
+      queue_menu.add_action(save_playlist_action)
+      queue_menu.add_separator
+
       clear_action = Qt6::Action.new("Clear Queue", window)
       clear_icon = Qt6::QIcon.from_theme("edit-clear")
       clear_action.icon = clear_icon unless clear_icon.null?

@@ -9,6 +9,7 @@ module MPDUI
     include AppPlayer
     include AppQueue
     include AppDatabase
+    include AppPlaylists
     include BackgroundTask
 
     WINDOW_TITLE             = "Crystal MPD"
@@ -48,9 +49,11 @@ module MPDUI
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
+    @library_tabs : Qt6::TabWidget?
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
     @library_view : LibraryView?
+    @playlists_view : PlaylistsView?
     @library_index : LibraryIndex
     @database_loaded : Bool = false
     @database_loading : Bool = false
@@ -120,7 +123,11 @@ module MPDUI
       queue_view = build_playlist(window)
       setup_queue_drop_target(queue_view)
       database_browser = build_database_browser(window)
-      layout = AppLayoutView.new(window, player_header, database_browser, queue_view)
+      playlists = build_playlists(window)
+      library_tabs = Qt6::TabWidget.new(window)
+      library_tabs.add_tab(database_browser, "Library")
+      library_tabs.add_tab(playlists.root, "Playlists")
+      layout = AppLayoutView.new(window, player_header, library_tabs, queue_view)
       restore_library_queue_splitter_sizes(layout.browsers)
 
       @app_layout_view = layout
@@ -128,6 +135,7 @@ module MPDUI
       @browsers = layout.browsers
       @compact_spacer = layout.compact_spacer
       @database_panel = layout.database_panel
+      @library_tabs = library_tabs
       @queue_view = queue_view
       @playlist_view = queue_view.view
       assign_player_header_references(player_header)
@@ -153,6 +161,7 @@ module MPDUI
         ->(checked : Bool) { set_library_panel_visible(checked) },
         -> { show_database_search },
         -> { ensure_database_loaded(force: true, update_mpd: true) },
+        -> { save_queue_as_playlist },
         -> { clear_queue }
       )
       @application_menu = menu
