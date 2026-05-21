@@ -4,6 +4,7 @@ module MPDUI
       playlists = PlaylistsView.new(parent)
       playlists.on_refresh = -> { refresh_stored_playlists }
       playlists.on_load = -> { load_selected_stored_playlist }
+      playlists.on_rename = -> { rename_selected_stored_playlist }
       playlists.on_delete = -> { delete_selected_stored_playlist }
       playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
       playlists.render_message("No playlist selected")
@@ -149,6 +150,37 @@ module MPDUI
       ) do
         with_playlist_client(host, port) do |client|
           client.rm(name)
+          playlist_entries(client)
+        end
+      end
+    end
+
+    private def rename_selected_stored_playlist : Nil
+      old_name = @playlists_view.try(&.selected_playlist_name)
+      return unless old_name
+
+      name = Qt6::InputDialog.get_text(@window, title: "Rename Playlist", label: "Playlist name:", value: old_name)
+      return unless name
+
+      new_name = name.strip
+      return if new_name.empty? || new_name == old_name
+
+      set_status("Renaming playlist #{old_name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(playlists : Array(PlaylistEntry)) {
+          @playlists_view.try(&.render_playlists(playlists))
+          set_status("Renamed playlist #{old_name} to #{new_name}")
+        },
+        ->(ex : Exception) {
+          Qt6::MessageBox.warning(@window, title: "Rename Playlist Failed", text: ex.message || ex.to_s)
+          set_status("Failed to rename playlist #{old_name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.rename(old_name, new_name)
           playlist_entries(client)
         end
       end

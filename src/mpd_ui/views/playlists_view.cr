@@ -8,12 +8,14 @@ module MPDUI
 
     property on_refresh : Proc(Nil)?
     property on_load : Proc(Nil)?
+    property on_rename : Proc(Nil)?
     property on_delete : Proc(Nil)?
     property on_selection_changed : Proc(String?, Nil)?
 
     @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
     @context_menu : Qt6::Menu
     @load_action : Qt6::Action
+    @rename_action : Qt6::Action
     @delete_action : Qt6::Action
 
     def initialize(parent : Qt6::Widget)
@@ -27,6 +29,7 @@ module MPDUI
       refresh_button = button("Refresh", "view-refresh", @root)
       @context_menu = Qt6::Menu.new("Playlist", @playlist_list)
       @load_action = add_context_action("Load", "media-playback-start") { @on_load.try(&.call) }
+      @rename_action = add_context_action("Rename", "edit-rename") { @on_rename.try(&.call) }
       @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
       update_action_buttons
 
@@ -174,6 +177,7 @@ module MPDUI
     private def update_action_buttons : Nil
       enabled = !!selected_playlist_name
       @load_action.enabled = enabled
+      @rename_action.enabled = enabled
       @delete_action.enabled = enabled
     end
 
