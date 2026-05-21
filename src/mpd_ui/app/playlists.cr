@@ -26,7 +26,7 @@ module MPDUI
       return unless queue
 
       if queue.empty?
-        Qt6::MessageBox.information(@window, title: "Save Playlist", text: "The queue is empty.")
+        show_playlist_message("Save Playlist", "The queue is empty.")
         return
       end
 
@@ -46,7 +46,7 @@ module MPDUI
           set_status("Saved playlist #{playlist_name}")
         },
         ->(ex : Exception) {
-          Qt6::MessageBox.warning(@window, title: "Save Playlist Failed", text: ex.message || ex.to_s)
+          show_playlist_message("Save Playlist Failed", ex.message || ex.to_s)
           set_status("Failed to save playlist #{playlist_name}")
         }
       ) do
@@ -126,7 +126,7 @@ module MPDUI
           set_status("#{replace ? "Replaced Queue with" : "Added"} playlist #{name}")
         },
         ->(ex : Exception) {
-          Qt6::MessageBox.warning(@window, title: "Load Playlist Failed", text: ex.message || ex.to_s)
+          show_playlist_message("Load Playlist Failed", ex.message || ex.to_s)
           set_status("Failed to load playlist #{name}")
         }
       ) do
@@ -154,7 +154,7 @@ module MPDUI
           set_status("Deleted playlist #{name}")
         },
         ->(ex : Exception) {
-          Qt6::MessageBox.warning(@window, title: "Delete Playlist Failed", text: ex.message || ex.to_s)
+          show_playlist_message("Delete Playlist Failed", ex.message || ex.to_s)
           set_status("Failed to delete playlist #{name}")
         }
       ) do
@@ -185,7 +185,7 @@ module MPDUI
           set_status("Renamed playlist #{old_name} to #{new_name}")
         },
         ->(ex : Exception) {
-          Qt6::MessageBox.warning(@window, title: "Rename Playlist Failed", text: ex.message || ex.to_s)
+          show_playlist_message("Rename Playlist Failed", ex.message || ex.to_s)
           set_status("Failed to rename playlist #{old_name}")
         }
       ) do
@@ -228,6 +228,32 @@ module MPDUI
 
       begin
         dialog.exec == Qt6::DialogCode::Accepted
+      ensure
+        dialog.release
+      end
+    end
+
+    private def show_playlist_message(title : String, text : String) : Nil
+      dialog = Qt6::Dialog.new(@window)
+      dialog.window_title = title
+
+      label = Qt6::Label.new(text, dialog)
+      label.word_wrap = true
+      label.minimum_width = 320
+
+      buttons = Qt6::DialogButtonBox.new(Qt6::DialogButtonBoxStandardButton::Ok, dialog)
+      buttons.on_accepted { dialog.accept }
+      buttons.on_rejected { dialog.reject }
+
+      dialog.vbox do |column|
+        column.spacing = 10
+        column.set_contents_margins(12, 12, 12, 12)
+        column << label
+        column << buttons
+      end
+
+      begin
+        dialog.exec
       ensure
         dialog.release
       end
