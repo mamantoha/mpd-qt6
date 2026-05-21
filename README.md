@@ -8,42 +8,17 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 
 ## Features
 
-- Playback controls for play, pause, previous, and next
-- Interactive progress slider with elapsed and total time display
-- Progress tooltip while hovering or dragging the progress slider
-- Playback controls and progress slider disable cleanly when playback is stopped
-- Shuffle and repeat toggles
-- Volume button with a dropdown vertical slider and percentage display
-- Live track, artist, and album metadata updates
-- Window title updates to reflect the current song
-- Album art loading from MPD when available, including a full-size cover tooltip
-- Click the album art to toggle the expanded interface
-- Optional blurred album-art playback header background
-- Queue view with current-track state icons, multi-select, auto-scroll, and current-song selection sync
-- Double-click or press Enter on a queue row to start playback instantly
-- Queue reordering with drag and drop
-- Remove selected queue rows with Delete
-- Queue context menu for playing the selected song now or removing selected songs
-- Clear queue action from the main menu and keyboard shortcut
-- Database browser grouped as artist → album → songs with item icons and two-line rows
-- Database browser album sorting by year and song sorting by disc and track number
-- Database search/filter by artist, album, title, and file path with `Ctrl+F` and `Esc` to close
-- Reload Database updates MPD's database before refreshing the local browser
-- Multi-select artists, albums, or songs in the database browser
-- Library context menu for adding the selected artist, album, or song selection to the queue
-- Song information tooltips in both the queue and database browser
-- Toggleable expanded interface and library panel
-- Drag and drop selected songs, albums, or artists from the database into the queue
-- Drop-position queue insertion for fast playlist building
-- Main menu with About, Settings, Library, and Queue actions
-- Top-right Options menu reusing main-menu actions
-- Toggleable main menu bar with persisted visibility and `Ctrl+M` shortcut
-- About dialog with application details and live MPD server statistics
-- Connection settings dialog for MPD host and port
-- System tray integration with tray menu, close-to-tray behavior, restore/show toggle, and playback actions
-- MPRISv2 integration for Linux desktop media controls, metadata, position, volume, shuffle/repeat state, and cover art
-- Optional Last.fm scrobbling with one-time authentication, now-playing updates, threshold-based scrobbles, and retry cache for failed scrobbles
-- Settings persisted in the user config directory, including connection details, Last.fm session details, UI visibility, blurred cover background, expanded window size, and library/queue splitter sizes
+- Playback controls with progress seeking, shuffle/repeat, volume control, and current song metadata.
+- Album art support, including a full-size cover preview and optional blurred cover background in the playback header.
+- Queue management with multi-select, drag-and-drop reordering, keyboard playback, row removal, and context menu actions.
+- Library browser grouped by artist, album, and song, with natural album/year and disc/track sorting.
+- Library search by artist, album, title, and file path, plus genre filtering from MPD's database tags.
+- Drag artists, albums, songs, or stored playlist tracks into the queue, including insertion at the drop position.
+- Saved playlist management: browse MPD playlists, preview songs, save the current queue, rename/delete playlists, append playlists to the queue, or replace the queue with a playlist.
+- Configurable MPD connection and optional Last.fm scrobbling.
+- Linux desktop integration through MPRISv2 for media keys, desktop media widgets, metadata, position, volume, shuffle/repeat, and cover art.
+- System tray support with close-to-tray behavior, restore/show toggle, and playback actions.
+- Persistent UI preferences for layout, expanded mode, menu visibility, blurred cover background, window size, and splitter sizes.
 
 ## Requirements
 
@@ -88,14 +63,16 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `app_layout_view.cr` arranges the player header, library/queue splitter, and compact spacer
   - `player_header_view.cr` owns the playback header widgets, controls, volume popup, cover click handling, and progress tooltip
   - `queue_view.cr` owns the queue `QTreeView`, model rendering, context menu, shortcuts, selection helpers, drop filter, and row indicators
-  - `library_view.cr` owns the database browser tree, search panel, custom item delegate, context menu, drag filter, and selected URI collection
+  - `library_view.cr` owns the database browser tree, search panel, genre filter, custom item delegate, context menu, drag filter, and selected URI collection
+  - `playlists_view.cr` owns the saved playlist browser, playlist context menu, song preview, and playlist-song drag source
 - Controller classes under `src/mpd_ui/controllers/` keep state transitions and queue calculations away from Qt widget setup:
   - `player_controller.cr` reads MPD status/current-song/playlist snapshots and converts them into `PlaybackState` transitions
   - `queue_controller.cr` tracks queue positions/ids and plans multi-row reorders
 - App glue modules under `src/mpd_ui/app/` connect views/controllers/services to MPD commands and UI state:
   - `player.cr` handles playback refresh, progress, volume, cover rendering, blurred header background, and current-song UI updates
   - `queue.cr` wires `QueueView`/`QueueController` to MPD queue commands and database-to-queue drops
-  - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, and add-to-queue behavior
+  - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, genre filtering, and add-to-queue behavior
+  - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
   - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
   - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
   - `tray.cr` handles system tray integration, close-to-tray behavior, and tray menu actions
