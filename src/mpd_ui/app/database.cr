@@ -136,7 +136,7 @@ module MPDUI
       return unless library
 
       result = @library_index.filter(library.query, library.selected_genre)
-      library.render(result)
+      library.render(result, expand_all: !library.query.empty?)
       @dragged_database_uris.clear
 
       if result.filtered

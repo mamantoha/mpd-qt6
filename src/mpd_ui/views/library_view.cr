@@ -158,7 +158,7 @@ module MPDUI
       @model << Qt6::StandardItem.new(message)
     end
 
-    def render(result : LibraryIndex::Result) : Nil
+    def render(result : LibraryIndex::Result, *, expand_all : Bool = false) : Nil
       @model.clear
       configure_model
 
@@ -192,7 +192,7 @@ module MPDUI
         @model << artist_item
       end
 
-      @tree.expand_all if result.filtered
+      @tree.expand_all if expand_all
     end
 
     def selected_uris : Array(String)
