@@ -294,6 +294,5 @@ module MPDUI
         index.release
       end
     end
-
   end
 end

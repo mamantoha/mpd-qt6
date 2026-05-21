@@ -196,7 +196,7 @@ module MPDUI
 
     private def playlist_entries(client : MPD::Client) : Array(PlaylistEntry)
       client.listplaylists.try do |items|
-        items.compact_map { |metadata| PlaylistEntry.from_mpd(metadata) }.sort_by(&.name.downcase)
+        items.compact_map { |metadata| PlaylistEntry.from_mpd(metadata) }.sort_by!(&.name.downcase)
       end || [] of PlaylistEntry
     end
 

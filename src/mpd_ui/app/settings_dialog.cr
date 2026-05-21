@@ -24,7 +24,7 @@ module MPDUI
 
       lastfm_status = Qt6::Label.new(settings.lastfm_session_key.empty? ? "Not authenticated" : "Authenticated")
 
-      save_settings = ->{
+      save_settings = -> {
         host = host_edit.text.strip
         username = lastfm_username.text.strip
         password = lastfm_password.text
