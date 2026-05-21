@@ -5,12 +5,17 @@ module MPDUI
     getter song_view : Qt6::TreeView
     getter song_model : Qt6::StandardItemModel
     getter context_filter : Qt6::EventFilter?
+    getter song_drag_filter : Qt6::EventFilter?
 
     property on_refresh : Proc(Nil)?
     property on_load : Proc(Nil)?
     property on_rename : Proc(Nil)?
     property on_delete : Proc(Nil)?
     property on_selection_changed : Proc(String?, Nil)?
+    property on_song_selection_changed : Proc(Nil)?
+    property on_song_mouse_press : Proc(Nil)?
+    property on_song_drag_enter : Proc(Nil)?
+    property on_song_drag_finished : Proc(Nil)?
 
     @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
     @context_menu : Qt6::Menu
@@ -40,6 +45,7 @@ module MPDUI
       end
       @playlist_list.on_item_double_clicked { |_item| @on_load.try(&.call) }
       install_context_filter
+      install_song_drag_filter
 
       browser = Qt6::Splitter.new(Qt6::Orientation::Horizontal, @root)
       browser.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Expanding)
@@ -95,10 +101,12 @@ module MPDUI
       songs.each_with_index do |song, row|
         title_item = Qt6::StandardItem.new(song.queue_title)
         configure_song_item(title_item)
+        title_item.set_data(song.file || "", Qt6::ItemDataRole::User)
         title_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
 
         time_item = Qt6::StandardItem.new(song.duration_label)
         configure_song_item(time_item)
+        time_item.set_data(song.file || "", Qt6::ItemDataRole::User)
         time_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
         time_item.set_data((Qt6::AlignmentFlag::Right | Qt6::AlignmentFlag::VCenter).value, Qt6::ItemDataRole::TextAlignment)
 
@@ -120,6 +128,17 @@ module MPDUI
       @playlists[row].name
     end
 
+    def selected_song_uris : Array(String)
+      rows = selected_song_rows
+      rows = current_song_rows if rows.empty?
+
+      rows.compact_map do |row|
+        item = @song_model.item(row, 0)
+        uri = item.try(&.data(Qt6::ItemDataRole::User).as?(String))
+        uri unless uri.nil? || uri.empty?
+      end.uniq!
+    end
+
     private def configure_playlist_list : Nil
       @playlist_list.minimum_width = 160
       @playlist_list.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Expanding)
@@ -135,9 +154,14 @@ module MPDUI
       @song_view.root_is_decorated = false
       @song_view.uniform_row_heights = true
       @song_view.alternating_row_colors = true
+      @song_view.selection_mode = Qt6::ItemSelectionMode::ExtendedSelection
       @song_view.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       @song_view.edit_triggers = Qt6::EditTrigger::NoEditTriggers
+      @song_view.drag_enabled = true
+      @song_view.drag_drop_mode = Qt6::ItemViewDragDropMode::DragOnly
+      @song_view.default_drop_action = Qt6::DropAction::CopyAction
       @song_view.minimum_width = 220
+      @song_view.on_current_index_changed { @on_song_selection_changed.try(&.call) }
       @song_view.style_sheet = <<-CSS
         QTreeView {
           border: none;
@@ -163,7 +187,7 @@ module MPDUI
     end
 
     private def configure_song_item(item : Qt6::StandardItem) : Nil
-      item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
+      item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
     end
 
     private def update_action_buttons : Nil
@@ -195,6 +219,32 @@ module MPDUI
       @context_filter = filter
     end
 
+    private def install_song_drag_filter : Nil
+      viewport = @song_view.viewport
+      filter = Qt6::EventFilter.new(viewport)
+      filter.on_event do |_watched, event|
+        case event.type
+        when Qt6::EventType::MouseButtonPress
+          mouse_event = event.mouse_event
+          if mouse_event.button != 2
+            @on_song_mouse_press.try(&.call)
+          end
+          false
+        when Qt6::EventType::DragEnter
+          @on_song_drag_enter.try(&.call)
+          false
+        when Qt6::EventType::DragLeave, Qt6::EventType::Drop
+          @on_song_drag_finished.try(&.call)
+          false
+        else
+          false
+        end
+      end
+
+      viewport.install_event_filter(filter)
+      @song_drag_filter = filter
+    end
+
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
       row = row_at(position)
       @playlist_list.current_row = row if row
@@ -218,6 +268,31 @@ module MPDUI
       action.on_triggered { block.call }
       @context_menu.add_action(action)
       action
+    end
+
+    private def selected_song_rows : Array(Int32)
+      selection_model = @song_view.selection_model
+      return [] of Int32 unless selection_model
+
+      rows = [] of Int32
+      @song_model.row_count.times do |row|
+        index = @song_model.index(row, 0)
+        begin
+          rows << row if selection_model.selected?(index)
+        ensure
+          index.release
+        end
+      end
+      rows
+    end
+
+    private def current_song_rows : Array(Int32)
+      index = @song_view.current_index
+      begin
+        index.valid? ? [index.row] : [] of Int32
+      ensure
+        index.release
+      end
     end
 
   end

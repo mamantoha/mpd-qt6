@@ -7,6 +7,14 @@ module MPDUI
       playlists.on_rename = -> { rename_selected_stored_playlist }
       playlists.on_delete = -> { delete_selected_stored_playlist }
       playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
+      playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
+      playlists.on_song_mouse_press = -> {
+        @playlist_drag_source_row = nil
+        @dragged_database_uris.clear
+        @drag_source_type = :stored_playlist
+      }
+      playlists.on_song_drag_enter = -> { @drag_source_type = :stored_playlist }
+      playlists.on_song_drag_finished = -> { @drag_source_type = nil }
       playlists.render_message("No playlist selected")
       @playlists_view = playlists
       playlists
@@ -190,6 +198,10 @@ module MPDUI
       client.listplaylists.try do |items|
         items.compact_map { |metadata| PlaylistEntry.from_mpd(metadata) }.sort_by(&.name.downcase)
       end || [] of PlaylistEntry
+    end
+
+    private def selected_stored_playlist_song_uris : Array(String)
+      @playlists_view.try(&.selected_song_uris) || [] of String
     end
 
     private def confirm_delete_playlist(name : String) : Bool
