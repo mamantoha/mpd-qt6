@@ -19,6 +19,7 @@ module MPDUI
       start_callback_listener(generation)
       refresh_status
       ensure_database_loaded(force: true) if @library_view
+      refresh_stored_playlists if @playlists_view
     rescue ex
       Log.error { "mpd_ui: failed to connect to #{@settings.host}:#{@settings.port}: #{ex.message || ex}" }
       @title_label.try(&.text = "Connection failed")

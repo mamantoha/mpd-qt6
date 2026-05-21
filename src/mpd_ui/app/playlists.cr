@@ -1,0 +1,197 @@
+module MPDUI
+  module AppPlaylists
+    private def build_playlists(parent : Qt6::Widget) : PlaylistsView
+      playlists = PlaylistsView.new(parent)
+      playlists.on_refresh = -> { refresh_stored_playlists }
+      playlists.on_load = -> { load_selected_stored_playlist }
+      playlists.on_delete = -> { delete_selected_stored_playlist }
+      playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
+      playlists.render_message("No playlist selected")
+      @playlists_view = playlists
+      playlists
+    end
+
+    private def save_queue_as_playlist : Nil
+      queue = @queue_view
+      return unless queue
+
+      if queue.empty?
+        Qt6::MessageBox.information(@window, title: "Save Playlist", text: "The queue is empty.")
+        return
+      end
+
+      name = Qt6::InputDialog.get_text(@window, title: "Save Playlist", label: "Playlist name:")
+      return unless name
+
+      playlist_name = name.strip
+      return if playlist_name.empty?
+
+      set_status("Saving playlist #{playlist_name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(playlists : Array(PlaylistEntry)) {
+          @playlists_view.try(&.render_playlists(playlists))
+          set_status("Saved playlist #{playlist_name}")
+        },
+        ->(ex : Exception) {
+          Qt6::MessageBox.warning(@window, title: "Save Playlist Failed", text: ex.message || ex.to_s)
+          set_status("Failed to save playlist #{playlist_name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          existing = playlist_entries(client)
+          mode = existing.any? { |playlist| playlist.name == playlist_name } ? "replace" : nil
+          client.save(playlist_name, mode)
+          playlist_entries(client)
+        end
+      end
+    end
+
+    private def refresh_stored_playlists : Nil
+      set_status("Loading stored playlists…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(playlists : Array(PlaylistEntry)) {
+          @playlists_view.try(&.render_playlists(playlists))
+          set_status("#{playlists.size} stored #{playlists.size == 1 ? "playlist" : "playlists"}")
+        },
+        ->(ex : Exception) {
+          @playlists_view.try(&.render_message("Failed to load playlists"))
+          set_status("Failed to load playlists: #{ex.message || ex}")
+        }
+      ) do
+        with_playlist_client(host, port) { |client| playlist_entries(client) }
+      end
+    end
+
+    private def refresh_stored_playlist_songs(name : String?) : Nil
+      view = @playlists_view
+      return unless view
+
+      unless name
+        view.render_message("No playlist selected")
+        return
+      end
+
+      view.render_message("Loading #{name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(result : Tuple(String, Array(Song))) {
+          selected_name, songs = result
+          if @playlists_view.try(&.selected_playlist_name) == selected_name
+            @playlists_view.try(&.render_songs(songs))
+          end
+        },
+        ->(ex : Exception) {
+          if @playlists_view.try(&.selected_playlist_name) == name
+            @playlists_view.try(&.render_message("Failed to load playlist"))
+            set_status("Failed to load playlist #{name}: #{ex.message || ex}")
+          end
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          songs = client.listplaylistinfo(name).try(&.map { |metadata| Song.from_mpd(metadata) }) || [] of Song
+          {name, songs}
+        end
+      end
+    end
+
+    private def load_selected_stored_playlist : Nil
+      name = @playlists_view.try(&.selected_playlist_name)
+      return unless name
+
+      set_status("Loading playlist #{name} into Queue…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(songs : Array(Song)) {
+          refresh_playlist(songs, scroll_to_current: false)
+          set_status("Loaded playlist #{name} into Queue")
+        },
+        ->(ex : Exception) {
+          Qt6::MessageBox.warning(@window, title: "Load Playlist Failed", text: ex.message || ex.to_s)
+          set_status("Failed to load playlist #{name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.load(name)
+          client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) }) || [] of Song
+        end
+      end
+    end
+
+    private def delete_selected_stored_playlist : Nil
+      name = @playlists_view.try(&.selected_playlist_name)
+      return unless name
+
+      return unless confirm_delete_playlist(name)
+
+      set_status("Deleting playlist #{name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(playlists : Array(PlaylistEntry)) {
+          @playlists_view.try(&.render_playlists(playlists))
+          set_status("Deleted playlist #{name}")
+        },
+        ->(ex : Exception) {
+          Qt6::MessageBox.warning(@window, title: "Delete Playlist Failed", text: ex.message || ex.to_s)
+          set_status("Failed to delete playlist #{name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.rm(name)
+          playlist_entries(client)
+        end
+      end
+    end
+
+    private def playlist_entries(client : MPD::Client) : Array(PlaylistEntry)
+      client.listplaylists.try do |items|
+        items.compact_map { |metadata| PlaylistEntry.from_mpd(metadata) }.sort_by(&.name.downcase)
+      end || [] of PlaylistEntry
+    end
+
+    private def confirm_delete_playlist(name : String) : Bool
+      dialog = Qt6::Dialog.new(@window)
+      dialog.window_title = "Delete Playlist"
+
+      label = Qt6::Label.new("Delete playlist #{name}?", dialog)
+      buttons = Qt6::DialogButtonBox.new(
+        Qt6::DialogButtonBoxStandardButton::Ok | Qt6::DialogButtonBoxStandardButton::Cancel,
+        dialog
+      )
+      buttons.button(Qt6::DialogButtonBoxStandardButton::Ok).try(&.text = "Delete")
+      buttons.on_accepted { dialog.accept }
+      buttons.on_rejected { dialog.reject }
+
+      dialog.vbox do |column|
+        column.spacing = 10
+        column.set_contents_margins(12, 12, 12, 12)
+        column << label
+        column << buttons
+      end
+
+      begin
+        dialog.exec == Qt6::DialogCode::Accepted
+      ensure
+        dialog.release
+      end
+    end
+
+    private def with_playlist_client(host : String, port : Int32, & : MPD::Client -> T) : T forall T
+      client = MPD::Client.new(host, port)
+      yield client
+    ensure
+      client.try(&.disconnect)
+    end
+  end
+end
