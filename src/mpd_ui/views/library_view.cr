@@ -7,11 +7,13 @@ module MPDUI
     getter model : Qt6::StandardItemModel
     getter search_panel : Qt6::Widget
     getter search_edit : Qt6::LineEdit
+    getter genre_combo : Qt6::ComboBox
     getter escape_shortcut : Qt6::Shortcut
     getter drag_filter : Qt6::EventFilter?
 
     property on_search_changed : Proc(Nil)?
     property on_search_closed : Proc(Nil)?
+    property on_genre_changed : Proc(Nil)?
     property on_add_to_queue : Proc(Nil)?
     property on_selection_changed : Proc(Nil)?
     property on_mouse_press : Proc(Nil)?
@@ -20,6 +22,7 @@ module MPDUI
 
     @context_menu : Qt6::Menu
     @delegate : Qt6::StyledItemDelegate
+    @updating_genres : Bool = false
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -39,6 +42,11 @@ module MPDUI
       @tree = Qt6::TreeView.new(@root)
       @model = Qt6::StandardItemModel.new(@tree)
       configure_tree
+      @genre_combo = Qt6::ComboBox.new(@root)
+      @genre_combo.add_item("All Genres")
+      @genre_combo.on_current_text_changed do |_text|
+        @on_genre_changed.try(&.call) unless @updating_genres
+      end
 
       @delegate = build_item_delegate
       @tree.item_delegate = @delegate
@@ -71,6 +79,7 @@ module MPDUI
         column.set_contents_margins(0, 0, 0, 0)
         column << @search_panel
         column << @tree
+        column << @genre_combo
       end
     end
 
@@ -105,6 +114,23 @@ module MPDUI
 
     def query : String
       @search_edit.text.strip
+    end
+
+    def selected_genre : String?
+      genre = @genre_combo.current_text.strip
+      genre.empty? || genre == "All Genres" ? nil : genre
+    end
+
+    def render_genres(genres : Array(String)) : Nil
+      selected = @genre_combo.current_text
+      @updating_genres = true
+      @genre_combo.clear
+      @genre_combo.add_item("All Genres")
+      genres.each { |genre| @genre_combo.add_item(genre) }
+      index = @genre_combo.find_text(selected)
+      @genre_combo.current_index = index >= 0 ? index : 0
+    ensure
+      @updating_genres = false
     end
 
     def show_search : Nil

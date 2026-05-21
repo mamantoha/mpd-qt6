@@ -1,9 +1,14 @@
 module MPDUI
   module AppDatabase
+    private record DatabaseLoadResult,
+      songs : Array(Song),
+      genres : Array(String)
+
     private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
       library = LibraryView.new(parent)
       library.on_search_changed = -> { apply_database_filter }
       library.on_search_closed = -> { hide_database_search }
+      library.on_genre_changed = -> { apply_database_filter }
       library.on_add_to_queue = -> { add_selected_database_to_queue }
       library.on_selection_changed = -> {
         @playlist_drag_source_row = nil
@@ -85,10 +90,11 @@ module MPDUI
       port = @settings.port
 
       run_background(
-        ->(songs : Array(Song)) {
-          @library_index.replace(songs)
+        ->(result : DatabaseLoadResult) {
+          @library_index.replace(result.songs)
           @database_loaded = true
           @database_loading = false
+          @library_view.try(&.render_genres(result.genres))
           apply_database_filter
         },
         ->(ex : Exception) {
@@ -103,7 +109,10 @@ module MPDUI
           db_client.update
           wait_for_mpd_database_update(db_client)
         end
-        LibraryIndex.from_mpd_entries(db_client.listallinfo)
+        songs = LibraryIndex.from_mpd_entries(db_client.listallinfo)
+        genres = (db_client.list("Genre") || [] of String).map(&.strip).reject(&.empty?).uniq!.sort!
+        genres << "Unknown" if songs.any? { |song| song.genre.nil? }
+        DatabaseLoadResult.new(songs, genres.uniq!.sort!)
       ensure
         db_client.try(&.disconnect)
       end
@@ -126,7 +135,7 @@ module MPDUI
       library = @library_view
       return unless library
 
-      result = @library_index.filter(library.query)
+      result = @library_index.filter(library.query, library.selected_genre)
       library.render(result)
       @dragged_database_uris.clear
 
