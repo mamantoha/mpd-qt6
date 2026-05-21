@@ -4,6 +4,7 @@ module MPDUI
       queue = QueueView.new(parent)
       queue.on_play_selected = -> { play_selected_playlist_row }
       queue.on_remove_selected = -> { delete_selected_playlist_row }
+      queue.on_save_as_playlist = -> { save_queue_as_playlist }
       queue.on_mouse_press_row = ->(row : Int32?) {
         @playlist_drag_source_row = row
         @dragged_database_uris.clear
