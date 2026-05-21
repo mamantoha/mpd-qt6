@@ -45,10 +45,13 @@ module MPDUI
       @songs = songs
     end
 
-    def filter(query : String) : Result
+    def filter(query : String, genre : String? = nil) : Result
       terms = query.downcase.split.reject(&.empty?)
-      filtered_songs = terms.empty? ? @songs : @songs.select { |song| matches?(song, terms) }
-      Result.new(group(filtered_songs), filtered_songs.size, !terms.empty?)
+      genre_name = genre.try(&.strip)
+      filtered_songs = @songs.select do |song|
+        matches?(song, terms) && matches_genre?(song, genre_name)
+      end
+      Result.new(group(filtered_songs), filtered_songs.size, !terms.empty? || !!genre_name)
     end
 
     private def group(songs : Array(Song)) : Array(ArtistEntry)
@@ -74,6 +77,8 @@ module MPDUI
     end
 
     private def matches?(song : Song, terms : Array(String)) : Bool
+      return true if terms.empty?
+
       haystack = [
         song.artist,
         song.album,
@@ -82,6 +87,12 @@ module MPDUI
       ].compact.join(" ").downcase
 
       terms.all? { |term| haystack.includes?(term) }
+    end
+
+    private def matches_genre?(song : Song, genre : String?) : Bool
+      return true if genre.nil? || genre.empty?
+
+      display_name(song.genre, "Unknown") == genre
     end
 
     private def album_sort_key(album : String, songs : Array(Song)) : Tuple(Int32, String)
