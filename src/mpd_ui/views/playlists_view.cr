@@ -26,14 +26,14 @@ module MPDUI
       configure_playlist_list
       configure_song_view
 
-      refresh_button = button("Refresh", "view-refresh", @root)
       @context_menu = Qt6::Menu.new("Playlist", @playlist_list)
+      add_context_action("Refresh", "view-refresh") { @on_refresh.try(&.call) }
+      @context_menu.add_separator
       @load_action = add_context_action("Load", "media-playback-start") { @on_load.try(&.call) }
       @rename_action = add_context_action("Rename", "edit-rename") { @on_rename.try(&.call) }
       @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
       update_action_buttons
 
-      refresh_button.on_clicked { @on_refresh.try(&.call) }
       @playlist_list.on_current_row_changed do |_row|
         update_action_buttons
         @on_selection_changed.try(&.call(selected_playlist_name))
@@ -47,16 +47,8 @@ module MPDUI
       browser << @song_view
 
       @root.vbox do |column|
-        column.spacing = 4
+        column.spacing = 0
         column.set_contents_margins(0, 0, 0, 0)
-        toolbar_widget = Qt6::Widget.new(@root)
-        toolbar_widget.hbox do |toolbar|
-          toolbar.spacing = 4
-          toolbar.set_contents_margins(4, 4, 4, 0)
-          toolbar << refresh_button
-          toolbar.add_stretch
-        end
-        column << toolbar_widget
         column << browser
       end
     end
@@ -205,9 +197,7 @@ module MPDUI
 
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
       row = row_at(position)
-      return unless row
-
-      @playlist_list.current_row = row
+      @playlist_list.current_row = row if row
       update_action_buttons
       @context_menu.exec_at(viewport, position)
     end
@@ -230,9 +220,5 @@ module MPDUI
       action
     end
 
-    private def button(text : String, icon_name : String, parent : Qt6::Widget) : Qt6::PushButton
-      icon = Qt6::QIcon.from_theme(icon_name)
-      icon.null? ? Qt6::PushButton.new(text, parent) : Qt6::PushButton.new(icon, text, parent)
-    end
   end
 end
