@@ -66,6 +66,7 @@ module MPDUI
     @drag_source_type : Symbol? = nil
     @client : MPD::Client?
     @callback_client : MPD::Client?
+    @stored_playlist_idle_client : MPD::Client?
     @event_bridge : EventBridge
     @player_controller : PlayerController
     @mpris_adapter : MprisAdapter?

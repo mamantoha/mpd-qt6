@@ -5,7 +5,9 @@ module MPDUI
 
       @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
+      @stored_playlist_idle_client.try(&.disconnect)
       @callback_client = nil
+      @stored_playlist_idle_client = nil
 
       @client = MPD::Client.new(@settings.host, @settings.port)
       Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
@@ -17,6 +19,7 @@ module MPDUI
       generation = @callback_generation.get + 1
       @callback_generation.set(generation)
       start_callback_listener(generation)
+      start_stored_playlist_listener(generation)
       refresh_status
       ensure_database_loaded(force: true) if @library_view
       refresh_stored_playlists if @playlists_view
@@ -66,6 +69,32 @@ module MPDUI
         cb.disconnect
       rescue
         @event_bridge.request_refresh if @callback_generation.get == generation
+      end
+    end
+
+    private def start_stored_playlist_listener(generation : Int32) : Nil
+      host = @settings.host
+      port = @settings.port
+
+      Thread.new do
+        idle_client = MPD::Client.new(host, port)
+        @stored_playlist_idle_client = idle_client if @callback_generation.get == generation
+
+        idle_client.on_idle(["stored_playlist"]) do |events|
+          next unless @callback_generation.get == generation
+          next unless events.includes?("stored_playlist")
+
+          @event_bridge.request_stored_playlists_refresh
+        end
+
+        loop do
+          break unless @callback_generation.get == generation
+          sleep 1.second
+        end
+
+        idle_client.disconnect
+      rescue
+        @event_bridge.request_stored_playlists_refresh if @callback_generation.get == generation
       end
     end
 

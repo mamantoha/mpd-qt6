@@ -148,6 +148,7 @@ module MPDUI
       save_expanded_layout_settings
       @quitting = true
       @event_bridge.shutdown
+      @stored_playlist_idle_client.try(&.disconnect)
       @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit

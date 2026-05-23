@@ -35,6 +35,10 @@ module MPDUI
         update_volume_control(volume)
         sync_mpris_state
       end
+
+      @event_bridge.stored_playlists_changed.connect do
+        refresh_stored_playlists if @playlists_view
+      end
     end
 
     private def toggle_play_pause : Nil
