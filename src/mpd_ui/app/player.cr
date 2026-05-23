@@ -353,6 +353,8 @@ module MPDUI
           ".gif"
         when "image/webp"
           ".webp"
+        when "image/jxl"
+          ".jxl"
         else
           ".img"
         end

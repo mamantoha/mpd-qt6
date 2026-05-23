@@ -78,21 +78,8 @@ module MPDUI
     end
 
     private def metadata(bytes : Bytes) : Hash(String, String)
-      type = mime_type(bytes)
+      type = MimeMagic.by_magic(bytes)
       type ? {"type" => type} : {} of String => String
-    end
-
-    private def mime_type(bytes : Bytes) : String?
-      case
-      when bytes.size >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
-        "image/jpeg"
-      when bytes.size >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47
-        "image/png"
-      when bytes.size >= 6 && String.new(bytes[0, 6]) =~ /\AGIF8[79]a\z/
-        "image/gif"
-      when bytes.size >= 12 && String.new(bytes[0, 4]) == "RIFF" && String.new(bytes[8, 4]) == "WEBP"
-        "image/webp"
-      end
     end
   end
 end
