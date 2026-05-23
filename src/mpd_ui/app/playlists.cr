@@ -7,6 +7,7 @@ module MPDUI
       playlists.on_add_to_queue = -> { load_selected_stored_playlist(replace: false) }
       playlists.on_rename = -> { rename_selected_stored_playlist }
       playlists.on_delete = -> { delete_selected_stored_playlist }
+      playlists.on_add_songs_to_queue = -> { add_selected_stored_playlist_songs_to_queue }
       playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
       playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
       playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
@@ -197,6 +198,31 @@ module MPDUI
 
     private def selected_stored_playlist_song_uris : Array(String)
       @playlists_view.try(&.selected_song_uris) || [] of String
+    end
+
+    private def add_selected_stored_playlist_songs_to_queue : Nil
+      uris = selected_stored_playlist_song_uris
+      return if uris.empty?
+
+      set_status("Adding #{uris.size} #{uris.size == 1 ? "song" : "songs"} to queue…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Added #{uris.size} #{uris.size == 1 ? "song" : "songs"} to queue")
+        },
+        ->(ex : Exception) {
+          show_playlist_message("Add Songs Failed", ex.message || ex.to_s)
+          set_status("Failed to add songs to queue")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.with_command_list do
+            uris.each { |uri| client.add(uri) }
+          end
+        end
+      end
     end
 
     private def remove_selected_stored_playlist_songs : Nil

@@ -12,6 +12,7 @@ module MPDUI
     property on_add_to_queue : Proc(Nil)?
     property on_rename : Proc(Nil)?
     property on_delete : Proc(Nil)?
+    property on_add_songs_to_queue : Proc(Nil)?
     property on_remove_songs : Proc(Nil)?
     property on_selection_changed : Proc(String?, Nil)?
     property on_song_selection_changed : Proc(Nil)?
@@ -26,6 +27,7 @@ module MPDUI
     @rename_action : Qt6::Action
     @delete_action : Qt6::Action
     @song_context_menu : Qt6::Menu
+    @add_songs_to_queue_action : Qt6::Action
     @remove_songs_action : Qt6::Action
     @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
 
@@ -46,6 +48,7 @@ module MPDUI
       @rename_action = add_context_action("Rename", "edit-rename") { @on_rename.try(&.call) }
       @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
       @song_context_menu = Qt6::Menu.new("Playlist Songs", @song_view)
+      @add_songs_to_queue_action = add_song_context_action("Add to Queue", "list-add") { @on_add_songs_to_queue.try(&.call) }
       @remove_songs_action = add_song_context_action("Remove From Playlist", "edit-delete") { @on_remove_songs.try(&.call) }
       add_song_shortcut("Delete") { @on_remove_songs.try(&.call) }
       update_action_buttons
@@ -214,6 +217,7 @@ module MPDUI
       @add_to_queue_action.enabled = enabled
       @rename_action.enabled = enabled
       @delete_action.enabled = enabled
+      @add_songs_to_queue_action.enabled = enabled && !selected_song_positions.empty?
       @remove_songs_action.enabled = enabled && !selected_song_positions.empty?
     end
 
