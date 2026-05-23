@@ -16,6 +16,7 @@ module MPDUI
 
     @context_menu : Qt6::Menu
     @play_now_action : Qt6::Action
+    @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
 
     def initialize(parent : Qt6::Widget)
       @view = Qt6::TreeView.new(parent)
@@ -257,14 +258,14 @@ module MPDUI
       action
     end
 
-    private def add_shortcut(shortcut : String, &block : ->) : Qt6::Action
-      action = Qt6::Action.new("Queue #{shortcut}", @view)
-      action.shortcut = shortcut
-      action.on_triggered do
+    private def add_shortcut(shortcut : String, &block : ->) : Qt6::Shortcut
+      action = Qt6::Shortcut.new(shortcut, @view)
+      action.context = Qt6::ShortcutContext::WidgetWithChildrenShortcut
+      action.on_activated do
         next unless @view.has_focus? || @view.viewport.has_focus?
         block.call
       end
-      @view.add_action(action)
+      @shortcuts << action
       action
     end
 

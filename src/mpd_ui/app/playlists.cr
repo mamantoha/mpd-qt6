@@ -7,6 +7,7 @@ module MPDUI
       playlists.on_add_to_queue = -> { load_selected_stored_playlist(replace: false) }
       playlists.on_rename = -> { rename_selected_stored_playlist }
       playlists.on_delete = -> { delete_selected_stored_playlist }
+      playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
       playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
       playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
       playlists.on_song_mouse_press = -> {
@@ -41,8 +42,7 @@ module MPDUI
       port = @settings.port
 
       run_background(
-        ->(playlists : Array(PlaylistEntry)) {
-          @playlists_view.try(&.render_playlists(playlists))
+        ->(_result : Nil) {
           set_status("Saved playlist #{playlist_name}")
         },
         ->(ex : Exception) {
@@ -54,7 +54,6 @@ module MPDUI
           existing = playlist_entries(client)
           mode = existing.any? { |playlist| playlist.name == playlist_name } ? "replace" : nil
           client.save(playlist_name, mode)
-          playlist_entries(client)
         end
       end
     end
@@ -121,8 +120,7 @@ module MPDUI
       port = @settings.port
 
       run_background(
-        ->(songs : Array(Song)) {
-          refresh_playlist(songs, scroll_to_current: false)
+        ->(_result : Nil) {
           set_status("#{replace ? "Replaced Queue with" : "Added"} playlist #{name}")
         },
         ->(ex : Exception) {
@@ -133,7 +131,6 @@ module MPDUI
         with_playlist_client(host, port) do |client|
           client.clear if replace
           client.load(name)
-          client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) }) || [] of Song
         end
       end
     end
@@ -149,8 +146,7 @@ module MPDUI
       port = @settings.port
 
       run_background(
-        ->(playlists : Array(PlaylistEntry)) {
-          @playlists_view.try(&.render_playlists(playlists))
+        ->(_result : Nil) {
           set_status("Deleted playlist #{name}")
         },
         ->(ex : Exception) {
@@ -160,7 +156,6 @@ module MPDUI
       ) do
         with_playlist_client(host, port) do |client|
           client.rm(name)
-          playlist_entries(client)
         end
       end
     end
@@ -180,8 +175,7 @@ module MPDUI
       port = @settings.port
 
       run_background(
-        ->(playlists : Array(PlaylistEntry)) {
-          @playlists_view.try(&.render_playlists(playlists))
+        ->(_result : Nil) {
           set_status("Renamed playlist #{old_name} to #{new_name}")
         },
         ->(ex : Exception) {
@@ -191,7 +185,6 @@ module MPDUI
       ) do
         with_playlist_client(host, port) do |client|
           client.rename(old_name, new_name)
-          playlist_entries(client)
         end
       end
     end
@@ -204,6 +197,37 @@ module MPDUI
 
     private def selected_stored_playlist_song_uris : Array(String)
       @playlists_view.try(&.selected_song_uris) || [] of String
+    end
+
+    private def remove_selected_stored_playlist_songs : Nil
+      view = @playlists_view
+      return unless view
+
+      name = view.selected_playlist_name
+      return unless name
+
+      positions = view.selected_song_positions.sort.reverse
+      return if positions.empty?
+
+      set_status("Removing #{positions.size} #{positions.size == 1 ? "song" : "songs"} from playlist #{name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Removed #{positions.size} #{positions.size == 1 ? "song" : "songs"} from playlist #{name}")
+        },
+        ->(ex : Exception) {
+          show_playlist_message("Remove Songs Failed", ex.message || ex.to_s)
+          set_status("Failed to remove songs from playlist #{name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.with_command_list do
+            positions.each { |position| client.playlistdelete(name, position) }
+          end
+        end
+      end
     end
 
     private def confirm_delete_playlist(name : String) : Bool

@@ -12,6 +12,7 @@ module MPDUI
     property on_add_to_queue : Proc(Nil)?
     property on_rename : Proc(Nil)?
     property on_delete : Proc(Nil)?
+    property on_remove_songs : Proc(Nil)?
     property on_selection_changed : Proc(String?, Nil)?
     property on_song_selection_changed : Proc(Nil)?
     property on_song_mouse_press : Proc(Nil)?
@@ -24,6 +25,9 @@ module MPDUI
     @add_to_queue_action : Qt6::Action
     @rename_action : Qt6::Action
     @delete_action : Qt6::Action
+    @song_context_menu : Qt6::Menu
+    @remove_songs_action : Qt6::Action
+    @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -41,6 +45,9 @@ module MPDUI
       @context_menu.add_separator
       @rename_action = add_context_action("Rename", "edit-rename") { @on_rename.try(&.call) }
       @delete_action = add_context_action("Delete", "edit-delete") { @on_delete.try(&.call) }
+      @song_context_menu = Qt6::Menu.new("Playlist Songs", @song_view)
+      @remove_songs_action = add_song_context_action("Remove From Playlist", "edit-delete") { @on_remove_songs.try(&.call) }
+      add_song_shortcut("Delete") { @on_remove_songs.try(&.call) }
       update_action_buttons
 
       @playlist_list.on_current_row_changed do |_row|
@@ -143,6 +150,13 @@ module MPDUI
       end.uniq!
     end
 
+    def selected_song_positions : Array(Int32)
+      rows = selected_song_rows
+      rows = current_song_rows if rows.empty?
+
+      rows.select { |row| song_row?(row) }
+    end
+
     private def configure_playlist_list : Nil
       @playlist_list.minimum_width = 160
       @playlist_list.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Expanding)
@@ -200,6 +214,7 @@ module MPDUI
       @add_to_queue_action.enabled = enabled
       @rename_action.enabled = enabled
       @delete_action.enabled = enabled
+      @remove_songs_action.enabled = enabled && !selected_song_positions.empty?
     end
 
     private def install_context_filter : Nil
@@ -231,10 +246,13 @@ module MPDUI
         case event.type
         when Qt6::EventType::MouseButtonPress
           mouse_event = event.mouse_event
-          if mouse_event.button != 2
+          if mouse_event.button == 2
+            show_song_context_menu(viewport, mouse_event.position)
+            true
+          else
             @on_song_mouse_press.try(&.call)
+            false
           end
-          false
         when Qt6::EventType::DragEnter
           @on_song_drag_enter.try(&.call)
           false
@@ -257,6 +275,24 @@ module MPDUI
       @context_menu.exec_at(viewport, position)
     end
 
+    private def show_song_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
+      index = @song_view.index_at(position)
+      begin
+        if index.valid?
+          selection_model = @song_view.selection_model
+          unless selection_model && selection_model.selected?(index)
+            selection_model.try(&.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect | Qt6::SelectionFlag::Rows))
+            @song_view.current_index = index
+          end
+        end
+      ensure
+        index.release
+      end
+
+      update_action_buttons
+      @song_context_menu.exec_at(viewport, position)
+    end
+
     private def row_at(position : Qt6::PointF) : Int32?
       index = @playlist_list.index_at(position)
       begin
@@ -275,6 +311,26 @@ module MPDUI
       action
     end
 
+    private def add_song_context_action(label : String, icon_name : String, &block : ->) : Qt6::Action
+      action = Qt6::Action.new(label, @song_view)
+      icon = Qt6::QIcon.from_theme(icon_name)
+      action.icon = icon unless icon.null?
+      action.on_triggered { block.call }
+      @song_context_menu.add_action(action)
+      action
+    end
+
+    private def add_song_shortcut(shortcut : String, &block : ->) : Qt6::Shortcut
+      action = Qt6::Shortcut.new(shortcut, @song_view)
+      action.context = Qt6::ShortcutContext::WidgetWithChildrenShortcut
+      action.on_activated do
+        next unless @song_view.has_focus? || @song_view.viewport.has_focus?
+        block.call
+      end
+      @song_shortcuts << action
+      action
+    end
+
     private def selected_song_rows : Array(Int32)
       selection_model = @song_view.selection_model
       return [] of Int32 unless selection_model
@@ -289,6 +345,12 @@ module MPDUI
         end
       end
       rows
+    end
+
+    private def song_row?(row : Int32) : Bool
+      item = @song_model.item(row, 0)
+      uri = item.try(&.data(Qt6::ItemDataRole::User).as?(String))
+      !uri.nil? && !uri.empty?
     end
 
     private def current_song_rows : Array(Int32)
