@@ -206,7 +206,7 @@ module MPDUI
       name = view.selected_playlist_name
       return unless name
 
-      positions = view.selected_song_positions.sort.reverse
+      positions = view.selected_song_positions.sort.reverse!
       return if positions.empty?
 
       set_status("Removing #{positions.size} #{positions.size == 1 ? "song" : "songs"} from playlist #{name}…")
