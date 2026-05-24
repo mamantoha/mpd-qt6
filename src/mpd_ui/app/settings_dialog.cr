@@ -23,6 +23,46 @@ module MPDUI
       lastfm_password.echo_mode = Qt6::EchoMode::Password
 
       lastfm_status = Qt6::Label.new(settings.lastfm_session_key.empty? ? "Not authenticated" : "Authenticated")
+      lastfm_status.word_wrap = true
+      authenticate_lastfm_button = Qt6::PushButton.new("Authenticate", dialog)
+
+      pending_lastfm_username = settings.lastfm_username
+      pending_lastfm_session_key = settings.lastfm_session_key
+      tabs = Qt6::TabWidget.new(dialog)
+
+      authenticate_lastfm = -> {
+        username = lastfm_username.text.strip
+        password = lastfm_password.text
+
+        if username.empty?
+          tabs.current_index = 1
+          lastfm_status.text = "Last.fm username cannot be empty"
+          false
+        elsif password.empty?
+          tabs.current_index = 1
+          lastfm_status.text = "Enter your Last.fm password to authenticate"
+          false
+        else
+          authenticate_lastfm_button.enabled = false
+          lastfm_status.text = "Authenticating..."
+          begin
+            session = LastfmAdapter.client.mobile_session(username, password)
+            pending_lastfm_username = session.username
+            pending_lastfm_session_key = session.key
+            lastfm_username.text = session.username
+            lastfm_password.clear
+            lastfm_password.placeholder_text = "Leave empty to keep existing session"
+            lastfm_status.text = "Authenticated as #{session.username}"
+            true
+          rescue ex
+            tabs.current_index = 1
+            lastfm_status.text = "Authentication failed: #{ex.message || ex}"
+            false
+          ensure
+            authenticate_lastfm_button.enabled = true
+          end
+        end
+      }
 
       save_settings = -> {
         host = host_edit.text.strip
@@ -32,37 +72,31 @@ module MPDUI
         if host.empty?
           Qt6::MessageBox.warning(dialog, title: "Invalid settings", text: "Host cannot be empty")
         elsif lastfm_enabled.checked? && username.empty?
-          Qt6::MessageBox.warning(dialog, title: "Invalid Last.fm settings", text: "Last.fm username cannot be empty")
-        elsif lastfm_enabled.checked? && settings.lastfm_session_key.empty? && password.empty?
-          Qt6::MessageBox.warning(dialog, title: "Last.fm authentication required", text: "Enter your Last.fm password once to create a session")
+          tabs.current_index = 1
+          lastfm_status.text = "Last.fm username cannot be empty"
+        elsif lastfm_enabled.checked? && password.empty? && username != pending_lastfm_username
+          tabs.current_index = 1
+          lastfm_status.text = "Enter your Last.fm password to authenticate this username"
+        elsif lastfm_enabled.checked? && pending_lastfm_session_key.empty? && password.empty?
+          tabs.current_index = 1
+          lastfm_status.text = "Enter your Last.fm password once to create a session"
         else
           authenticated = true
           if lastfm_enabled.checked? && !password.empty?
-            begin
-              lastfm_client = LastfmAdapter.client
-              session = lastfm_client.mobile_session(username, password)
-              settings.lastfm_username = session.username
-              settings.lastfm_session_key = session.key
-              lastfm_status.text = "Authenticated"
-            rescue ex
-              authenticated = false
-              Qt6::MessageBox.warning(dialog, title: "Last.fm authentication failed", text: ex.message || ex.to_s)
-            end
-          else
-            settings.lastfm_username = username
+            authenticated = authenticate_lastfm.call
           end
 
           if authenticated
             settings.host = host
             settings.port = port_spin.value
             settings.lastfm_enabled = lastfm_enabled.checked?
+            settings.lastfm_username = lastfm_enabled.checked? ? pending_lastfm_username : username
+            settings.lastfm_session_key = pending_lastfm_session_key
             settings.save
             dialog.accept
           end
         end
       }
-
-      tabs = Qt6::TabWidget.new(dialog)
 
       connection_page = Qt6::Widget.new(tabs)
       connection_page.vbox do |connection_column|
@@ -123,6 +157,7 @@ module MPDUI
             label.fixed_width = 80
             row << label
             row << lastfm_password
+            row << authenticate_lastfm_button
           end
 
           group_column << lastfm_enabled
@@ -144,6 +179,7 @@ module MPDUI
       )
       button_box.on_accepted { save_settings.call }
       button_box.on_rejected { dialog.reject }
+      authenticate_lastfm_button.on_clicked { authenticate_lastfm.call }
 
       dialog.vbox do |column|
         column.spacing = 10
