@@ -258,7 +258,19 @@ module LastFM
         return
       end
 
-      changed = @mutex.synchronize do
+      changed = update_current_track(track, elapsed)
+      return unless state == "play"
+
+      send_now_playing(track) if changed
+      flush_queue
+      send_scrobble(track) if elapsed >= track.threshold
+    end
+
+    # Updates local track bookkeeping without implying that playback is active.
+    # This lets pause events preserve the current song and elapsed position while
+    # preventing paused playback from triggering now-playing or scrobble writes.
+    private def update_current_track(track : Track, elapsed : Float64) : Bool
+      @mutex.synchronize do
         previous = @current
         restarted = previous && previous.id == track.id && elapsed + 2.0 < @last_elapsed
         if previous.nil? || previous.id != track.id || restarted
@@ -272,10 +284,6 @@ module LastFM
           false
         end
       end
-
-      send_now_playing(track) if changed
-      flush_queue
-      send_scrobble(track) if elapsed >= track.threshold
     end
 
     # Convenience wrapper used by settings UIs.
