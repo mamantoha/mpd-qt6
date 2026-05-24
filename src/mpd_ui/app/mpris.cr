@@ -2,10 +2,10 @@ module MPDUI
   module AppMPRIS
     private def setup_mpris : Nil
       adapter = MprisAdapter.new(
-        app_id: Settings::APPLICATION,
-        identity: App::WINDOW_TITLE,
-        desktop_entry: Settings::APPLICATION,
-        cache_prefix: Settings::APPLICATION,
+        app_id: Settings::APPLICATION_ID,
+        identity: Settings::DISPLAY_NAME,
+        desktop_entry: Settings::DESKTOP_ENTRY,
+        cache_prefix: Settings::CACHE_PREFIX,
         on_raise: -> { @qt_app.invoke_later { show_main_window } },
         on_quit: -> { @qt_app.invoke_later { quit_application } },
         on_play: -> { @qt_app.invoke_later { mpd_action(&.play) } },

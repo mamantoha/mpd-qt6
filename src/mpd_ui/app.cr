@@ -14,7 +14,7 @@ module MPDUI
     include AppPlaylists
     include BackgroundTask
 
-    WINDOW_TITLE             = "Crystal MPD"
+    WINDOW_TITLE             = Settings::DISPLAY_NAME
     COVER_ART_SIZE           = 84
     PROGRESS_ROW_HEIGHT      = 24
     PLAYBACK_CONTROLS_HEIGHT = 56

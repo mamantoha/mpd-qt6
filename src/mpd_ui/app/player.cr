@@ -249,7 +249,7 @@ module MPDUI
 
     private def request_cover_art(uri : String, song : Song? = nil) : Nil
       generation = @cover_art_generation.add(1) + 1
-      service = CoverArtService.new(@settings.host, @settings.port, Settings::APPLICATION)
+      service = CoverArtService.new(@settings.host, @settings.port, Settings::CACHE_PREFIX)
 
       run_background(->(result : CoverArtResult) {
         if @current_file == result.result.uri && @cover_art_generation.get == result.generation
@@ -363,7 +363,7 @@ module MPDUI
           ".img"
         end
 
-      cache_prefix = @mpris_adapter.try(&.cache_prefix) || Settings::APPLICATION
+      cache_prefix = @mpris_adapter.try(&.cache_prefix) || Settings::CACHE_PREFIX
       cache_key = "#{uri.hash.to_s(16)}-#{bytes.hash.to_s(16)}"
       path = File.join(Dir.tempdir, "#{cache_prefix}-mpris-cover-#{Process.pid}-#{cache_key}#{extension}")
 

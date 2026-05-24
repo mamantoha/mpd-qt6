@@ -3,7 +3,10 @@ require "json"
 module MPDUI
   class Settings
     ORGANIZATION           = "mamantoha"
-    APPLICATION            = "mpd-qt6"
+    DISPLAY_NAME           = "Crystal MPD"
+    APPLICATION_ID         = "io.github.mamantoha.CrystalMPD"
+    DESKTOP_ENTRY          = APPLICATION_ID
+    CACHE_PREFIX           = "crystal-mpd"
     HOST_KEY               = "mpd/host"
     PORT_KEY               = "mpd/port"
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"
@@ -90,7 +93,7 @@ module MPDUI
     end
 
     def self.settings_store : Qt6::QSettings
-      Qt6::QSettings.for_application(ORGANIZATION, APPLICATION)
+      Qt6::QSettings.for_application(ORGANIZATION, APPLICATION_ID)
     end
 
     private def self.read_port(store : Qt6::QSettings, default_port : Int32) : Int32
