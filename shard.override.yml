@@ -1,3 +1,5 @@
 dependencies:
   qt6:
     path: ../crystal-qt6
+  crystal_mpd:
+    path: ../crystal_mpd
