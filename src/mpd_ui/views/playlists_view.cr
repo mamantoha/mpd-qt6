@@ -1,12 +1,12 @@
 module MPDUI
   class PlaylistsView
-    ROW_TYPE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 10)
+    ROW_TYPE_ROLE      = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 10)
     PLAYLIST_NAME_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 11)
     SONG_POSITION_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 12)
-    SONG_URI_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 13)
+    SONG_URI_ROLE      = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 13)
 
     ROW_TYPE_PLAYLIST = "playlist"
-    ROW_TYPE_SONG = "song"
+    ROW_TYPE_SONG     = "song"
 
     getter root : Qt6::Widget
     getter song_view : Qt6::TreeView

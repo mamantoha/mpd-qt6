@@ -1,6 +1,6 @@
 module MPDUI
   module TwoLineItemDelegate
-    TITLE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 1)
+    TITLE_ROLE    = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 1)
     SUBTITLE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 2)
 
     def self.build(parent : Qt6::Widget, model : Qt6::AbstractItemModel) : Qt6::StyledItemDelegate
