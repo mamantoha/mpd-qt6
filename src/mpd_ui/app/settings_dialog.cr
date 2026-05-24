@@ -2,29 +2,29 @@ module MPDUI
   class SettingsDialog
     def self.edit(parent : Qt6::Widget, settings : Settings) : Bool
       dialog = Qt6::Dialog.new(parent)
-      dialog.window_title = "Settings"
+      dialog.window_title = tr("Settings")
       dialog.resize(560, 320)
 
       host_edit = Qt6::LineEdit.new(settings.host, dialog)
-      host_edit.placeholder_text = "localhost"
+      host_edit.placeholder_text = tr("localhost")
 
       port_spin = Qt6::SpinBox.new(dialog)
       port_spin.set_range(1, 65_535)
       port_spin.value = settings.port
 
-      lastfm_enabled = Qt6::CheckBox.new("Scrobble songs to Last.fm", dialog)
+      lastfm_enabled = Qt6::CheckBox.new(tr("Scrobble songs to Last.fm"), dialog)
       lastfm_enabled.checked = settings.lastfm_enabled?
 
       lastfm_username = Qt6::LineEdit.new(settings.lastfm_username, dialog)
-      lastfm_username.placeholder_text = "Last.fm username"
+      lastfm_username.placeholder_text = tr("Last.fm username")
 
       lastfm_password = Qt6::LineEdit.new("", dialog)
-      lastfm_password.placeholder_text = settings.lastfm_session_key.empty? ? "Last.fm password" : "Leave empty to keep existing session"
+      lastfm_password.placeholder_text = settings.lastfm_session_key.empty? ? tr("Last.fm password") : tr("Leave empty to keep existing session")
       lastfm_password.echo_mode = Qt6::EchoMode::Password
 
-      lastfm_status = Qt6::Label.new(settings.lastfm_session_key.empty? ? "Not authenticated" : "Authenticated")
+      lastfm_status = Qt6::Label.new(settings.lastfm_session_key.empty? ? tr("Not authenticated") : tr("Authenticated"))
       lastfm_status.word_wrap = true
-      authenticate_lastfm_button = Qt6::PushButton.new("Authenticate", dialog)
+      authenticate_lastfm_button = Qt6::PushButton.new(tr("Authenticate"), dialog)
 
       pending_lastfm_username = settings.lastfm_username
       pending_lastfm_session_key = settings.lastfm_session_key
@@ -36,27 +36,27 @@ module MPDUI
 
         if username.empty?
           tabs.current_index = 1
-          lastfm_status.text = "Last.fm username cannot be empty"
+          lastfm_status.text = tr("Last.fm username cannot be empty")
           false
         elsif password.empty?
           tabs.current_index = 1
-          lastfm_status.text = "Enter your Last.fm password to authenticate"
+          lastfm_status.text = tr("Enter your Last.fm password to authenticate")
           false
         else
           authenticate_lastfm_button.enabled = false
-          lastfm_status.text = "Authenticating..."
+          lastfm_status.text = tr("Authenticating...")
           begin
             session = LastfmAdapter.client.mobile_session(username, password)
             pending_lastfm_username = session.username
             pending_lastfm_session_key = session.key
             lastfm_username.text = session.username
             lastfm_password.clear
-            lastfm_password.placeholder_text = "Leave empty to keep existing session"
-            lastfm_status.text = "Authenticated as #{session.username}"
+            lastfm_password.placeholder_text = tr("Leave empty to keep existing session")
+            lastfm_status.text = tr("Authenticated as %1").sub("%1", session.username)
             true
           rescue ex
             tabs.current_index = 1
-            lastfm_status.text = "Authentication failed: #{ex.message || ex}"
+            lastfm_status.text = tr("Authentication failed: %1").sub("%1", (ex.message || ex).to_s)
             false
           ensure
             authenticate_lastfm_button.enabled = true
@@ -70,16 +70,16 @@ module MPDUI
         password = lastfm_password.text
 
         if host.empty?
-          Qt6::MessageBox.warning(dialog, title: "Invalid settings", text: "Host cannot be empty")
+          Qt6::MessageBox.warning(dialog, title: tr("Invalid settings"), text: tr("Host cannot be empty"))
         elsif lastfm_enabled.checked? && username.empty?
           tabs.current_index = 1
-          lastfm_status.text = "Last.fm username cannot be empty"
+          lastfm_status.text = tr("Last.fm username cannot be empty")
         elsif lastfm_enabled.checked? && password.empty? && username != pending_lastfm_username
           tabs.current_index = 1
-          lastfm_status.text = "Enter your Last.fm password to authenticate this username"
+          lastfm_status.text = tr("Enter your Last.fm password to authenticate this username")
         elsif lastfm_enabled.checked? && pending_lastfm_session_key.empty? && password.empty?
           tabs.current_index = 1
-          lastfm_status.text = "Enter your Last.fm password once to create a session"
+          lastfm_status.text = tr("Enter your Last.fm password once to create a session")
         else
           authenticated = true
           if lastfm_enabled.checked? && !password.empty?
@@ -103,14 +103,14 @@ module MPDUI
         connection_column.spacing = 10
         connection_column.set_contents_margins(10, 10, 10, 10)
 
-        connection_group = Qt6::GroupBox.new("MPD Connection", connection_page)
+        connection_group = Qt6::GroupBox.new(tr("MPD Connection"), connection_page)
         connection_group.vbox do |group_column|
           group_column.spacing = 8
           group_column.set_contents_margins(10, 10, 10, 10)
 
           host_row = Qt6::Widget.new(connection_group)
           host_row.hbox do |row|
-            label = Qt6::Label.new("Host")
+            label = Qt6::Label.new(tr("Host"))
             label.fixed_width = 80
             row << label
             row << host_edit
@@ -118,7 +118,7 @@ module MPDUI
 
           port_row = Qt6::Widget.new(connection_group)
           port_row.hbox do |row|
-            label = Qt6::Label.new("Port")
+            label = Qt6::Label.new(tr("Port"))
             label.fixed_width = 80
             row << label
             row << port_spin
@@ -138,14 +138,14 @@ module MPDUI
         lastfm_column.spacing = 10
         lastfm_column.set_contents_margins(10, 10, 10, 10)
 
-        lastfm_group = Qt6::GroupBox.new("Last.fm", lastfm_page)
+        lastfm_group = Qt6::GroupBox.new(tr("Last.fm"), lastfm_page)
         lastfm_group.vbox do |group_column|
           group_column.spacing = 8
           group_column.set_contents_margins(10, 10, 10, 10)
 
           username_row = Qt6::Widget.new(lastfm_group)
           username_row.hbox do |row|
-            label = Qt6::Label.new("Username")
+            label = Qt6::Label.new(tr("Username"))
             label.fixed_width = 80
             row << label
             row << lastfm_username
@@ -153,7 +153,7 @@ module MPDUI
 
           password_row = Qt6::Widget.new(lastfm_group)
           password_row.hbox do |row|
-            label = Qt6::Label.new("Password")
+            label = Qt6::Label.new(tr("Password"))
             label.fixed_width = 80
             row << label
             row << lastfm_password
@@ -170,8 +170,8 @@ module MPDUI
         lastfm_column.add_stretch
       end
 
-      tabs.add_tab(connection_page, "MPD Connection")
-      tabs.add_tab(lastfm_page, "Last.fm")
+      tabs.add_tab(connection_page, tr("MPD Connection"))
+      tabs.add_tab(lastfm_page, tr("Last.fm"))
 
       button_box = Qt6::DialogButtonBox.new(
         Qt6::DialogButtonBoxStandardButton::Ok | Qt6::DialogButtonBoxStandardButton::Cancel,
@@ -191,6 +191,10 @@ module MPDUI
       dialog.exec == Qt6::DialogCode::Accepted
     ensure
       dialog.try(&.release)
+    end
+
+    private def self.tr(text : String) : String
+      I18n.t("SettingsDialog", text)
     end
   end
 end
