@@ -19,8 +19,9 @@ module MPDUI
       generation = @callback_generation.get + 1
       @callback_generation.set(generation)
       start_callback_listener(generation)
-      start_stored_playlist_listener(generation)
+      start_idle_listener(generation)
       refresh_status
+      refresh_outputs_menu
       ensure_database_loaded(force: true) if @library_view
       refresh_stored_playlists if @playlists_view
     rescue ex
@@ -72,7 +73,7 @@ module MPDUI
       end
     end
 
-    private def start_stored_playlist_listener(generation : Int32) : Nil
+    private def start_idle_listener(generation : Int32) : Nil
       host = @settings.host
       port = @settings.port
 
@@ -80,11 +81,11 @@ module MPDUI
         idle_client = MPD::Client.new(host, port)
         @stored_playlist_idle_client = idle_client if @callback_generation.get == generation
 
-        idle_client.on_idle(["stored_playlist"]) do |events|
+        idle_client.on_idle(["stored_playlist", "output"]) do |events|
           next unless @callback_generation.get == generation
-          next unless events.includes?("stored_playlist")
 
-          @event_bridge.request_stored_playlists_refresh
+          @event_bridge.request_stored_playlists_refresh if events.includes?("stored_playlist")
+          @event_bridge.request_outputs_refresh if events.includes?("output")
         end
 
         loop do
@@ -94,7 +95,10 @@ module MPDUI
 
         idle_client.disconnect
       rescue
-        @event_bridge.request_stored_playlists_refresh if @callback_generation.get == generation
+        if @callback_generation.get == generation
+          @event_bridge.request_stored_playlists_refresh
+          @event_bridge.request_outputs_refresh
+        end
       end
     end
 

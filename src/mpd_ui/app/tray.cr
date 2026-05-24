@@ -88,13 +88,18 @@ module MPDUI
     end
 
     private def maybe_show_tray_message : Nil
+      return if @tray_message_shown
+
+      show_tray_message("The app is still running in the system tray.")
+      @tray_message_shown = true
+    end
+
+    private def show_tray_message(message : String, title : String = App::WINDOW_TITLE) : Nil
       tray = @tray_icon
       return unless tray
-      return if @tray_message_shown
       return unless tray.supports_messages?
 
-      tray.show_message(App::WINDOW_TITLE, "The app is still running in the system tray.", timeout: 2500)
-      @tray_message_shown = true
+      tray.show_message(title, message, timeout: 2500)
     end
 
     private def sync_tray_state : Nil

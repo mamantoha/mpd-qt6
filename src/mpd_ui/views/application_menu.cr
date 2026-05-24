@@ -2,6 +2,8 @@ module MPDUI
   class ApplicationMenu
     getter about_action : Qt6::Action
     getter settings_action : Qt6::Action
+    getter outputs_action : Qt6::Action
+    getter outputs_menu : Qt6::Menu
     getter search_library_action : Qt6::Action
     getter reload_database_action : Qt6::Action
     getter expanded_interface_action : Qt6::Action
@@ -16,6 +18,7 @@ module MPDUI
       on_expanded_interface_changed : Bool ->,
       on_blurred_cover_background_changed : Bool ->,
       on_settings : ->,
+      on_outputs : ->,
       on_quit : ->,
       on_show_library_changed : Bool ->,
       on_search_library : ->,
@@ -75,6 +78,12 @@ module MPDUI
       @settings_action.on_triggered { on_settings.call }
       app_menu.add_action(@settings_action)
       window.add_action(@settings_action)
+
+      @outputs_menu = app_menu.add_menu("Outputs")
+      @outputs_action = @outputs_menu.menu_action
+      outputs_icon = Qt6::QIcon.from_theme("audio-speakers")
+      @outputs_action.icon = outputs_icon unless outputs_icon.null?
+      @outputs_action.on_triggered { on_outputs.call }
       app_menu.add_separator
 
       quit_action = Qt6::Action.new("Quit", window)

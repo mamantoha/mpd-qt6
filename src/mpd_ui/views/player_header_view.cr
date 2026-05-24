@@ -43,6 +43,7 @@ module MPDUI
       progress_row_height : Int32,
       playback_controls_height : Int32,
       settings_action : Qt6::Action? = nil,
+      outputs_action : Qt6::Action? = nil,
       search_library_action : Qt6::Action? = nil,
       reload_database_action : Qt6::Action? = nil,
       show_library_action : Qt6::Action? = nil,
@@ -76,6 +77,7 @@ module MPDUI
         progress_row_height,
         playback_controls_height,
         settings_action,
+        outputs_action,
         search_library_action,
         reload_database_action,
         show_library_action,
@@ -105,6 +107,7 @@ module MPDUI
       progress_row_height : Int32,
       playback_controls_height : Int32,
       settings_action : Qt6::Action?,
+      outputs_action : Qt6::Action?,
       search_library_action : Qt6::Action?,
       reload_database_action : Qt6::Action?,
       show_library_action : Qt6::Action?,
@@ -133,6 +136,7 @@ module MPDUI
       options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
       options_button.flat = true
       add_action_if_present(options_menu, settings_action)
+      add_action_if_present(options_menu, outputs_action)
       add_action_if_present(options_menu, search_library_action)
       add_action_if_present(options_menu, reload_database_action)
       options_menu.add_separator

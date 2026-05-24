@@ -39,6 +39,10 @@ module MPDUI
       @event_bridge.stored_playlists_changed.connect do
         refresh_stored_playlists if @playlists_view
       end
+
+      @event_bridge.outputs_changed.connect do
+        refresh_outputs_menu
+      end
     end
 
     private def toggle_play_pause : Nil

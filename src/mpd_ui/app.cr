@@ -6,6 +6,7 @@ module MPDUI
     include AppMPDConnection
     include AppMPRIS
     include AppLastFM
+    include AppOutputs
     include AppAboutDialog
     include AppPlayer
     include AppQueue
@@ -62,6 +63,7 @@ module MPDUI
     @database_drag_filter : Qt6::EventFilter?
     @queue_drop_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
+    @output_actions : Array(Qt6::Action) = [] of Qt6::Action
     @playlist_drag_source_row : Int32? = nil
     @dragged_database_uris : Array(String) = [] of String
     # Track drag source: :playlist, :database, or nil
@@ -167,6 +169,7 @@ module MPDUI
         ->(checked : Bool) { set_expanded_interface_visible(checked) },
         ->(checked : Bool) { set_blurred_cover_background_enabled(checked) },
         -> { open_settings_dialog },
+        -> { refresh_outputs_menu },
         -> { quit_application },
         ->(checked : Bool) { set_library_panel_visible(checked) },
         -> { show_database_search },
@@ -185,6 +188,7 @@ module MPDUI
         PROGRESS_ROW_HEIGHT,
         PLAYBACK_CONTROLS_HEIGHT,
         menu.settings_action,
+        menu.outputs_action,
         menu.search_library_action,
         menu.reload_database_action,
         menu.show_library_action,
