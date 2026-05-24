@@ -415,6 +415,16 @@ module MPDUI
       end
     end
 
+    private def quit_application : Nil
+      save_expanded_layout_settings
+      @quitting = true
+      @event_bridge.shutdown
+      @stored_playlist_idle_client.try(&.disconnect)
+      @mpris_adapter.try(&.stop)
+      @tray_icon.try(&.hide)
+      @qt_app.quit
+    end
+
     private def set_status(message : String) : Nil
       @status_bar.try(&.show_message(message))
     end

@@ -114,15 +114,5 @@ module MPDUI
       tooltip = subtitle.empty? ? "#{App::WINDOW_TITLE}\n#{title}" : "#{App::WINDOW_TITLE}\n#{title}\n#{subtitle}"
       tray.tool_tip = tooltip
     end
-
-    private def quit_application : Nil
-      save_expanded_layout_settings
-      @quitting = true
-      @event_bridge.shutdown
-      @stored_playlist_idle_client.try(&.disconnect)
-      @mpris_adapter.try(&.stop)
-      @tray_icon.try(&.hide)
-      @qt_app.quit
-    end
   end
 end
