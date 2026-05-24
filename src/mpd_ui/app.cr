@@ -1,6 +1,7 @@
 module MPDUI
   class App
     include FormatHelpers
+    include AppWindowEvents
     include AppTray
     include AppMPDConnection
     include AppMPRIS
@@ -127,6 +128,7 @@ module MPDUI
       status_bar.show_message("Ready")
 
       player_header = build_player_header(window, menu)
+      install_window_event_filter(window)
       setup_system_tray(window)
       queue_view = build_playlist(window)
       setup_queue_drop_target(queue_view)
