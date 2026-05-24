@@ -1,7 +1,13 @@
-require "json"
-
 module MPDUI
   class PlaylistsView
+    ROW_TYPE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 10)
+    PLAYLIST_NAME_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 11)
+    SONG_POSITION_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 12)
+    SONG_URI_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 13)
+
+    ROW_TYPE_PLAYLIST = "playlist"
+    ROW_TYPE_SONG = "song"
+
     getter root : Qt6::Widget
     getter song_view : Qt6::TreeView
     getter song_model : Qt6::StandardItemModel
@@ -183,7 +189,8 @@ module MPDUI
       @playlists.each_with_index do |playlist, row|
         playlist_item = TwoLineItemDelegate.item(playlist.name, playlist_subtitle(playlist))
         playlist_item.icon = playlist_icon unless playlist_icon.null?
-        playlist_item.set_data(playlist_row_data(playlist.name), Qt6::ItemDataRole::User)
+        playlist_item.set_data(ROW_TYPE_PLAYLIST, ROW_TYPE_ROLE)
+        playlist_item.set_data(playlist.name, PLAYLIST_NAME_ROLE)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
         playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
 
@@ -209,7 +216,10 @@ module MPDUI
         title_item = TwoLineItemDelegate.item(song_title(song), song.duration_label)
         title_item.icon = music_icon unless music_icon.null?
         configure_song_item(title_item)
-        title_item.set_data(song_row_data(playlist_name, row, song.file || ""), Qt6::ItemDataRole::User)
+        title_item.set_data(ROW_TYPE_SONG, ROW_TYPE_ROLE)
+        title_item.set_data(playlist_name, PLAYLIST_NAME_ROLE)
+        title_item.set_data(row, SONG_POSITION_ROLE)
+        title_item.set_data(song.file || "", SONG_URI_ROLE)
         title_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
 
         playlist_item.set_child(row, 0, title_item)
@@ -362,20 +372,13 @@ module MPDUI
     end
 
     private def song_index?(index : Qt6::ModelIndex) : Bool
-      data = row_data(index)
-      data.try(&.["type"]?.try(&.as_s?)) == "song"
+      row_type(index) == ROW_TYPE_SONG
     end
 
     private def playlist_name_for_index(index : Qt6::ModelIndex) : String?
-      data = row_data(index)
-      return unless data
+      return unless index.valid?
 
-      case data["type"]?.try(&.as_s?)
-      when "playlist"
-        data["name"]?.try(&.as_s?)
-      when "song"
-        data["playlist"]?.try(&.as_s?)
-      end
+      index.data(@song_model, PLAYLIST_NAME_ROLE).as?(String)
     end
 
     private def selected_song_items : Array(Qt6::StandardItem)
@@ -411,50 +414,23 @@ module MPDUI
       end
     end
 
-    private def row_data(index : Qt6::ModelIndex) : JSON::Any?
+    private def row_type(index : Qt6::ModelIndex) : String?
       return unless index.valid?
 
-      item = @song_model.item_from_index(index)
-      return unless item
-
-      data = item.data(Qt6::ItemDataRole::User).as?(String)
-      return if data.nil? || data.empty?
-
-      JSON.parse(data)
-    rescue JSON::ParseException
-      nil
-    end
-
-    private def row_data(item : Qt6::StandardItem) : JSON::Any?
-      data = item.data(Qt6::ItemDataRole::User).as?(String)
-      return if data.nil? || data.empty?
-
-      JSON.parse(data)
-    rescue JSON::ParseException
-      nil
+      index.data(@song_model, ROW_TYPE_ROLE).as?(String)
     end
 
     private def song_uri_for_item(item : Qt6::StandardItem) : String?
-      data = row_data(item)
-      return unless data && data["type"]?.try(&.as_s?) == "song"
+      return unless item.data(ROW_TYPE_ROLE).as?(String) == ROW_TYPE_SONG
 
-      uri = data["uri"]?.try(&.as_s?)
+      uri = item.data(SONG_URI_ROLE).as?(String)
       uri unless uri.nil? || uri.empty?
     end
 
     private def song_position_for_item(item : Qt6::StandardItem) : Int32?
-      data = row_data(item)
-      return unless data && data["type"]?.try(&.as_s?) == "song"
+      return unless item.data(ROW_TYPE_ROLE).as?(String) == ROW_TYPE_SONG
 
-      data["position"]?.try(&.as_i)
-    end
-
-    private def playlist_row_data(name : String) : String
-      {"type" => "playlist", "name" => name}.to_json
-    end
-
-    private def song_row_data(playlist : String, position : Int32, uri : String) : String
-      {"type" => "song", "playlist" => playlist, "position" => position, "uri" => uri}.to_json
+      item.data(SONG_POSITION_ROLE).as?(Int32)
     end
 
     private def playlist_subtitle(playlist : PlaylistEntry) : String?
