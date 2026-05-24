@@ -79,7 +79,7 @@ module MPDUI
           @qt_app.invoke_later { scroll_playlist_to_current_song }
           false
         when Qt6::EventType::Resize
-          @qt_app.invoke_later { remember_expanded_window_size(window) unless @quitting }
+          remember_expanded_window_size(window) unless @quitting
           false
         else
           false
