@@ -1,4 +1,4 @@
-# Crystal MPD
+# Garnetune
 
 A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://crystal-lang.org/) using [Qt6](https://github.com/djberg96/crystal-qt6) shard.
 
@@ -37,7 +37,7 @@ git clone https://github.com/mamantoha/mpd-qt6
 cd mpd-qt6
 shards install
 shards build --release -Dpreview_mt
-./bin/mpd-qt6
+./bin/garnetune
 ```
 
 ## Dependencies

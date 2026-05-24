@@ -3,10 +3,10 @@ require "json"
 module MPDUI
   class Settings
     ORGANIZATION           = "mamantoha"
-    DISPLAY_NAME           = "Crystal MPD"
-    APPLICATION_ID         = "io.github.mamantoha.CrystalMPD"
+    DISPLAY_NAME           = "Garnetune"
+    APPLICATION_ID         = "io.github.mamantoha.Garnetune"
     DESKTOP_ENTRY          = APPLICATION_ID
-    CACHE_PREFIX           = "crystal-mpd"
+    CACHE_PREFIX           = "garnetune"
     HOST_KEY               = "mpd/host"
     PORT_KEY               = "mpd/port"
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"

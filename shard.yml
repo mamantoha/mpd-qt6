@@ -5,7 +5,7 @@ authors:
   - mamantoha <anton.maminov@gmail.com>
 
 targets:
-  mpd-qt6:
+  garnetune:
     main: src/main.cr
 
 dependencies:
