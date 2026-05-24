@@ -1,10 +1,22 @@
 module MPDUI
-  record PlaylistEntry, name : String, last_modified : String? do
+  record PlaylistEntry, name : String, last_modified : String?, songs : Array(Song) = [] of Song do
     def self.from_mpd(metadata : Hash(String, String)) : self?
       name = metadata["playlist"]?.try(&.strip)
       return if name.nil? || name.empty?
 
       new(name, metadata["Last-Modified"]?)
+    end
+
+    def with_summary(songs : Array(Song)) : self
+      PlaylistEntry.new(name, last_modified, songs)
+    end
+
+    def summary : String?
+      return if songs.empty?
+
+      count = songs.size
+      seconds = songs.compact_map(&.duration).sum
+      "#{count} #{count == 1 ? "Track" : "Tracks"} (#{Song.format_time(seconds)})"
     end
 
     def tooltip : String

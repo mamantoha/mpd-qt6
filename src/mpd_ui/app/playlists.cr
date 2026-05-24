@@ -87,7 +87,6 @@ module MPDUI
         return
       end
 
-      view.render_message("Loading #{name}…")
       host = @settings.host
       port = @settings.port
 
@@ -100,7 +99,6 @@ module MPDUI
         },
         ->(ex : Exception) {
           if @playlists_view.try(&.selected_playlist_name) == name
-            @playlists_view.try(&.render_message("Failed to load playlist"))
             set_status("Failed to load playlist #{name}: #{ex.message || ex}")
           end
         }
@@ -192,7 +190,13 @@ module MPDUI
 
     private def playlist_entries(client : MPD::Client) : Array(PlaylistEntry)
       client.listplaylists.try do |items|
-        items.compact_map { |metadata| PlaylistEntry.from_mpd(metadata) }.sort_by!(&.name.downcase)
+        items.compact_map do |metadata|
+          entry = PlaylistEntry.from_mpd(metadata)
+          next unless entry
+
+          songs = client.listplaylistinfo(entry.name).try(&.map { |song_metadata| Song.from_mpd(song_metadata) }) || [] of Song
+          entry.with_summary(songs)
+        end.sort_by!(&.name.downcase)
       end || [] of PlaylistEntry
     end
 
