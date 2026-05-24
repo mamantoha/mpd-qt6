@@ -1,10 +1,5 @@
 module MPDUI
   class PlaylistsView
-    ROW_TYPE_ROLE      = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 10)
-    PLAYLIST_NAME_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 11)
-    SONG_POSITION_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 12)
-    SONG_URI_ROLE      = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 13)
-
     ROW_TYPE_PLAYLIST = "playlist"
     ROW_TYPE_SONG     = "song"
 
@@ -189,8 +184,8 @@ module MPDUI
       @playlists.each_with_index do |playlist, row|
         playlist_item = TwoLineItemDelegate.item(playlist.name, playlist_subtitle(playlist))
         playlist_item.icon = playlist_icon unless playlist_icon.null?
-        playlist_item.set_data(ROW_TYPE_PLAYLIST, ROW_TYPE_ROLE)
-        playlist_item.set_data(playlist.name, PLAYLIST_NAME_ROLE)
+        playlist_item.set_data(ROW_TYPE_PLAYLIST, ItemRoles::PLAYLIST_ROW_TYPE)
+        playlist_item.set_data(playlist.name, ItemRoles::PLAYLIST_NAME)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
         playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
 
@@ -216,10 +211,10 @@ module MPDUI
         title_item = TwoLineItemDelegate.item(song_title(song), song.duration_label)
         title_item.icon = music_icon unless music_icon.null?
         configure_song_item(title_item)
-        title_item.set_data(ROW_TYPE_SONG, ROW_TYPE_ROLE)
-        title_item.set_data(playlist_name, PLAYLIST_NAME_ROLE)
-        title_item.set_data(row, SONG_POSITION_ROLE)
-        title_item.set_data(song.file || "", SONG_URI_ROLE)
+        title_item.set_data(ROW_TYPE_SONG, ItemRoles::PLAYLIST_ROW_TYPE)
+        title_item.set_data(playlist_name, ItemRoles::PLAYLIST_NAME)
+        title_item.set_data(row, ItemRoles::PLAYLIST_SONG_POSITION)
+        title_item.set_data(song.file || "", ItemRoles::PLAYLIST_SONG_URI)
         title_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
 
         playlist_item.set_child(row, 0, title_item)
@@ -378,7 +373,7 @@ module MPDUI
     private def playlist_name_for_index(index : Qt6::ModelIndex) : String?
       return unless index.valid?
 
-      index.data(@song_model, PLAYLIST_NAME_ROLE).as?(String)
+      index.data(@song_model, ItemRoles::PLAYLIST_NAME).as?(String)
     end
 
     private def selected_song_items : Array(Qt6::StandardItem)
@@ -417,20 +412,20 @@ module MPDUI
     private def row_type(index : Qt6::ModelIndex) : String?
       return unless index.valid?
 
-      index.data(@song_model, ROW_TYPE_ROLE).as?(String)
+      index.data(@song_model, ItemRoles::PLAYLIST_ROW_TYPE).as?(String)
     end
 
     private def song_uri_for_item(item : Qt6::StandardItem) : String?
-      return unless item.data(ROW_TYPE_ROLE).as?(String) == ROW_TYPE_SONG
+      return unless item.data(ItemRoles::PLAYLIST_ROW_TYPE).as?(String) == ROW_TYPE_SONG
 
-      uri = item.data(SONG_URI_ROLE).as?(String)
+      uri = item.data(ItemRoles::PLAYLIST_SONG_URI).as?(String)
       uri unless uri.nil? || uri.empty?
     end
 
     private def song_position_for_item(item : Qt6::StandardItem) : Int32?
-      return unless item.data(ROW_TYPE_ROLE).as?(String) == ROW_TYPE_SONG
+      return unless item.data(ItemRoles::PLAYLIST_ROW_TYPE).as?(String) == ROW_TYPE_SONG
 
-      item.data(SONG_POSITION_ROLE).as?(Int32)
+      item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
     end
 
     private def playlist_subtitle(playlist : PlaylistEntry) : String?

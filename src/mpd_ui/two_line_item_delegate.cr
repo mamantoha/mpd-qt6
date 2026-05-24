@@ -1,15 +1,12 @@
 module MPDUI
   module TwoLineItemDelegate
-    TITLE_ROLE    = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 1)
-    SUBTITLE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 2)
-
     def self.build(parent : Qt6::Widget, model : Qt6::AbstractItemModel) : Qt6::StyledItemDelegate
       delegate = Qt6::StyledItemDelegate.new(parent)
       delegate.on_paint do |painter, option, index|
-        title = index.data(model, TITLE_ROLE).as?(String)
+        title = index.data(model, ItemRoles::TITLE).as?(String)
         next false unless title
 
-        subtitle = index.data(model, SUBTITLE_ROLE).as?(String)
+        subtitle = index.data(model, ItemRoles::SUBTITLE).as?(String)
 
         option.draw_background(painter)
         option.draw_decoration(painter)
@@ -46,7 +43,7 @@ module MPDUI
         true
       end
       delegate.on_size_hint do |_option, index|
-        subtitle = index.data(model, SUBTITLE_ROLE).as?(String)
+        subtitle = index.data(model, ItemRoles::SUBTITLE).as?(String)
         subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
       end
       delegate
@@ -59,8 +56,8 @@ module MPDUI
     end
 
     def self.configure(item : Qt6::StandardItem, title : String, subtitle : String? = nil) : Qt6::StandardItem
-      item.set_data(title, TITLE_ROLE)
-      item.set_data(subtitle || "", SUBTITLE_ROLE)
+      item.set_data(title, ItemRoles::TITLE)
+      item.set_data(subtitle || "", ItemRoles::SUBTITLE)
       item
     end
   end
