@@ -48,7 +48,7 @@ module MPDUI
         @on_genre_changed.try(&.call) unless @updating_genres
       end
 
-      @delegate = build_item_delegate
+      @delegate = TwoLineItemDelegate.build(@tree, @model)
       @tree.item_delegate = @delegate
       @tree.on_current_index_changed { @on_selection_changed.try(&.call) }
 
@@ -250,57 +250,6 @@ module MPDUI
       @model.set_horizontal_header_label(0, "Database")
     end
 
-    private def build_item_delegate : Qt6::StyledItemDelegate
-      delegate = Qt6::StyledItemDelegate.new(@tree)
-      delegate.on_paint do |painter, option, index|
-        payload = parse_payload(index.data(@model).as?(String))
-        next false unless payload
-
-        title = payload["title"].not_nil!
-        subtitle = payload["subtitle"]?
-
-        option.draw_background(painter)
-        option.draw_decoration(painter)
-
-        rect = option.text_rect
-        title_font = option.font
-        title_font.bold = true
-        subtitle_font = option.font
-        if subtitle_font.point_size.positive?
-          subtitle_font.point_size = Math.max(1, (subtitle_font.point_size * 0.86).round.to_i)
-        end
-
-        title_metrics = title_font.metrics
-        subtitle_metrics = subtitle_font.metrics
-        title_height = title_metrics.height
-        subtitle_height = subtitle_metrics.height
-        text_height = subtitle && !subtitle.empty? ? title_height + subtitle_height : title_height
-        top = rect.y + Math.max(0.0, (rect.height - text_height) / 2.0)
-
-        palette = option.palette
-        title_color = option.selected? ? palette.color(Qt6::ColorRole::HighlightedText) : palette.color(Qt6::ColorRole::Text)
-        subtitle_color = option.selected? ? title_color : palette.color(Qt6::ColorGroup::Disabled, Qt6::ColorRole::Text)
-
-        painter.save
-        painter.font = title_font
-        painter.pen = title_color
-        painter.draw_text(Qt6::RectF.new(rect.x, top, rect.width, title_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, title)
-        if subtitle && !subtitle.empty?
-          painter.font = subtitle_font
-          painter.pen = subtitle_color
-          painter.draw_text(Qt6::RectF.new(rect.x, top + title_height, rect.width, subtitle_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, subtitle)
-        end
-        painter.restore
-        true
-      end
-      delegate.on_size_hint do |_option, index|
-        payload = parse_payload(index.data(@model).as?(String))
-        subtitle = payload.try(&.["subtitle"]?)
-        subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
-      end
-      delegate
-    end
-
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
       index = @tree.index_at(position)
       begin
@@ -334,7 +283,7 @@ module MPDUI
     end
 
     private def collect_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
-      if file = parse_payload(item.text).try(&.["file"]?)
+      if file = TwoLineItemDelegate.parse_payload(item.text).try(&.["file"]?)
         uris << file unless file.empty?
       end
 
@@ -345,36 +294,7 @@ module MPDUI
     end
 
     private def item(title : String, subtitle : String? = nil, file : String? = nil) : Qt6::StandardItem
-      Qt6::StandardItem.new(build_payload(title, subtitle, file))
-    end
-
-    private def build_payload(title : String, subtitle : String? = nil, file : String? = nil) : String
-      JSON.build do |json|
-        json.object do
-          json.field "title", title
-          json.field "subtitle", subtitle if subtitle
-          json.field "file", file if file
-        end
-      end
-    end
-
-    private def parse_payload(value : String?) : Hash(String, String)?
-      return unless value
-
-      json = JSON.parse(value)
-      title = json["title"]?.try(&.as_s?)
-      return unless title
-
-      payload = {"title" => title}
-      if subtitle = json["subtitle"]?.try(&.as_s?)
-        payload["subtitle"] = subtitle
-      end
-      if file = json["file"]?.try(&.as_s?)
-        payload["file"] = file
-      end
-      payload
-    rescue JSON::ParseException
-      nil
+      Qt6::StandardItem.new(TwoLineItemDelegate.payload(title, subtitle, file: file))
     end
 
     private def song_title(song : Song) : String

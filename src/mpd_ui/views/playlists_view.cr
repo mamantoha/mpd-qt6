@@ -43,7 +43,7 @@ module MPDUI
       @song_view = Qt6::TreeView.new(@root)
       @song_model = Qt6::StandardItemModel.new(@song_view)
       configure_song_view
-      @delegate = build_item_delegate
+      @delegate = TwoLineItemDelegate.build(@song_view, @song_model)
       @song_view.item_delegate = @delegate
 
       @context_menu = Qt6::Menu.new("Playlist", @song_view)
@@ -181,7 +181,7 @@ module MPDUI
 
       playlist_icon = Qt6::QIcon.from_theme("view-media-playlist")
       @playlists.each_with_index do |playlist, row|
-        playlist_item = Qt6::StandardItem.new(display_payload(playlist.name, playlist_subtitle(playlist)))
+        playlist_item = Qt6::StandardItem.new(TwoLineItemDelegate.payload(playlist.name, playlist_subtitle(playlist)))
         playlist_item.icon = playlist_icon unless playlist_icon.null?
         playlist_item.set_data(playlist_row_data(playlist.name), Qt6::ItemDataRole::User)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
@@ -206,7 +206,7 @@ module MPDUI
 
       music_icon = Qt6::QIcon.from_theme("audio-x-generic")
       songs.each_with_index do |song, row|
-        title_item = Qt6::StandardItem.new(display_payload(song_title(song), song.duration_label))
+        title_item = Qt6::StandardItem.new(TwoLineItemDelegate.payload(song_title(song), song.duration_label))
         title_item.icon = music_icon unless music_icon.null?
         configure_song_item(title_item)
         title_item.set_data(song_row_data(playlist_name, row, song.file || ""), Qt6::ItemDataRole::User)
@@ -218,57 +218,6 @@ module MPDUI
 
     private def configure_song_item(item : Qt6::StandardItem) : Nil
       item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
-    end
-
-    private def build_item_delegate : Qt6::StyledItemDelegate
-      delegate = Qt6::StyledItemDelegate.new(@song_view)
-      delegate.on_paint do |painter, option, index|
-        payload = parse_display_payload(index.data(@song_model).as?(String))
-        next false unless payload
-
-        title = payload["title"].not_nil!
-        subtitle = payload["subtitle"]?
-
-        option.draw_background(painter)
-        option.draw_decoration(painter)
-
-        rect = option.text_rect
-        title_font = option.font
-        title_font.bold = true
-        subtitle_font = option.font
-        if subtitle_font.point_size.positive?
-          subtitle_font.point_size = Math.max(1, (subtitle_font.point_size * 0.86).round.to_i)
-        end
-
-        title_metrics = title_font.metrics
-        subtitle_metrics = subtitle_font.metrics
-        title_height = title_metrics.height
-        subtitle_height = subtitle_metrics.height
-        text_height = subtitle && !subtitle.empty? ? title_height + subtitle_height : title_height
-        top = rect.y + Math.max(0.0, (rect.height - text_height) / 2.0)
-
-        palette = option.palette
-        title_color = option.selected? ? palette.color(Qt6::ColorRole::HighlightedText) : palette.color(Qt6::ColorRole::Text)
-        subtitle_color = option.selected? ? title_color : palette.color(Qt6::ColorGroup::Disabled, Qt6::ColorRole::Text)
-
-        painter.save
-        painter.font = title_font
-        painter.pen = title_color
-        painter.draw_text(Qt6::RectF.new(rect.x, top, rect.width, title_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, title)
-        if subtitle && !subtitle.empty?
-          painter.font = subtitle_font
-          painter.pen = subtitle_color
-          painter.draw_text(Qt6::RectF.new(rect.x, top + title_height, rect.width, subtitle_height.to_f64), Qt6::AlignmentFlag::Left | Qt6::AlignmentFlag::VCenter, subtitle)
-        end
-        painter.restore
-        true
-      end
-      delegate.on_size_hint do |_option, index|
-        payload = parse_display_payload(index.data(@song_model).as?(String))
-        subtitle = payload.try(&.["subtitle"]?)
-        subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
-      end
-      delegate
     end
 
     private def update_action_buttons : Nil
@@ -506,31 +455,6 @@ module MPDUI
 
     private def song_row_data(playlist : String, position : Int32, uri : String) : String
       {"type" => "song", "playlist" => playlist, "position" => position, "uri" => uri}.to_json
-    end
-
-    private def display_payload(title : String, subtitle : String? = nil) : String
-      JSON.build do |json|
-        json.object do
-          json.field "title", title
-          json.field "subtitle", subtitle if subtitle
-        end
-      end
-    end
-
-    private def parse_display_payload(value : String?) : Hash(String, String)?
-      return unless value
-
-      json = JSON.parse(value)
-      title = json["title"]?.try(&.as_s?)
-      return unless title
-
-      payload = {"title" => title}
-      if subtitle = json["subtitle"]?.try(&.as_s?)
-        payload["subtitle"] = subtitle
-      end
-      payload
-    rescue JSON::ParseException
-      nil
     end
 
     private def playlist_subtitle(playlist : PlaylistEntry) : String?
