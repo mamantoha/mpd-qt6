@@ -75,7 +75,8 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
   - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
   - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
-  - `tray.cr` handles system tray integration, close-to-tray behavior, and tray menu actions
+  - `window_events.cr` handles main-window close/show/hide/resize policy, including close-to-tray when a tray icon exists and expanded-window size tracking
+  - `tray.cr` handles only system tray integration: tray icon/menu setup, tray activation, tray messages, tray state, and tray tooltip updates
   - `about_dialog.cr` and `settings_dialog.cr` keep dialogs isolated from the main UI setup
 - `src/mpd_ui/adapters/` contains app-specific integration adapters:
   - `mpris_adapter.cr` owns `MPRIS::Service`, callback registration, playback-state mapping, current MPRIS song/artwork state, and position sync throttling
