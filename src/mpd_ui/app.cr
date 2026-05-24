@@ -1,6 +1,7 @@
 module MPDUI
   class App
     include FormatHelpers
+    include AppWindowEvents
     include AppTray
     include AppMPDConnection
     include AppMPRIS
@@ -45,6 +46,7 @@ module MPDUI
     @playback_header_background : Qt6::Label?
     @browsers : Qt6::Splitter?
     @compact_spacer : Qt6::Widget?
+    @last_expanded_window_size : Qt6::Size?
     @expanded_interface_window_size : Qt6::Size?
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
@@ -92,7 +94,9 @@ module MPDUI
       @settings = Settings.load
       if width = @settings.expanded_window_width
         if height = @settings.expanded_window_height
-          @expanded_interface_window_size = Qt6::Size.new(width, height)
+          size = Qt6::Size.new(width, height)
+          @expanded_interface_window_size = size
+          @last_expanded_window_size = size
         end
       end
       @event_bridge = EventBridge.new(@qt_app)
@@ -107,7 +111,11 @@ module MPDUI
       build_ui
       setup_mpris
       connect
-      @window.try(&.show)
+      if @settings.expanded_interface? && @settings.expanded_window_maximized?
+        @window.try(&.show_maximized)
+      else
+        @window.try(&.show)
+      end
       exit(@qt_app.run)
     end
 
@@ -120,6 +128,7 @@ module MPDUI
       status_bar.show_message("Ready")
 
       player_header = build_player_header(window, menu)
+      install_window_event_filter(window)
       setup_system_tray(window)
       queue_view = build_playlist(window)
       setup_queue_drop_target(queue_view)
@@ -234,7 +243,11 @@ module MPDUI
         restore_expanded_interface_window_resize_limits
       elsif window && @settings.expanded_interface?
         save_expanded_layout_settings
-        @expanded_interface_window_size = window.size
+        if width = @settings.expanded_window_width
+          if height = @settings.expanded_window_height
+            @expanded_interface_window_size = Qt6::Size.new(width, height)
+          end
+        end
       end
 
       @browsers.try(&.visible = visible)
@@ -245,6 +258,7 @@ module MPDUI
         if visible
           if expanded_size = @expanded_interface_window_size
             window.resize(expanded_size.width, expanded_size.height)
+            @last_expanded_window_size = expanded_size
             @expanded_interface_window_size = nil
           end
         elsif expanded_size = @expanded_interface_window_size
@@ -310,6 +324,17 @@ module MPDUI
       return unless window && expanded_size
 
       window.resize(expanded_size.width, expanded_size.height)
+      @last_expanded_window_size = expanded_size
+    end
+
+    private def remember_expanded_window_size(window : Qt6::MainWindow) : Nil
+      return unless @settings.expanded_interface?
+      return if window.maximized?
+
+      size = window.size
+      return unless size.width.positive? && size.height.positive?
+
+      @last_expanded_window_size = size
     end
 
     private def restore_library_queue_splitter_sizes(splitter : Qt6::Splitter) : Nil
@@ -322,7 +347,18 @@ module MPDUI
     private def save_expanded_layout_settings : Nil
       if @settings.expanded_interface?
         if window = @window
-          size = window.size
+          maximized = window.maximized?
+          size =
+            if maximized
+              @last_expanded_window_size || begin
+                normal = window.normal_geometry
+                Qt6::Size.new(normal.width, normal.height)
+              end
+            else
+              window.size
+            end
+          @last_expanded_window_size = size unless maximized
+          @settings.expanded_window_maximized = maximized
           @settings.expanded_window_width = size.width
           @settings.expanded_window_height = size.height
           @expanded_interface_window_size = size
@@ -333,6 +369,7 @@ module MPDUI
           @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all?(&.>(0))
         end
       elsif expanded_size = @expanded_interface_window_size
+        @settings.expanded_window_maximized = false
         @settings.expanded_window_width = expanded_size.width
         @settings.expanded_window_height = expanded_size.height
       end
