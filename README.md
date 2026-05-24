@@ -16,6 +16,7 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Drag artists, albums, songs, or stored playlist tracks into the queue, including insertion at the drop position.
 - Saved playlist management: browse MPD playlists, preview songs, save the current queue, rename/delete playlists, append playlists to the queue, or replace the queue with a playlist.
 - Configurable MPD connection and optional Last.fm scrobbling.
+- MPD output management for enabling or disabling configured audio outputs.
 - Linux desktop integration through MPRISv2 for media keys, desktop media widgets, metadata, position, volume, shuffle/repeat, and cover art.
 - System tray support with close-to-tray behavior, restore/show toggle, and playback actions.
 - Persistent UI preferences for layout, expanded mode, menu visibility, blurred cover background, window size, and splitter sizes.
@@ -75,6 +76,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
   - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
   - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
+  - `outputs.cr` loads MPD audio outputs and applies output enable/disable commands from the UI
   - `window_events.cr` handles main-window close/show/hide/resize policy, including close-to-tray when a tray icon exists and expanded-window size tracking
   - `tray.cr` handles only system tray integration: tray icon/menu setup, tray activation, tray messages, tray state, and tray tooltip updates
   - `about_dialog.cr` and `settings_dialog.cr` keep dialogs isolated from the main UI setup
