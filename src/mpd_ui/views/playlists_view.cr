@@ -181,7 +181,7 @@ module MPDUI
 
       playlist_icon = Qt6::QIcon.from_theme("view-media-playlist")
       @playlists.each_with_index do |playlist, row|
-        playlist_item = Qt6::StandardItem.new(TwoLineItemDelegate.payload(playlist.name, playlist_subtitle(playlist)))
+        playlist_item = TwoLineItemDelegate.item(playlist.name, playlist_subtitle(playlist))
         playlist_item.icon = playlist_icon unless playlist_icon.null?
         playlist_item.set_data(playlist_row_data(playlist.name), Qt6::ItemDataRole::User)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
@@ -206,7 +206,7 @@ module MPDUI
 
       music_icon = Qt6::QIcon.from_theme("audio-x-generic")
       songs.each_with_index do |song, row|
-        title_item = Qt6::StandardItem.new(TwoLineItemDelegate.payload(song_title(song), song.duration_label))
+        title_item = TwoLineItemDelegate.item(song_title(song), song.duration_label)
         title_item.icon = music_icon unless music_icon.null?
         configure_song_item(title_item)
         title_item.set_data(song_row_data(playlist_name, row, song.file || ""), Qt6::ItemDataRole::User)

@@ -1,15 +1,15 @@
-require "json"
-
 module MPDUI
   module TwoLineItemDelegate
+    TITLE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 1)
+    SUBTITLE_ROLE = Qt6::ItemDataRole.new(Qt6::ItemDataRole::User.value + 2)
+
     def self.build(parent : Qt6::Widget, model : Qt6::AbstractItemModel) : Qt6::StyledItemDelegate
       delegate = Qt6::StyledItemDelegate.new(parent)
       delegate.on_paint do |painter, option, index|
-        payload = parse_payload(index.data(model).as?(String))
-        next false unless payload
+        title = index.data(model, TITLE_ROLE).as?(String)
+        next false unless title
 
-        title = payload["title"].not_nil!
-        subtitle = payload["subtitle"]?
+        subtitle = index.data(model, SUBTITLE_ROLE).as?(String)
 
         option.draw_background(painter)
         option.draw_decoration(painter)
@@ -46,45 +46,22 @@ module MPDUI
         true
       end
       delegate.on_size_hint do |_option, index|
-        payload = parse_payload(index.data(model).as?(String))
-        subtitle = payload.try(&.["subtitle"]?)
+        subtitle = index.data(model, SUBTITLE_ROLE).as?(String)
         subtitle && !subtitle.empty? ? Qt6::Size.new(0, 42) : nil
       end
       delegate
     end
 
-    def self.payload(title : String, subtitle : String? = nil, **extra) : String
-      JSON.build do |json|
-        json.object do
-          json.field "title", title
-          json.field "subtitle", subtitle if subtitle
-          extra.each do |key, value|
-            next unless value
-
-            json.field key.to_s, value
-          end
-        end
-      end
+    def self.item(title : String, subtitle : String? = nil) : Qt6::StandardItem
+      item = Qt6::StandardItem.new(title)
+      configure(item, title, subtitle)
+      item
     end
 
-    def self.parse_payload(value : String?) : Hash(String, String)?
-      return unless value
-
-      json = JSON.parse(value)
-      title = json["title"]?.try(&.as_s?)
-      return unless title
-
-      payload = {"title" => title}
-      json.as_h.each do |key, item|
-        next if key == "title"
-
-        if string = item.as_s?
-          payload[key] = string
-        end
-      end
-      payload
-    rescue JSON::ParseException
-      nil
+    def self.configure(item : Qt6::StandardItem, title : String, subtitle : String? = nil) : Qt6::StandardItem
+      item.set_data(title, TITLE_ROLE)
+      item.set_data(subtitle || "", SUBTITLE_ROLE)
+      item
     end
   end
 end

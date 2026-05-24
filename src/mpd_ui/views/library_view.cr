@@ -1,5 +1,3 @@
-require "json"
-
 module MPDUI
   class LibraryView
     getter root : Qt6::Widget
@@ -283,7 +281,7 @@ module MPDUI
     end
 
     private def collect_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
-      if file = TwoLineItemDelegate.parse_payload(item.text).try(&.["file"]?)
+      if file = item.data(Qt6::ItemDataRole::User).as?(String)
         uris << file unless file.empty?
       end
 
@@ -294,7 +292,9 @@ module MPDUI
     end
 
     private def item(title : String, subtitle : String? = nil, file : String? = nil) : Qt6::StandardItem
-      Qt6::StandardItem.new(TwoLineItemDelegate.payload(title, subtitle, file: file))
+      item = TwoLineItemDelegate.item(title, subtitle)
+      item.set_data(file, Qt6::ItemDataRole::User) if file
+      item
     end
 
     private def song_title(song : Song) : String
