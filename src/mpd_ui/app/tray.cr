@@ -4,57 +4,67 @@ module MPDUI
       return unless Qt6::SystemTrayIcon.system_tray_available?
 
       tray = Qt6::SystemTrayIcon.new(window)
+
       tray_icon = Qt6::QIcon.from_theme("audio-x-generic")
       tray_icon = @play_icon.not_nil! if tray_icon.null? && @play_icon
       tray.icon = tray_icon unless tray_icon.null?
       tray.tool_tip = App::WINDOW_TITLE
 
-      menu = Qt6::Menu.new("Tray", window)
-      toggle_action = Qt6::Action.new("Hide", window)
-      show_icon = Qt6::QIcon.from_theme("window")
-      toggle_action.icon = show_icon unless show_icon.null?
-      toggle_action.on_triggered { toggle_main_window_visibility }
-      menu.add_action(toggle_action)
-      menu.add_separator
+      toggle_action = Qt6::Action.new("Hide", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("window")
+        action.icon = icon unless icon.null?
+        action.on_triggered { toggle_main_window_visibility }
+      end
 
-      previous_action = Qt6::Action.new("Previous", window)
-      previous_icon = Qt6::QIcon.from_theme("media-skip-backward")
-      previous_action.icon = previous_icon unless previous_icon.null?
-      previous_action.on_triggered { mpd_action(&.previous) }
-      menu.add_action(previous_action)
+      previous_action = Qt6::Action.new("Previous", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("media-skip-backward")
+        action.icon = icon unless icon.null?
+        action.on_triggered { mpd_action(&.previous) }
+      end
 
-      play_pause_action = Qt6::Action.new("Play/Pause", window)
-      play_icon = Qt6::QIcon.from_theme("media-playback-start")
-      play_pause_action.icon = play_icon unless play_icon.null?
-      play_pause_action.on_triggered { toggle_play_pause }
-      menu.add_action(play_pause_action)
+      play_pause_action = Qt6::Action.new("Play/Pause", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("media-playback-start")
+        action.icon = icon unless icon.null?
+        action.on_triggered { toggle_play_pause }
+      end
 
-      next_action = Qt6::Action.new("Next", window)
-      next_icon = Qt6::QIcon.from_theme("media-skip-forward")
-      next_action.icon = next_icon unless next_icon.null?
-      next_action.on_triggered { mpd_action(&.next) }
-      menu.add_action(next_action)
+      next_action = Qt6::Action.new("Next", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("media-skip-forward")
+        action.icon = icon unless icon.null?
+        action.on_triggered { mpd_action(&.next) }
+      end
 
-      menu.add_separator
+      quit_action = Qt6::Action.new("Quit", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("application-exit")
+        action.icon = icon unless icon.null?
+        action.on_triggered { quit_application }
+      end
 
-      quit_action = Qt6::Action.new("Quit", window)
-      quit_icon = Qt6::QIcon.from_theme("application-exit")
-      quit_action.icon = quit_icon unless quit_icon.null?
-      quit_action.on_triggered { quit_application }
-      menu.add_action(quit_action)
+      tray_menu = Qt6::Menu.new("Tray", window).tap do |menu|
+        menu.add_action(toggle_action)
+        menu.add_separator
+        menu.add_action(previous_action)
+        menu.add_action(play_pause_action)
+        menu.add_action(next_action)
+        menu.add_separator
+        menu.add_action(quit_action)
+      end
 
-      tray.context_menu = menu
+      tray.context_menu = tray_menu
+
       tray.on_activated do |reason|
         case reason
         when .trigger?, .double_click?
           toggle_main_window_visibility
         end
       end
+
       tray.on_message_clicked { show_main_window }
+
       tray.show
 
       @tray_icon = tray
-      @tray_menu = menu
+      @tray_menu = tray_menu
       @toggle_window_action = toggle_action
       sync_tray_state
     end
