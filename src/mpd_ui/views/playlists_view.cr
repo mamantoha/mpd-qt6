@@ -75,7 +75,7 @@ module MPDUI
       @playlists = playlists
       @playlist_songs.select! { |name, _songs| @playlists.any? { |playlist| playlist.name == name } }
       @playlists.each do |playlist|
-        @playlist_songs[playlist.name] = playlist.songs unless playlist.songs.empty?
+        @playlist_songs[playlist.name] = playlist.songs
       end
 
       if @playlists.empty?
