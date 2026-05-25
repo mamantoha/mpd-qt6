@@ -36,7 +36,7 @@ module MPDUI
     @volume_button : Qt6::PushButton?
     @volume_slider : Qt6::Slider?
     @volume_label : Qt6::Label?
-    @application_menu : ApplicationMenu?
+    @app_actions : AppActions?
     @app_layout_view : AppLayoutView?
     @player_header_view : PlayerHeaderView?
     @queue_view : QueueView?
@@ -128,11 +128,12 @@ module MPDUI
       window.window_title = WINDOW_TITLE
       window.resize(700, 720)
 
-      menu = build_menu(window)
+      actions = build_actions(window)
+      build_menu(window, actions)
       status_bar = window.status_bar
       status_bar.show_message("Ready")
 
-      player_header = build_player_header(window, menu)
+      player_header = build_player_header(window, actions)
       install_window_event_filter(window)
       setup_system_tray(window)
       queue_view = build_playlist(window)
@@ -164,41 +165,45 @@ module MPDUI
       restore_expanded_window_size if @settings.expanded_interface?
     end
 
-    private def build_menu(window : Qt6::MainWindow) : ApplicationMenu
-      menu = ApplicationMenu.new(
-        window,
-        @settings,
-        -> { open_about_dialog },
-        ->(checked : Bool) { set_expanded_interface_visible(checked) },
-        ->(checked : Bool) { set_blurred_cover_background_enabled(checked) },
-        -> { open_settings_dialog },
-        -> { refresh_outputs_menu },
-        -> { quit_application },
-        ->(checked : Bool) { set_library_panel_visible(checked) },
-        -> { show_database_search },
-        -> { ensure_database_loaded(force: true, update_mpd: true) },
-        -> { save_queue_as_playlist },
-        -> { clear_queue }
-      )
-      @application_menu = menu
-      menu
+    private def build_actions(window : Qt6::MainWindow) : AppActions
+      actions = AppActions.new(window, @settings)
+      bind_app_actions(window, actions)
+      @app_actions = actions
+      actions
     end
 
-    private def build_player_header(parent : Qt6::Widget, menu : ApplicationMenu) : PlayerHeaderView
+    private def bind_app_actions(window : Qt6::MainWindow, actions : AppActions) : Nil
+      actions.about.on_triggered { open_about_dialog }
+      actions.expanded_interface.on_toggled { |checked| set_expanded_interface_visible(checked) }
+      actions.blurred_cover_background.on_toggled { |checked| set_blurred_cover_background_enabled(checked) }
+      actions.show_main_menu.on_toggled do |checked|
+        window.menu_bar.visible = checked
+        if @settings.show_main_menu? != checked
+          @settings.show_main_menu = checked
+          @settings.save
+        end
+      end
+      actions.settings.on_triggered { open_settings_dialog }
+      actions.outputs.on_triggered { refresh_outputs_menu }
+      actions.quit.on_triggered { quit_application }
+      actions.show_library.on_toggled { |checked| set_library_panel_visible(checked) }
+      actions.search_library.on_triggered { show_database_search }
+      actions.reload_database.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
+      actions.save_queue_as_playlist.on_triggered { save_queue_as_playlist }
+      actions.clear_queue.on_triggered { clear_queue }
+    end
+
+    private def build_menu(window : Qt6::MainWindow, actions : AppActions) : Nil
+      ApplicationMenu.new(window, actions)
+    end
+
+    private def build_player_header(parent : Qt6::Widget, actions : AppActions) : PlayerHeaderView
       player_header = PlayerHeaderView.new(
         parent,
         COVER_ART_SIZE,
         PROGRESS_ROW_HEIGHT,
         PLAYBACK_CONTROLS_HEIGHT,
-        menu.settings_action,
-        menu.outputs_action,
-        menu.search_library_action,
-        menu.reload_database_action,
-        menu.show_library_action,
-        menu.expanded_interface_action,
-        menu.blurred_cover_background_action,
-        menu.show_main_menu_action,
-        menu.about_action
+        actions
       )
       player_header.on_previous = -> { mpd_action(&.previous) }
       player_header.on_play_pause = -> { toggle_play_pause }
@@ -277,7 +282,7 @@ module MPDUI
         lock_minimal_window_height
       end
 
-      action = @application_menu.try(&.expanded_interface_action)
+      action = @app_actions.try(&.expanded_interface)
       action.checked = visible if action && action.checked? != visible
 
       if @settings.expanded_interface? != visible
@@ -287,7 +292,7 @@ module MPDUI
     end
 
     private def set_blurred_cover_background_enabled(enabled : Bool) : Nil
-      action = @application_menu.try(&.blurred_cover_background_action)
+      action = @app_actions.try(&.blurred_cover_background)
       action.checked = enabled if action && action.checked? != enabled
 
       if @settings.blurred_cover_background? != enabled
@@ -303,7 +308,7 @@ module MPDUI
     end
 
     private def toggle_expanded_interface : Nil
-      action = @application_menu.try(&.expanded_interface_action)
+      action = @app_actions.try(&.expanded_interface)
       if action
         action.checked = !action.checked?
       else
@@ -403,7 +408,7 @@ module MPDUI
     private def set_library_panel_visible(visible : Bool) : Nil
       @database_panel.try(&.visible = visible)
 
-      action = @application_menu.try(&.show_library_action)
+      action = @app_actions.try(&.show_library)
       action.checked = visible if action && action.checked? != visible
 
       if @settings.show_library? != visible

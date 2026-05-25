@@ -42,15 +42,7 @@ module MPDUI
       cover_art_size : Int32,
       progress_row_height : Int32,
       playback_controls_height : Int32,
-      settings_action : Qt6::Action? = nil,
-      outputs_action : Qt6::Action? = nil,
-      search_library_action : Qt6::Action? = nil,
-      reload_database_action : Qt6::Action? = nil,
-      show_library_action : Qt6::Action? = nil,
-      expanded_interface_action : Qt6::Action? = nil,
-      blurred_cover_background_action : Qt6::Action? = nil,
-      show_main_menu_action : Qt6::Action? = nil,
-      about_action : Qt6::Action? = nil,
+      actions : AppActions,
     )
       @root = Qt6::EventWidget.new(parent).tap do |widget|
         widget.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
@@ -197,15 +189,7 @@ module MPDUI
         cover_art_size,
         progress_row_height,
         playback_controls_height,
-        settings_action,
-        outputs_action,
-        search_library_action,
-        reload_database_action,
-        show_library_action,
-        expanded_interface_action,
-        blurred_cover_background_action,
-        show_main_menu_action,
-        about_action
+        actions
       )
     end
 
@@ -227,15 +211,7 @@ module MPDUI
       cover_art_size : Int32,
       progress_row_height : Int32,
       playback_controls_height : Int32,
-      settings_action : Qt6::Action?,
-      outputs_action : Qt6::Action?,
-      search_library_action : Qt6::Action?,
-      reload_database_action : Qt6::Action?,
-      show_library_action : Qt6::Action?,
-      expanded_interface_action : Qt6::Action?,
-      blurred_cover_background_action : Qt6::Action?,
-      show_main_menu_action : Qt6::Action?,
-      about_action : Qt6::Action?,
+      actions : AppActions,
     ) : Nil
       setup_cover_art_toggle
 
@@ -255,18 +231,18 @@ module MPDUI
       end
 
       options_menu = Qt6::Menu.new("Options", options_button).tap do |menu|
-        menu.add_action(settings_action) if settings_action
-        menu.add_action(outputs_action) if outputs_action
-        menu.add_action(search_library_action) if search_library_action
-        menu.add_action(reload_database_action) if reload_database_action
+        menu.add_action(actions.settings)
+        menu.add_action(actions.outputs)
+        menu.add_action(actions.search_library)
+        menu.add_action(actions.reload_database)
         menu.add_separator
-        menu.add_action(show_library_action) if show_library_action
-        menu.add_action(expanded_interface_action) if expanded_interface_action
-        menu.add_action(blurred_cover_background_action) if blurred_cover_background_action
+        menu.add_action(actions.show_library)
+        menu.add_action(actions.expanded_interface)
+        menu.add_action(actions.blurred_cover_background)
         menu.add_separator
-        menu.add_action(show_main_menu_action) if show_main_menu_action
+        menu.add_action(actions.show_main_menu)
         menu.add_separator
-        menu.add_action(about_action) if about_action
+        menu.add_action(actions.about)
       end
 
       options_button.menu = options_menu

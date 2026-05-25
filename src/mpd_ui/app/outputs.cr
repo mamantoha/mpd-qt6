@@ -7,7 +7,7 @@ module MPDUI
       plugin : String?
 
     private def refresh_outputs_menu : Nil
-      menu = @application_menu.try(&.outputs_menu)
+      menu = @app_actions.try(&.outputs_menu)
       return unless menu
 
       @output_actions.clear
