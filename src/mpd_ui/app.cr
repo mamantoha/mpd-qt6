@@ -124,8 +124,10 @@ module MPDUI
 
     private def build_ui : Nil
       window = Qt6::MainWindow.new
+      window.menu_bar.visible = @settings.show_main_menu?
       window.window_title = WINDOW_TITLE
       window.resize(700, 720)
+
       menu = build_menu(window)
       status_bar = window.status_bar
       status_bar.show_message("Ready")

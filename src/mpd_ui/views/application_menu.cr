@@ -28,113 +28,146 @@ module MPDUI
     )
       menu_bar = window.menu_bar
 
+      # App menu
+
       app_menu = menu_bar.add_menu("&App")
-      @about_action = Qt6::Action.new("About", window)
-      about_icon = Qt6::QIcon.from_theme("help-about")
-      @about_action.icon = about_icon unless about_icon.null?
-      @about_action.on_triggered { on_about.call }
-      app_menu.add_action(@about_action)
-      app_menu.add_separator
 
-      @expanded_interface_action = Qt6::Action.new("Expanded Interface", window)
-      expanded_interface_icon = Qt6::QIcon.from_theme("view-fullscreen")
-      @expanded_interface_action.icon = expanded_interface_icon unless expanded_interface_icon.null?
-      @expanded_interface_action.checkable = true
-      @expanded_interface_action.checked = settings.expanded_interface?
-      @expanded_interface_action.on_toggled { |checked| on_expanded_interface_changed.call(checked) }
-      app_menu.add_action(@expanded_interface_action)
+      @about_action = Qt6::Action.new("About", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("help-about")
+        action.icon = icon unless icon.null?
+        action.on_triggered { on_about.call }
+      end
 
-      @blurred_cover_background_action = Qt6::Action.new("Blurred Cover Background", window)
-      blurred_cover_icon = Qt6::QIcon.from_theme("image-x-generic")
-      @blurred_cover_background_action.icon = blurred_cover_icon unless blurred_cover_icon.null?
-      @blurred_cover_background_action.checkable = true
-      @blurred_cover_background_action.checked = settings.blurred_cover_background?
-      @blurred_cover_background_action.on_toggled { |checked| on_blurred_cover_background_changed.call(checked) }
-      app_menu.add_action(@blurred_cover_background_action)
-      app_menu.add_separator
+      @expanded_interface_action = Qt6::Action.new("Expanded Interface", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("view-fullscreen")
+        action.icon = icon unless icon.null?
+        action.checkable = true
+        action.checked = settings.expanded_interface?
+        action.on_toggled { |checked| on_expanded_interface_changed.call(checked) }
+      end
 
-      @show_main_menu_action = Qt6::Action.new("Show Main Menu", window)
-      main_menu_icon = Qt6::QIcon.from_theme("show-menu")
-      @show_main_menu_action.icon = main_menu_icon unless main_menu_icon.null?
-      @show_main_menu_action.checkable = true
-      @show_main_menu_action.checked = settings.show_main_menu?
-      @show_main_menu_action.shortcut = "Ctrl+M"
-      @show_main_menu_action.on_toggled do |checked|
-        window.menu_bar.visible = checked
-        if settings.show_main_menu? != checked
-          settings.show_main_menu = checked
-          settings.save
+      @blurred_cover_background_action = Qt6::Action.new("Blurred Cover Background", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("image-x-generic")
+        action.icon = icon unless icon.null?
+        action.checkable = true
+        action.checked = settings.blurred_cover_background?
+        action.on_toggled { |checked| on_blurred_cover_background_changed.call(checked) }
+      end
+
+      @show_main_menu_action = Qt6::Action.new("Show Main Menu", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("show-menu")
+        action.icon = icon unless icon.null?
+        action.checkable = true
+        action.checked = settings.show_main_menu?
+        action.shortcut = "Ctrl+M"
+        action.on_toggled do |checked|
+          window.menu_bar.visible = checked
+          if settings.show_main_menu? != checked
+            settings.show_main_menu = checked
+            settings.save
+          end
         end
       end
-      app_menu.add_action(@show_main_menu_action)
+
+      @settings_action = Qt6::Action.new("Settings", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("preferences-system")
+        action.icon = icon unless icon.null?
+        action.shortcut = "Ctrl+,"
+        action.on_triggered { on_settings.call }
+      end
+
+      @outputs_menu = Qt6::Menu.new("Outputs", app_menu)
+      @outputs_action = @outputs_menu.menu_action.tap do |action|
+        icon = Qt6::QIcon.from_theme("audio-speakers")
+        action.icon = icon unless icon.null?
+        action.on_triggered { on_outputs.call }
+      end
+
+      quit_action = Qt6::Action.new("Quit", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("application-exit")
+        action.icon = icon unless icon.null?
+        action.shortcut = "Ctrl+Q"
+        action.on_triggered { on_quit.call }
+      end
+
+      app_menu.tap do |menu|
+        menu.add_action(@about_action)
+        menu.add_separator
+        menu.add_action(@expanded_interface_action)
+        menu.add_action(@blurred_cover_background_action)
+        menu.add_separator
+        menu.add_action(@show_main_menu_action)
+        menu.add_separator
+        menu.add_action(@settings_action)
+        menu.add_menu(@outputs_menu)
+        menu.add_separator
+        menu.add_action(quit_action)
+      end
+
       window.add_action(@show_main_menu_action)
-      window.menu_bar.visible = settings.show_main_menu?
-      app_menu.add_separator
-
-      @settings_action = Qt6::Action.new("Settings", window)
-      settings_icon = Qt6::QIcon.from_theme("preferences-system")
-      @settings_action.icon = settings_icon unless settings_icon.null?
-      @settings_action.shortcut = "Ctrl+,"
-      @settings_action.on_triggered { on_settings.call }
-      app_menu.add_action(@settings_action)
       window.add_action(@settings_action)
-
-      @outputs_menu = app_menu.add_menu("Outputs")
-      @outputs_action = @outputs_menu.menu_action
-      outputs_icon = Qt6::QIcon.from_theme("audio-speakers")
-      @outputs_action.icon = outputs_icon unless outputs_icon.null?
-      @outputs_action.on_triggered { on_outputs.call }
-      app_menu.add_separator
-
-      quit_action = Qt6::Action.new("Quit", window)
-      quit_icon = Qt6::QIcon.from_theme("application-exit")
-      quit_action.icon = quit_icon unless quit_icon.null?
-      quit_action.shortcut = "Ctrl+Q"
-      quit_action.on_triggered { on_quit.call }
-      app_menu.add_action(quit_action)
       window.add_action(quit_action)
 
+      # Library menu
+
       library_menu = menu_bar.add_menu("&Library")
-      @show_library_action = Qt6::Action.new("Show Library", window)
-      library_icon = Qt6::QIcon.from_theme("view-list-tree")
-      @show_library_action.icon = library_icon unless library_icon.null?
-      @show_library_action.checkable = true
-      @show_library_action.checked = settings.show_library?
-      @show_library_action.on_toggled { |checked| on_show_library_changed.call(checked) }
-      library_menu.add_action(@show_library_action)
-      library_menu.add_separator
 
-      @search_library_action = Qt6::Action.new("Search Library", window)
-      search_icon = Qt6::QIcon.from_theme("edit-find")
-      @search_library_action.icon = search_icon unless search_icon.null?
-      @search_library_action.shortcut = "Ctrl+F"
-      @search_library_action.on_triggered { on_search_library.call }
-      library_menu.add_action(@search_library_action)
+      @show_library_action = Qt6::Action.new("Show Library", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("view-list-tree")
+        action.icon = icon unless icon.null?
+        action.checkable = true
+        action.checked = settings.show_library?
+        action.on_toggled { |checked| on_show_library_changed.call(checked) }
+      end
+
+      @search_library_action = Qt6::Action.new("Search Library", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("edit-find")
+        action.icon = icon unless icon.null?
+        action.shortcut = "Ctrl+F"
+        action.on_triggered { on_search_library.call }
+      end
+
+      @reload_database_action = Qt6::Action.new("Reload Database", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("view-refresh")
+        action.icon = icon unless icon.null?
+        action.shortcut = "F5"
+        action.on_triggered { on_reload_database.call }
+      end
+
+      library_menu.tap do |menu|
+        menu.add_action(@show_library_action)
+        menu.add_separator
+        menu.add_action(@search_library_action)
+        menu.add_separator
+        menu.add_action(@reload_database_action)
+      end
+
       window.add_action(@search_library_action)
-      library_menu.add_separator
-
-      @reload_database_action = Qt6::Action.new("Reload Database", window)
-      reload_icon = Qt6::QIcon.from_theme("view-refresh")
-      @reload_database_action.icon = reload_icon unless reload_icon.null?
-      @reload_database_action.shortcut = "F5"
-      @reload_database_action.on_triggered { on_reload_database.call }
-      library_menu.add_action(@reload_database_action)
       window.add_action(@reload_database_action)
 
-      queue_menu = menu_bar.add_menu("&Queue")
-      save_playlist_action = Qt6::Action.new("Save Queue as Playlist...", window)
-      save_playlist_icon = Qt6::QIcon.from_theme("document-save")
-      save_playlist_action.icon = save_playlist_icon unless save_playlist_icon.null?
-      save_playlist_action.on_triggered { on_save_queue_as_playlist.call }
-      queue_menu.add_action(save_playlist_action)
-      queue_menu.add_separator
+      # Queue menu
 
-      clear_action = Qt6::Action.new("Clear Queue", window)
-      clear_icon = Qt6::QIcon.from_theme("edit-clear")
-      clear_action.icon = clear_icon unless clear_icon.null?
-      clear_action.shortcut = "Ctrl+L"
-      clear_action.on_triggered { on_clear_queue.call }
-      queue_menu.add_action(clear_action)
+      queue_menu = menu_bar.add_menu("&Queue")
+
+      save_playlist_action = Qt6::Action.new("Save Queue as Playlist...", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("document-save")
+        action.icon = icon unless icon.null?
+        action.on_triggered { on_save_queue_as_playlist.call }
+      end
+
+      clear_action = Qt6::Action.new("Clear Queue", window).tap do |action|
+        icon = Qt6::QIcon.from_theme("edit-clear")
+        action.icon = icon unless icon.null?
+        action.shortcut = "Ctrl+L"
+        action.on_triggered { on_clear_queue.call }
+      end
+
+      queue_menu.tap do |menu|
+        menu.add_action(save_playlist_action)
+        menu.add_separator
+        menu.add_action(clear_action)
+      end
+
       window.add_action(clear_action)
     end
   end
