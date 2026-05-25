@@ -24,7 +24,8 @@ module MPDUI
       menu.add_action(previous_action)
 
       play_pause_action = Qt6::Action.new("Play/Pause", window)
-      play_pause_action.icon = @play_icon.not_nil! if @play_icon && !@play_icon.not_nil!.null?
+      play_icon = Qt6::QIcon.from_theme("media-playback-start")
+      play_pause_action.icon = play_icon unless play_icon.null?
       play_pause_action.on_triggered { toggle_play_pause }
       menu.add_action(play_pause_action)
 
