@@ -138,8 +138,11 @@ module MPDUI
       @song_view.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       @song_view.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       @song_view.drag_enabled = true
-      @song_view.drag_drop_mode = Qt6::ItemViewDragDropMode::DragOnly
-      @song_view.default_drop_action = Qt6::DropAction::CopyAction
+      @song_view.accept_drops = true
+      @song_view.drag_drop_mode = Qt6::ItemViewDragDropMode::DragDrop
+      @song_view.drag_drop_overwrite_mode = false
+      @song_view.default_drop_action = Qt6::DropAction::MoveAction
+      @song_view.drop_indicator_shown = true
       @song_view.minimum_width = 220
       @song_view.style_sheet = <<-CSS
         QTreeView {
@@ -176,7 +179,7 @@ module MPDUI
         playlist_item.set_data(ROW_TYPE_PLAYLIST, ItemRoles::PLAYLIST_ROW_TYPE)
         playlist_item.set_data(playlist.name, ItemRoles::PLAYLIST_NAME)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
-        playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
+        playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DropEnabled
 
         @song_model.set_item(row, 0, playlist_item)
         @playlist_items[playlist.name] = playlist_item
@@ -227,6 +230,8 @@ module MPDUI
 
     private def install_song_drag_filter : Nil
       viewport = @song_view.viewport
+      viewport.accept_drops = true
+
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
         case event.type
@@ -242,7 +247,9 @@ module MPDUI
         when Qt6::EventType::DragEnter
           @on_song_drag_enter.try(&.call) if current_song?
           false
-        when Qt6::EventType::DragLeave, Qt6::EventType::Drop
+        when Qt6::EventType::DragLeave
+          false
+        when Qt6::EventType::Drop
           @on_song_drag_finished.try(&.call)
           false
         else
