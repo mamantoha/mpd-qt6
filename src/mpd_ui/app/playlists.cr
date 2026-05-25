@@ -9,7 +9,6 @@ module MPDUI
       playlists.on_delete = -> { delete_selected_stored_playlist }
       playlists.on_add_songs_to_queue = -> { add_selected_stored_playlist_songs_to_queue }
       playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
-      playlists.on_selection_changed = ->(name : String?) { refresh_stored_playlist_songs(name) }
       playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
       playlists.on_song_mouse_press = -> {
         @playlist_drag_source_row = nil
@@ -75,38 +74,6 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) { |client| playlist_entries(client) }
-      end
-    end
-
-    private def refresh_stored_playlist_songs(name : String?) : Nil
-      view = @playlists_view
-      return unless view
-
-      unless name
-        view.render_message("No playlist selected")
-        return
-      end
-
-      host = @settings.host
-      port = @settings.port
-
-      run_background(
-        ->(result : Tuple(String, Array(Song))) {
-          selected_name, songs = result
-          if @playlists_view.try(&.selected_playlist_name) == selected_name
-            @playlists_view.try(&.render_songs(songs))
-          end
-        },
-        ->(ex : Exception) {
-          if @playlists_view.try(&.selected_playlist_name) == name
-            set_status("Failed to load playlist #{name}: #{ex.message || ex}")
-          end
-        }
-      ) do
-        with_playlist_client(host, port) do |client|
-          songs = client.listplaylistinfo(name).try(&.map { |metadata| Song.from_mpd(metadata) }) || [] of Song
-          {name, songs}
-        end
       end
     end
 

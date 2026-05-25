@@ -16,7 +16,6 @@ module MPDUI
     property on_delete : Proc(Nil)?
     property on_add_songs_to_queue : Proc(Nil)?
     property on_remove_songs : Proc(Nil)?
-    property on_selection_changed : Proc(String?, Nil)?
     property on_song_selection_changed : Proc(Nil)?
     property on_song_mouse_press : Proc(Nil)?
     property on_song_drag_enter : Proc(Nil)?
@@ -84,18 +83,8 @@ module MPDUI
         render_message("No stored playlists")
       else
         render_tree(previous_name || @playlists.first.name)
-        @on_selection_changed.try(&.call(selected_playlist_name))
       end
 
-      update_action_buttons
-    end
-
-    def render_songs(songs : Array(Song)) : Nil
-      name = selected_playlist_name
-      return unless name
-
-      @playlist_songs[name] = songs
-      render_tree(name)
       update_action_buttons
     end
 
@@ -301,7 +290,6 @@ module MPDUI
       return if name == @last_selected_playlist_name
 
       @last_selected_playlist_name = name
-      @on_selection_changed.try(&.call(name))
     end
 
     private def select_playlist(name : String?) : Nil
