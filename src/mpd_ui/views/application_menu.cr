@@ -3,13 +3,14 @@ module MPDUI
     getter about_action : Qt6::Action
     getter settings_action : Qt6::Action
     getter outputs_action : Qt6::Action
-    getter outputs_menu : Qt6::Menu
     getter search_library_action : Qt6::Action
     getter reload_database_action : Qt6::Action
     getter expanded_interface_action : Qt6::Action
     getter show_library_action : Qt6::Action
     getter show_main_menu_action : Qt6::Action
     getter blurred_cover_background_action : Qt6::Action
+
+    getter outputs_menu : Qt6::Menu
 
     def initialize(
       window : Qt6::MainWindow,
@@ -30,7 +31,7 @@ module MPDUI
 
       # App menu
 
-      app_menu = menu_bar.add_menu("&App")
+      app_menu = Qt6::Menu.new("&App")
 
       @about_action = Qt6::Action.new("About", window).tap do |action|
         icon = Qt6::QIcon.from_theme("help-about")
@@ -104,13 +105,9 @@ module MPDUI
         menu.add_action(quit_action)
       end
 
-      window.add_action(@show_main_menu_action)
-      window.add_action(@settings_action)
-      window.add_action(quit_action)
-
       # Library menu
 
-      library_menu = menu_bar.add_menu("&Library")
+      library_menu = Qt6::Menu.new("&Library")
 
       @show_library_action = Qt6::Action.new("Show Library", window).tap do |action|
         icon = Qt6::QIcon.from_theme("view-list-tree")
@@ -142,12 +139,9 @@ module MPDUI
         menu.add_action(@reload_database_action)
       end
 
-      window.add_action(@search_library_action)
-      window.add_action(@reload_database_action)
-
       # Queue menu
 
-      queue_menu = menu_bar.add_menu("&Queue")
+      queue_menu = Qt6::Menu.new("&Queue")
 
       save_playlist_action = Qt6::Action.new("Save Queue as Playlist...", window).tap do |action|
         icon = Qt6::QIcon.from_theme("document-save")
@@ -168,6 +162,16 @@ module MPDUI
         menu.add_action(clear_action)
       end
 
+      # Menu builder
+      menu_bar.add_menu(app_menu)
+      menu_bar.add_menu(library_menu)
+      menu_bar.add_menu(queue_menu)
+
+      window.add_action(@show_main_menu_action)
+      window.add_action(@settings_action)
+      window.add_action(quit_action)
+      window.add_action(@search_library_action)
+      window.add_action(@reload_database_action)
       window.add_action(clear_action)
     end
   end
