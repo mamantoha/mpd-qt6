@@ -1,5 +1,9 @@
 module MPDUI
-  record PlaylistEntry, name : String, last_modified : String?, songs : Array(Song) = [] of Song do
+  class PlaylistEntry
+    getter name : String
+    getter last_modified : String?
+    getter songs : Array(Song)
+
     def self.from_mpd(metadata : Hash(String, String)) : self?
       name = metadata["playlist"]?.try(&.strip)
       return if name.nil? || name.empty?
@@ -9,6 +13,9 @@ module MPDUI
 
     def with_summary(songs : Array(Song)) : self
       PlaylistEntry.new(name, last_modified, songs)
+    end
+
+    def initialize(@name : String, @last_modified : String?, @songs : Array(Song) = [] of Song)
     end
 
     def summary : String?
