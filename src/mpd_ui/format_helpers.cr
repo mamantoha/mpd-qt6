@@ -1,9 +1,5 @@
 module MPDUI
   module FormatHelpers
-    private def format_time(seconds : Float64) : String
-      Song.format_time(seconds)
-    end
-
     private def format_stats_duration(raw_seconds : String?) : String
       seconds = raw_seconds.try(&.to_i64?) || return "Unknown"
       return "0s" if seconds <= 0
