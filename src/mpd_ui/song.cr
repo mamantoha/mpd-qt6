@@ -21,16 +21,28 @@ module MPDUI
       value("Id").try(&.to_i?)
     end
 
-    def title : String?
+    def title? : String?
       value("Title")
     end
 
-    def artist : String?
+    def title : String
+      value("Title") || "Unknown Title"
+    end
+
+    def artist? : String?
       value("Artist")
     end
 
-    def album : String?
+    def artist : String
+      value("Artist") || value("AlbumArtist") || "Unknown Artist"
+    end
+
+    def album? : String?
       value("Album")
+    end
+
+    def album : String
+      value("Album") || "Unknown Album"
     end
 
     def album_artist : String?
@@ -41,8 +53,12 @@ module MPDUI
       [artist, album].compact.join(" • ")
     end
 
-    def genre : String?
+    def genre? : String?
       value("Genre")
+    end
+
+    def genre : String
+      value("Genre") || "Unknown"
     end
 
     def date : String?

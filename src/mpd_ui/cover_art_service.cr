@@ -48,10 +48,10 @@ module MPDUI
       source = ["mpd", @host, @port.to_s]
       return (source + ["file", uri]).join("\0") unless song
 
-      album = song.album || ""
+      album = song.album? || ""
       return (source + ["file", uri]).join("\0") if album.empty?
 
-      artist = song.album_artist || song.artist || ""
+      artist = song.album_artist || song.artist? || ""
       date = song.date || ""
       (source + ["album", artist, album, date]).join("\0")
     end

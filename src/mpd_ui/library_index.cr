@@ -62,8 +62,8 @@ module MPDUI
       end
 
       songs.each do |song|
-        artist = display_name(song.artist, UNKNOWN_ARTIST)
-        album = display_name(song.album, UNKNOWN_ALBUM)
+        artist = song.artist
+        album = song.album
         library[artist][album] << song
       end
 
@@ -80,9 +80,9 @@ module MPDUI
       return true if terms.empty?
 
       haystack = [
-        song.artist,
-        song.album,
-        song.title,
+        song.artist?,
+        song.album?,
+        song.title?,
         song.file,
       ].compact.join(" ").downcase
 
@@ -92,7 +92,7 @@ module MPDUI
     private def matches_genre?(song : Song, genre : String?) : Bool
       return true if genre.nil? || genre.empty?
 
-      display_name(song.genre, "Unknown") == genre
+      song.genre == genre
     end
 
     private def album_sort_key(album : String, songs : Array(Song)) : Tuple(Int32, String)
@@ -106,14 +106,6 @@ module MPDUI
 
     private def song_sort_key(song : Song) : Tuple(Int32, Int32, String)
       {song.disc_number || Int32::MAX, song.track_number || Int32::MAX, song.database_label.downcase}
-    end
-
-    private def display_name(value : String?, fallback : String) : String
-      if value && !value.strip.empty?
-        value
-      else
-        fallback
-      end
     end
   end
 end

@@ -28,14 +28,6 @@ module MPDUI
       "Unknown"
     end
 
-    private def display_name(value : String?, fallback : String) : String
-      if value && !value.strip.empty?
-        value
-      else
-        fallback
-      end
-    end
-
     private def playlist_title(song : Song) : String
       song.queue_title
     end

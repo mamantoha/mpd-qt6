@@ -197,7 +197,7 @@ module MPDUI
 
       music_icon = Qt6::QIcon.from_theme("audio-x-generic")
       songs.each_with_index do |song, row|
-        title_item = TwoLineItemDelegate.item(song_title(song), song.duration_label)
+        title_item = TwoLineItemDelegate.item(song.title, song.subtitle)
         title_item.icon = music_icon unless music_icon.null?
         configure_song_item(title_item)
         title_item.set_data(ROW_TYPE_SONG, ItemRoles::PLAYLIST_ROW_TYPE)
@@ -424,10 +424,6 @@ module MPDUI
       count = songs.size
       total = songs.compact_map(&.duration).sum
       "#{count} #{count == 1 ? "Track" : "Tracks"} (#{Song.format_time(total)})"
-    end
-
-    private def song_title(song : Song) : String
-      song.database_label.split(" • ", 2).first
     end
   end
 end
