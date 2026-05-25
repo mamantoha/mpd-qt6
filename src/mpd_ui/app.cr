@@ -168,6 +168,7 @@ module MPDUI
     private def build_actions(window : Qt6::MainWindow) : AppActions
       actions = AppActions.new(window, @settings)
       bind_app_actions(window, actions)
+      install_window_actions(window, actions)
       @app_actions = actions
       actions
     end
@@ -191,6 +192,15 @@ module MPDUI
       actions.reload_database.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
       actions.save_queue_as_playlist.on_triggered { save_queue_as_playlist }
       actions.clear_queue.on_triggered { clear_queue }
+    end
+
+    private def install_window_actions(window : Qt6::MainWindow, actions : AppActions) : Nil
+      window.add_action(actions.show_main_menu)
+      window.add_action(actions.settings)
+      window.add_action(actions.quit)
+      window.add_action(actions.search_library)
+      window.add_action(actions.reload_database)
+      window.add_action(actions.clear_queue)
     end
 
     private def build_menu(window : Qt6::MainWindow, actions : AppActions) : Nil

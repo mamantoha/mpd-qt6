@@ -31,13 +31,6 @@ module MPDUI
       menu_bar.add_menu(app_menu)
       menu_bar.add_menu(library_menu)
       menu_bar.add_menu(queue_menu)
-
-      window.add_action(actions.show_main_menu)
-      window.add_action(actions.settings)
-      window.add_action(actions.quit)
-      window.add_action(actions.search_library)
-      window.add_action(actions.reload_database)
-      window.add_action(actions.clear_queue)
     end
   end
 end
