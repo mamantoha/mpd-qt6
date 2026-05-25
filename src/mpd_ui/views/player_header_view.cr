@@ -15,9 +15,9 @@ module MPDUI
     getter volume_button : Qt6::PushButton
     getter volume_slider : Qt6::Slider
     getter volume_label : Qt6::Label
-    getter play_icon : Qt6::QIcon
-    getter pause_icon : Qt6::QIcon
-    getter stop_icon : Qt6::QIcon
+    getter play_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-start")
+    getter pause_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-pause")
+    getter stop_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-stop")
     getter? dragging_progress : Bool = false
 
     property? syncing_progress : Bool = false
@@ -52,24 +52,145 @@ module MPDUI
       show_main_menu_action : Qt6::Action? = nil,
       about_action : Qt6::Action? = nil,
     )
-      @root = Qt6::EventWidget.new(parent)
-      @background = Qt6::Label.new("", @root)
-      @cover_label = Qt6::Label.new("No Cover")
-      @title_label = Qt6::Label.new("Connecting...")
-      @subtitle_label = Qt6::Label.new("")
-      @time_label = Qt6::Label.new("0:00 / 0:00")
-      @previous_button = Qt6::PushButton.new("")
-      @play_pause_button = Qt6::PushButton.new("")
-      @next_button = Qt6::PushButton.new("")
-      @shuffle_button = Qt6::PushButton.new("")
-      @repeat_button = Qt6::PushButton.new("")
-      @progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal)
-      @volume_button = Qt6::PushButton.new("")
-      @volume_slider = Qt6::Slider.new(Qt6::Orientation::Vertical)
-      @volume_label = Qt6::Label.new("--%")
-      @play_icon = Qt6::QIcon.from_theme("media-playback-start")
-      @pause_icon = Qt6::QIcon.from_theme("media-playback-pause")
-      @stop_icon = Qt6::QIcon.from_theme("media-playback-stop")
+      @root = Qt6::EventWidget.new(parent).tap do |widget|
+        widget.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
+      end
+
+      @background = Qt6::Label.new("", @root).tap do |label|
+        label.scaled_contents = true
+        label.transparent_for_mouse_events = true
+        label.visible = false
+
+        blur = Qt6::GraphicsBlurEffect.new(label).tap do |effect|
+          effect.blur_radius = 18
+        end
+
+        label.graphics_effect = blur
+      end
+
+      @cover_label = Qt6::Label.new("No Cover").tap do |label|
+        label.set_fixed_size(cover_art_size, cover_art_size)
+        label.scaled_contents = false
+        label.alignment = Qt6::AlignmentFlag::Center
+        label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
+        label.cursor_shape = Qt6::CursorShape::PointingHand
+      end
+
+      @title_label = Qt6::Label.new("Connecting...").tap do |label|
+        label.style_sheet = "font-size: 16px; font-weight: bold;"
+        label.word_wrap = true
+        label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
+      end
+
+      @subtitle_label = Qt6::Label.new("").tap do |label|
+        label.word_wrap = true
+        label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
+      end
+
+      @time_label = Qt6::Label.new("0:00 / 0:00").tap do |label|
+        label.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
+      end
+
+      @previous_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = Qt6::QIcon.from_theme("media-skip-backward")
+        button.fixed_width = 44
+        button.tool_tip = "Previous"
+        button.flat = true
+        button.on_clicked { @on_previous.try(&.call) }
+      end
+
+      @play_pause_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = @play_icon
+        button.fixed_width = 44
+        button.tool_tip = "Play/Pause"
+        button.flat = true
+        button.on_clicked { @on_play_pause.try(&.call) }
+      end
+
+      @next_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = Qt6::QIcon.from_theme("media-skip-forward")
+        button.fixed_width = 44
+        button.tool_tip = "Next"
+        button.flat = true
+        button.on_clicked { @on_next.try(&.call) }
+      end
+
+      @shuffle_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
+        button.fixed_width = 44
+        button.tool_tip = "Shuffle"
+        button.flat = true
+        button.checkable = true
+        button.on_toggled { |checked| @on_shuffle_changed.try(&.call(checked)) }
+      end
+
+      @repeat_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = Qt6::QIcon.from_theme("media-playlist-repeat")
+        button.fixed_width = 44
+        button.tool_tip = "Repeat"
+        button.flat = true
+        button.checkable = true
+        button.on_toggled { |checked| @on_repeat_changed.try(&.call(checked)) }
+      end
+
+      @volume_button = Qt6::PushButton.new("").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.icon = Qt6::QIcon.from_theme("audio-volume-medium")
+        button.fixed_width = 44
+        button.tool_tip = "Volume"
+        button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
+        button.flat = true
+      end
+
+      @progress_slider = Qt6::Slider.new(Qt6::Orientation::Horizontal).tap do |slider|
+        slider.set_range(0, 1000)
+        slider.value = 0
+        slider.minimum_width = 320
+        slider.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
+        slider.click_to_position = true
+
+        slider.on_pressed do
+          @dragging_progress = true
+        end
+
+        slider.on_value_changed do |value|
+          next if @syncing_progress || @duration <= 0
+
+          @dragging_progress = true
+          target = @duration * value / 1000.0
+          @time_label.text = "#{Song.format_time(target)} / #{Song.format_time(@duration)}"
+          show_progress_tooltip(slider_position_for_value(value), target)
+        end
+
+        slider.on_released do
+          @dragging_progress = false
+          next if @syncing_progress || @duration <= 0
+
+          Qt6::ToolTip.hide_text
+          target = @duration * slider.value / 1000.0
+          @on_seek.try(&.call(target.to_i))
+        end
+      end
+
+      @volume_slider = Qt6::Slider.new(Qt6::Orientation::Vertical).tap do |slider|
+        slider.tool_tip = "Volume"
+        slider.set_range(0, 100)
+        slider.value = 0
+        slider.set_fixed_size(36, 132)
+        slider.enabled = false
+        slider.click_to_position = true
+        slider.on_value_changed { |value| @on_volume_changed.try(&.call(value)) }
+      end
+
+      @volume_label = Qt6::Label.new("--%").tap do |label|
+        label.alignment = Qt6::AlignmentFlag::Center
+        label.tool_tip = "Volume"
+      end
 
       build(
         parent,
@@ -116,44 +237,39 @@ module MPDUI
       show_main_menu_action : Qt6::Action?,
       about_action : Qt6::Action?,
     ) : Nil
-      @cover_label.set_fixed_size(cover_art_size, cover_art_size)
-      @cover_label.scaled_contents = false
-      @cover_label.alignment = Qt6::AlignmentFlag::Center
-      @cover_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Fixed)
-      @cover_label.cursor_shape = Qt6::CursorShape::PointingHand
       setup_cover_art_toggle
 
-      options_button = Qt6::PushButton.new("...")
-      options_menu = Qt6::Menu.new("Options", options_button)
-      options_icon = Qt6::QIcon.from_theme("open-menu-symbolic")
-      unless options_icon.null?
-        options_button.icon = options_icon
-        options_button.text = ""
-      end
-      options_button.icon_size = Qt6::Size.new(22, 22)
-      options_button.fixed_width = 44
-      options_button.tool_tip = "Options"
-      options_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
-      options_button.flat = true
-      add_action_if_present(options_menu, settings_action)
-      add_action_if_present(options_menu, outputs_action)
-      add_action_if_present(options_menu, search_library_action)
-      add_action_if_present(options_menu, reload_database_action)
-      options_menu.add_separator
-      add_action_if_present(options_menu, show_library_action)
-      add_action_if_present(options_menu, expanded_interface_action)
-      add_action_if_present(options_menu, blurred_cover_background_action)
-      options_menu.add_separator
-      add_action_if_present(options_menu, show_main_menu_action)
-      options_menu.add_separator
-      add_action_if_present(options_menu, about_action)
-      options_button.menu = options_menu
+      options_button = Qt6::PushButton.new("...").tap do |button|
+        button.icon_size = Qt6::Size.new(22, 22)
+        button.fixed_width = 44
+        button.tool_tip = "Options"
+        button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
+        button.flat = true
 
-      @title_label.style_sheet = "font-size: 16px; font-weight: bold;"
-      @title_label.word_wrap = true
-      @title_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
-      @subtitle_label.word_wrap = true
-      @subtitle_label.set_size_policy(Qt6::SizePolicy::Preferred, Qt6::SizePolicy::Minimum)
+        options_icon = Qt6::QIcon.from_theme("open-menu-symbolic")
+
+        unless options_icon.null?
+          button.icon = options_icon
+          button.text = ""
+        end
+      end
+
+      options_menu = Qt6::Menu.new("Options", options_button).tap do |menu|
+        menu.add_action(settings_action) if settings_action
+        menu.add_action(outputs_action) if outputs_action
+        menu.add_action(search_library_action) if search_library_action
+        menu.add_action(reload_database_action) if reload_database_action
+        menu.add_separator
+        menu.add_action(show_library_action) if show_library_action
+        menu.add_action(expanded_interface_action) if expanded_interface_action
+        menu.add_action(blurred_cover_background_action) if blurred_cover_background_action
+        menu.add_separator
+        menu.add_action(show_main_menu_action) if show_main_menu_action
+        menu.add_separator
+        menu.add_action(about_action) if about_action
+      end
+
+      options_button.menu = options_menu
 
       progress = build_progress(parent, progress_row_height)
       controls = build_controls(parent, playback_controls_height)
@@ -187,14 +303,6 @@ module MPDUI
         grid.add(progress, 1, 1, 1, 2)
       end
 
-      @root.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
-      @background.scaled_contents = true
-      @background.transparent_for_mouse_events = true
-      @background.visible = false
-      blur = Qt6::GraphicsBlurEffect.new(@background)
-      blur.blur_radius = 18
-      @background.graphics_effect = blur
-
       content = Qt6::Widget.new(@root)
       content.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
       content.vbox do |header_column|
@@ -208,6 +316,7 @@ module MPDUI
         header_column.set_contents_margins(0, 0, 0, 0)
         header_column << content
       end
+
       @root.on_resize do |event|
         @background.resize(event.size.width, event.size.height)
         @background.move(0, 0)
@@ -224,36 +333,7 @@ module MPDUI
         row.spacing = 6
         row.set_contents_margins(0, 0, 0, 0)
 
-        @progress_slider.set_range(0, 1000)
-        @progress_slider.value = 0
-        @progress_slider.minimum_width = 320
-        @progress_slider.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
-        @progress_slider.click_to_position = true
         setup_progress_tooltip
-
-        @time_label.set_size_policy(Qt6::SizePolicy::Fixed, Qt6::SizePolicy::Fixed)
-
-        @progress_slider.on_pressed do
-          @dragging_progress = true
-        end
-
-        @progress_slider.on_value_changed do |value|
-          next if @syncing_progress || @duration <= 0
-
-          @dragging_progress = true
-          target = @duration * value / 1000.0
-          @time_label.text = "#{Song.format_time(target)} / #{Song.format_time(@duration)}"
-          show_progress_tooltip(slider_position_for_value(value), target)
-        end
-
-        @progress_slider.on_released do
-          @dragging_progress = false
-          next if @syncing_progress || @duration <= 0
-
-          Qt6::ToolTip.hide_text
-          target = @duration * @progress_slider.value / 1000.0
-          @on_seek.try(&.call(target.to_i))
-        end
 
         row << @progress_slider
         row << @time_label
@@ -269,43 +349,10 @@ module MPDUI
         row.spacing = 6
         row.set_contents_margins(0, 0, 0, 0)
 
-        prev_icon = Qt6::QIcon.from_theme("media-skip-backward")
-        next_icon = Qt6::QIcon.from_theme("media-skip-forward")
-        shuffle_icon = Qt6::QIcon.from_theme("media-playlist-shuffle")
-        repeat_icon = Qt6::QIcon.from_theme("media-playlist-repeat")
-        volume_icon = Qt6::QIcon.from_theme("audio-volume-medium")
-
-        @previous_button.icon = prev_icon
-        @play_pause_button.icon = @play_icon
-        @next_button.icon = next_icon
-        @shuffle_button.icon = shuffle_icon unless shuffle_icon.null?
-        @repeat_button.icon = repeat_icon unless repeat_icon.null?
-        @volume_button.icon = volume_icon unless volume_icon.null?
-        [@previous_button, @play_pause_button, @next_button, @shuffle_button, @repeat_button, @volume_button].each do |button|
-          button.icon_size = Qt6::Size.new(22, 22)
-          button.fixed_width = 44
-          button.flat = true
-        end
-
-        @previous_button.tool_tip = "Previous"
-        @play_pause_button.tool_tip = "Play/Pause"
-        @next_button.tool_tip = "Next"
-        @shuffle_button.tool_tip = "Shuffle"
-        @repeat_button.tool_tip = "Repeat"
-        @volume_button.tool_tip = "Volume"
-        @volume_button.style_sheet = "QPushButton::menu-indicator { image: none; width: 0px; }"
-
         volume_menu = Qt6::Menu.new("Volume", @volume_button)
         volume_panel = Qt6::Widget.new(volume_menu)
         volume_widget_action = Qt6::WidgetAction.new(volume_menu)
-        @volume_slider.tool_tip = "Volume"
-        @volume_slider.set_range(0, 100)
-        @volume_slider.value = 0
-        @volume_slider.set_fixed_size(36, 132)
-        @volume_slider.enabled = false
-        @volume_slider.click_to_position = true
-        @volume_label.alignment = Qt6::AlignmentFlag::Center
-        @volume_label.tool_tip = "Volume"
+
         volume_panel.vbox do |volume_column|
           volume_column.set_contents_margins(8, 8, 8, 8)
           volume_column << @volume_slider
@@ -315,16 +362,6 @@ module MPDUI
         volume_menu.add_action(volume_widget_action)
         @volume_button.menu = volume_menu
         setup_volume_wheel(volume_menu, volume_panel)
-
-        @shuffle_button.checkable = true
-        @repeat_button.checkable = true
-
-        @previous_button.on_clicked { @on_previous.try(&.call) }
-        @play_pause_button.on_clicked { @on_play_pause.try(&.call) }
-        @next_button.on_clicked { @on_next.try(&.call) }
-        @shuffle_button.on_toggled { |checked| @on_shuffle_changed.try(&.call(checked)) }
-        @repeat_button.on_toggled { |checked| @on_repeat_changed.try(&.call(checked)) }
-        @volume_slider.on_value_changed { |value| @on_volume_changed.try(&.call(value)) }
 
         row.add_stretch
         row << @previous_button
@@ -336,10 +373,6 @@ module MPDUI
         row.add_stretch
       end
       controls
-    end
-
-    private def add_action_if_present(menu : Qt6::Menu, action : Qt6::Action?) : Nil
-      menu.add_action(action) if action
     end
 
     private def setup_cover_art_toggle : Nil
