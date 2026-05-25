@@ -3,7 +3,7 @@ module MPDUI
     def self.edit(parent : Qt6::Widget, settings : Settings) : Bool
       dialog = Qt6::Dialog.new(parent)
       dialog.window_title = tr("Settings")
-      dialog.resize(560, 320)
+      dialog.resize(680, 340)
 
       host_edit = Qt6::LineEdit.new(settings.host, dialog)
       host_edit.placeholder_text = tr("localhost")
@@ -108,25 +108,14 @@ module MPDUI
           group_column.spacing = 8
           group_column.set_contents_margins(10, 10, 10, 10)
 
-          host_row = Qt6::Widget.new(connection_group)
-          host_row.hbox do |row|
-            label = Qt6::Label.new(tr("Host"))
-            label.fixed_width = 80
-            row << label
-            row << host_edit
-          end
-
-          port_row = Qt6::Widget.new(connection_group)
-          port_row.hbox do |row|
-            label = Qt6::Label.new(tr("Port"))
-            label.fixed_width = 80
-            row << label
-            row << port_spin
-            row.add_stretch
-          end
-
-          group_column << host_row
-          group_column << port_row
+          form = Qt6::FormLayout.new
+          form.field_growth_policy = Qt6::FormLayoutFieldGrowthPolicy::AllNonFixedFieldsGrow
+          form.row_wrap_policy = Qt6::FormLayoutRowWrapPolicy::WrapLongRows
+          form.horizontal_spacing = 12
+          form.vertical_spacing = 8
+          form.add_row(tr("Host"), host_edit)
+          form.add_row(tr("Port"), port_spin)
+          group_column.add(form)
         end
 
         connection_column << connection_group
@@ -143,27 +132,22 @@ module MPDUI
           group_column.spacing = 8
           group_column.set_contents_margins(10, 10, 10, 10)
 
-          username_row = Qt6::Widget.new(lastfm_group)
-          username_row.hbox do |row|
-            label = Qt6::Label.new(tr("Username"))
-            label.fixed_width = 80
-            row << label
-            row << lastfm_username
-          end
-
-          password_row = Qt6::Widget.new(lastfm_group)
-          password_row.hbox do |row|
-            label = Qt6::Label.new(tr("Password"))
-            label.fixed_width = 80
-            row << label
+          password_field = Qt6::Widget.new(lastfm_group)
+          password_field.hbox do |row|
             row << lastfm_password
             row << authenticate_lastfm_button
           end
 
-          group_column << lastfm_enabled
-          group_column << username_row
-          group_column << password_row
-          group_column << lastfm_status
+          form = Qt6::FormLayout.new
+          form.field_growth_policy = Qt6::FormLayoutFieldGrowthPolicy::AllNonFixedFieldsGrow
+          form.row_wrap_policy = Qt6::FormLayoutRowWrapPolicy::WrapLongRows
+          form.horizontal_spacing = 12
+          form.vertical_spacing = 8
+          form.add_row(lastfm_enabled)
+          form.add_row(tr("Username"), lastfm_username)
+          form.add_row(tr("Password"), password_field)
+          form.add_row(lastfm_status)
+          group_column.add(form)
         end
 
         lastfm_column << lastfm_group
