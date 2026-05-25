@@ -156,13 +156,13 @@ module MPDUI
     end
 
     private def playlist_entries(client : MPD::Client) : Array(PlaylistEntry)
-      client.listplaylists.try do |items|
-        items.compact_map do |metadata|
-          entry = PlaylistEntry.from_mpd(metadata)
-          next unless entry
+      client.listplaylists.try do |playlists|
+        playlists.compact_map do |metadata|
+          playlist_entry = PlaylistEntry.from_mpd(metadata)
+          next unless playlist_entry
 
-          songs = client.listplaylistinfo(entry.name).try(&.map { |song_metadata| Song.from_mpd(song_metadata) }) || [] of Song
-          entry.with_summary(songs)
+          songs = client.listplaylistinfo(playlist_entry.name).try(&.map { |song_metadata| Song.from_mpd(song_metadata) }) || [] of Song
+          playlist_entry.build(songs)
         end.sort_by!(&.name.downcase)
       end || [] of PlaylistEntry
     end

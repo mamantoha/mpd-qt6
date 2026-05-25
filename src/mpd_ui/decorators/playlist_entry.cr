@@ -11,7 +11,7 @@ module MPDUI
       new(name, metadata["Last-Modified"]?)
     end
 
-    def with_summary(songs : Array(Song)) : self
+    def build(songs : Array(Song)) : self
       PlaylistEntry.new(name, last_modified, songs)
     end
 
