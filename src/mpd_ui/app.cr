@@ -93,6 +93,7 @@ module MPDUI
     def initialize
       @qt_app = Qt6.application
       @qt_app.name = WINDOW_TITLE
+      # I18n.install_default
       @settings = Settings.load
       if width = @settings.expanded_window_width
         if height = @settings.expanded_window_height
