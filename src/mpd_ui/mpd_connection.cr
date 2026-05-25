@@ -35,7 +35,8 @@ module MPDUI
       host = @settings.host
       port = @settings.port
 
-      Thread.new do
+      BackgroundRunner.run("mpd-ui-callbacks") do
+        Log.debug { "mpd_ui: starting MPD callback listener for #{host}:#{port}" }
         cb = MPD::Client.new(host, port, with_callbacks: true)
         cb.callbacks_timeout = 200.milliseconds
 
@@ -68,7 +69,9 @@ module MPDUI
         end
 
         cb.disconnect
-      rescue
+        Log.debug { "mpd_ui: stopped MPD callback listener for #{host}:#{port}" }
+      rescue ex
+        Log.warn { "mpd_ui: MPD callback listener failed: #{ex.message || ex}" }
         @event_bridge.request_refresh if @callback_generation.get == generation
       end
     end
@@ -77,7 +80,8 @@ module MPDUI
       host = @settings.host
       port = @settings.port
 
-      Thread.new do
+      BackgroundRunner.run("mpd-ui-idle") do
+        Log.debug { "mpd_ui: starting MPD idle listener for #{host}:#{port}" }
         idle_client = MPD::Client.new(host, port)
         @stored_playlist_idle_client = idle_client if @callback_generation.get == generation
 
@@ -94,7 +98,9 @@ module MPDUI
         end
 
         idle_client.disconnect
-      rescue
+        Log.debug { "mpd_ui: stopped MPD idle listener for #{host}:#{port}" }
+      rescue ex
+        Log.warn { "mpd_ui: MPD idle listener failed: #{ex.message || ex}" }
         if @callback_generation.get == generation
           @event_bridge.request_stored_playlists_refresh
           @event_bridge.request_outputs_refresh

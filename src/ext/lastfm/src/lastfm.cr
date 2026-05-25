@@ -341,7 +341,7 @@ module LastFM
 
       return unless should_send
 
-      Thread.new do
+      run_background("lastfm-now-playing") do
         @client.update_now_playing(track, @session_key.call)
         Log.debug { "updated now playing: #{track.artist} - #{track.title}" }
       rescue ex
@@ -361,7 +361,7 @@ module LastFM
 
       return unless should_send
 
-      Thread.new do
+      run_background("lastfm-scrobble") do
         @client.scrobble(track, @session_key.call)
         Log.info { "scrobbled: #{track.artist} - #{track.title}" }
       rescue ex
@@ -383,7 +383,7 @@ module LastFM
 
       return if pending.empty?
 
-      Thread.new do
+      run_background("lastfm-flush") do
         failed = [] of PendingScrobble
         pending.each do |item|
           track = item.to_track
@@ -403,6 +403,18 @@ module LastFM
         Log.debug { "failed to flush scrobble cache: #{ex.message || ex}" }
         @mutex.synchronize { @flushing_queue = false }
       end
+    end
+
+    private def run_background(name : String, &block : ->) : Nil
+      run_background(name, block)
+    end
+
+    private def run_background(name : String, block : Proc(Nil)) : Nil
+      {% if flag?(:execution_context) %}
+        Fiber::ExecutionContext::Isolated.new(name) { block.call }
+      {% else %}
+        Thread.new(name: name) { block.call }
+      {% end %}
     end
 
     private def cache_failed_scrobble(track : Track) : Nil

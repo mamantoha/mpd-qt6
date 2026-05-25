@@ -1,7 +1,7 @@
 module MPDUI
   module BackgroundTask
     private def run_background(on_success : Proc(T, Nil), on_error : Proc(Exception, Nil)? = nil, &work : -> T) : Nil forall T
-      Thread.new do
+      BackgroundRunner.run("mpd-ui-background") do
         begin
           result = work.call
           next if @quitting
