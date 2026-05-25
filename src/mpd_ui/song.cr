@@ -45,7 +45,7 @@ module MPDUI
       value("Album") || "Unknown Album"
     end
 
-    def album_artist : String?
+    def album_artist? : String?
       value("AlbumArtist")
     end
 

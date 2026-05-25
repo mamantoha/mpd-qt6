@@ -27,29 +27,5 @@ module MPDUI
     rescue
       "Unknown"
     end
-
-    private def playlist_title(song : Song) : String
-      song.queue_title
-    end
-
-    private def playlist_duration(song : Song) : String
-      song.duration_label
-    end
-
-    private def database_song_label(song : Song) : String
-      song.database_label
-    end
-
-    private def track_number(song : Song) : Int32
-      song.track_number || Int32::MAX
-    end
-
-    private def disc_number(song : Song) : Int32
-      song.disc_number || Int32::MAX
-    end
-
-    private def song_tooltip(song : Song) : String
-      song.tooltip_html
-    end
   end
 end
