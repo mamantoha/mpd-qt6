@@ -166,6 +166,7 @@ module MPDUI
     end
 
     private def render_tree(selected_name : String?) : Nil
+      expanded_names = expanded_playlist_names
       @syncing_selection = true
       @song_model.clear
       @playlist_items.clear
@@ -189,6 +190,7 @@ module MPDUI
 
       name_to_select = selected_name && @playlist_items.has_key?(selected_name) ? selected_name : @playlists.first?.try(&.name)
       @last_selected_playlist_name = name_to_select
+      restore_expanded_playlists(expanded_names)
       select_playlist(name_to_select)
     ensure
       @syncing_selection = false
@@ -215,6 +217,35 @@ module MPDUI
 
     private def configure_song_item(item : Qt6::StandardItem) : Nil
       item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
+    end
+
+    private def expanded_playlist_names : Set(String)
+      expanded = Set(String).new
+
+      @playlist_items.each do |name, item|
+        index = @song_model.index_from_item(item)
+        begin
+          expanded << name if index.valid? && @song_view.expanded?(index)
+        ensure
+          index.release
+        end
+      end
+
+      expanded
+    end
+
+    private def restore_expanded_playlists(names : Set(String)) : Nil
+      names.each do |name|
+        item = @playlist_items[name]?
+        next unless item
+
+        index = @song_model.index_from_item(item)
+        begin
+          @song_view.expand(index) if index.valid?
+        ensure
+          index.release
+        end
+      end
     end
 
     private def update_action_buttons : Nil
