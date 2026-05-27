@@ -60,6 +60,7 @@ module MPDUI
     end
 
     private def refresh_stored_playlists : Nil
+      Log.info { "mpd_ui: Refreshing stored playlists..." }
       set_status("Loading stored playlists…")
       host = @settings.host
       port = @settings.port
