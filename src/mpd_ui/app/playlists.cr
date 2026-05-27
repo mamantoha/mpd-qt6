@@ -9,6 +9,7 @@ module MPDUI
       playlists.on_delete = -> { delete_selected_stored_playlist }
       playlists.on_add_songs_to_queue = -> { add_selected_stored_playlist_songs_to_queue }
       playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
+      playlists.on_move_songs = ->(name : String, moves : Array(Tuple(Int32, Int32))) { move_stored_playlist_songs(name, moves) }
       playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
       playlists.on_song_mouse_press = -> {
         @playlist_drag_source_row = nil
@@ -222,6 +223,33 @@ module MPDUI
         with_playlist_client(host, port) do |client|
           client.with_command_list do
             positions.each { |position| client.playlistdelete(name, position) }
+          end
+        end
+      end
+    end
+
+    private def move_stored_playlist_songs(name : String, moves : Array(Tuple(Int32, Int32))) : Nil
+      moves = moves.reject { |from, to| from == to }
+      return if moves.empty?
+
+      set_status("Moving songs in playlist #{name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Moved songs in playlist #{name}")
+        },
+        ->(ex : Exception) {
+          show_playlist_message("Move Song Failed", ex.message || ex.to_s)
+          set_status("Failed to move songs in playlist #{name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.with_command_list do
+            moves.each do |from, to|
+              client.playlistmove(name, from, to)
+            end
           end
         end
       end

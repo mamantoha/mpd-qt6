@@ -25,7 +25,12 @@ module MPDUI
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
         elsif drag_is_external_uri_drop?(drop_event)
-          drop_event.accept_proposed_action
+          if @drag_source_type == :stored_playlist
+            drop_event.drop_action = Qt6::DropAction::CopyAction
+            drop_event.accept
+          else
+            drop_event.accept_proposed_action
+          end
         end
       }
       queue.on_drag_leave = -> {
@@ -37,6 +42,10 @@ module MPDUI
         if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
           handled = move_selected_playlist_rows(queue.drop_row_for(drop_event))
         elsif external_uri_drag_source? && drag_is_external_uri_drop?(drop_event)
+          if @drag_source_type == :stored_playlist
+            drop_event.drop_action = Qt6::DropAction::CopyAction
+            drop_event.accept
+          end
           handled = append_selected_database_to_queue(queue.drop_row_for(drop_event))
         end
 

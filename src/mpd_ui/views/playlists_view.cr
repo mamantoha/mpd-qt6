@@ -16,6 +16,7 @@ module MPDUI
     property on_delete : Proc(Nil)?
     property on_add_songs_to_queue : Proc(Nil)?
     property on_remove_songs : Proc(Nil)?
+    property on_move_songs : Proc(String, Array(Tuple(Int32, Int32)), Nil)?
     property on_song_selection_changed : Proc(Nil)?
     property on_song_mouse_press : Proc(Nil)?
     property on_song_drag_enter : Proc(Nil)?
@@ -36,6 +37,9 @@ module MPDUI
     @add_songs_to_queue_action : Qt6::Action
     @remove_songs_action : Qt6::Action
     @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
+    @dragged_song_playlist_name : String?
+    @dragged_song_positions : Array(Int32) = [] of Int32
+    @playlist_controller = PlaylistController.new
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -138,8 +142,11 @@ module MPDUI
       @song_view.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       @song_view.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       @song_view.drag_enabled = true
-      @song_view.drag_drop_mode = Qt6::ItemViewDragDropMode::DragOnly
-      @song_view.default_drop_action = Qt6::DropAction::CopyAction
+      @song_view.accept_drops = true
+      @song_view.drag_drop_mode = Qt6::ItemViewDragDropMode::DragDrop
+      @song_view.drag_drop_overwrite_mode = false
+      @song_view.default_drop_action = Qt6::DropAction::MoveAction
+      @song_view.drop_indicator_shown = true
       @song_view.minimum_width = 220
       @song_view.style_sheet = <<-CSS
         QTreeView {
@@ -163,6 +170,7 @@ module MPDUI
     end
 
     private def render_tree(selected_name : String?) : Nil
+      expanded_names = expanded_playlist_names
       @syncing_selection = true
       @song_model.clear
       @playlist_items.clear
@@ -176,7 +184,7 @@ module MPDUI
         playlist_item.set_data(ROW_TYPE_PLAYLIST, ItemRoles::PLAYLIST_ROW_TYPE)
         playlist_item.set_data(playlist.name, ItemRoles::PLAYLIST_NAME)
         playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
-        playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
+        playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DropEnabled
 
         @song_model.set_item(row, 0, playlist_item)
         @playlist_items[playlist.name] = playlist_item
@@ -186,6 +194,7 @@ module MPDUI
 
       name_to_select = selected_name && @playlist_items.has_key?(selected_name) ? selected_name : @playlists.first?.try(&.name)
       @last_selected_playlist_name = name_to_select
+      restore_expanded_playlists(expanded_names)
       select_playlist(name_to_select)
     ensure
       @syncing_selection = false
@@ -214,6 +223,35 @@ module MPDUI
       item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
     end
 
+    private def expanded_playlist_names : Set(String)
+      expanded = Set(String).new
+
+      @playlist_items.each do |name, item|
+        index = @song_model.index_from_item(item)
+        begin
+          expanded << name if index.valid? && @song_view.expanded?(index)
+        ensure
+          index.release
+        end
+      end
+
+      expanded
+    end
+
+    private def restore_expanded_playlists(names : Set(String)) : Nil
+      names.each do |name|
+        item = @playlist_items[name]?
+        next unless item
+
+        index = @song_model.index_from_item(item)
+        begin
+          @song_view.expand(index) if index.valid?
+        ensure
+          index.release
+        end
+      end
+    end
+
     private def update_action_buttons : Nil
       playlist_selected = !!selected_playlist_name
       song_selected = !selected_song_positions.empty?
@@ -227,6 +265,8 @@ module MPDUI
 
     private def install_song_drag_filter : Nil
       viewport = @song_view.viewport
+      viewport.accept_drops = true
+
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
         case event.type
@@ -236,14 +276,31 @@ module MPDUI
             show_context_menu(viewport, mouse_event.position)
             true
           else
-            @on_song_mouse_press.try(&.call) if song_index_at?(mouse_event.position)
+            if song_index_at?(mouse_event.position)
+              remember_dragged_song(mouse_event.position)
+              @on_song_mouse_press.try(&.call)
+            end
             false
           end
         when Qt6::EventType::DragEnter
           @on_song_drag_enter.try(&.call) if current_song?
           false
-        when Qt6::EventType::DragLeave, Qt6::EventType::Drop
-          @on_song_drag_finished.try(&.call)
+        when Qt6::EventType::Drop
+          drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          if internal_song_drag?
+            drop_event.ignore unless handle_internal_song_drop(drop_event)
+            @on_song_drag_finished.try(&.call)
+            clear_dragged_song
+            true
+          else
+            clear_dragged_song
+            @on_song_drag_finished.try(&.call)
+            false
+          end
+        when Qt6::EventType::MouseButtonRelease
+          clear_dragged_song
+          false
+        when Qt6::EventType::DragLeave
           false
         else
           false
@@ -253,6 +310,88 @@ module MPDUI
       viewport.install_event_filter(filter)
       @song_drag_filter = filter
       @context_filter = filter
+    end
+
+    private def remember_dragged_song(position : Qt6::PointF) : Nil
+      index = @song_view.index_at(position)
+      begin
+        unless index.valid? && song_index?(index)
+          clear_dragged_song
+          return
+        end
+
+        item = @song_model.item_from_index(index)
+        playlist_name = item.try(&.data(ItemRoles::PLAYLIST_NAME).as?(String))
+        position = item.try(&.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32))
+        unless playlist_name && position
+          clear_dragged_song
+          return
+        end
+
+        selected_positions = selected_song_items.compact_map do |selected_item|
+          next unless selected_item.data(ItemRoles::PLAYLIST_NAME).as?(String) == playlist_name
+
+          selected_item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+        end
+
+        @dragged_song_playlist_name = playlist_name
+        @dragged_song_positions = selected_positions.includes?(position) ? selected_positions : [position]
+      ensure
+        index.release
+      end
+    end
+
+    private def clear_dragged_song : Nil
+      @dragged_song_playlist_name = nil
+      @dragged_song_positions.clear
+    end
+
+    private def internal_song_drag? : Bool
+      !!@dragged_song_playlist_name && !@dragged_song_positions.empty?
+    end
+
+    private def handle_internal_song_drop(event : Qt6::DropEvent) : Bool
+      playlist_name = @dragged_song_playlist_name
+      return false unless playlist_name
+
+      target = song_drop_target(event.position)
+      return false unless target
+      return false unless target.playlist_name == playlist_name
+
+      songs = @playlist_songs[playlist_name]?
+      return false unless songs
+
+      plan = @playlist_controller.move_plan(songs.size, target.insert_position, @dragged_song_positions)
+      return false unless plan
+      callback = @on_move_songs
+      return false unless callback
+
+      callback.call(playlist_name, plan.moves)
+      event.drop_action = Qt6::DropAction::MoveAction
+      event.accept
+      true
+    end
+
+    private record SongDropTarget, playlist_name : String, insert_position : Int32
+
+    private def song_drop_target(position : Qt6::PointF) : SongDropTarget?
+      index = @song_view.index_at(position)
+      begin
+        return unless index.valid? && song_index?(index)
+
+        item = @song_model.item_from_index(index)
+        return unless item
+
+        playlist_name = item.data(ItemRoles::PLAYLIST_NAME).as?(String)
+        target_position = item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+        return unless playlist_name && target_position
+
+        rect = @song_view.visual_rect(index)
+        insert_position = position.y < rect.y + rect.height / 2.0 ? target_position : target_position + 1
+        SongDropTarget.new(playlist_name, insert_position)
+      ensure
+        index.release
+      end
     end
 
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil

@@ -68,7 +68,7 @@ module MPDUI
           handled = @on_drop.try(&.call(drop_event)) || false
 
           if handled
-            drop_event.accept_proposed_action
+            drop_event.accept_proposed_action unless drop_event.accepted?
           else
             drop_event.ignore
           end
