@@ -222,7 +222,7 @@ module LastFM
   # scrobbler.update(nil, "stop", 0.0, 0.0)
   # ```
   class Scrobbler
-    @mutex = Mutex.new
+    @mutex = Sync::Mutex.new
     @current : Track?
     @last_elapsed : Float64 = 0.0
     @now_playing_sent : Bool = false

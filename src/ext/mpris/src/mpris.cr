@@ -65,7 +65,7 @@ module MPRIS
     @socket : UNIXSocket?
     @serial = 1_u32
     @running = Atomic(Bool).new(false)
-    @mutex = Mutex.new
+    @mutex = Sync::Mutex.new
     @state = State.new
 
     getter options : Options
