@@ -39,6 +39,7 @@ module MPDUI
     @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
     @dragged_song_playlist_name : String?
     @dragged_song_positions : Array(Int32) = [] of Int32
+    @playlist_controller = PlaylistController.new
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -357,48 +358,18 @@ module MPDUI
       return false unless target
       return false unless target.playlist_name == playlist_name
 
-      moves = playlist_move_plan(playlist_name, target.insert_position)
-      return false if moves.empty?
+      songs = @playlist_songs[playlist_name]?
+      return false unless songs
+
+      plan = @playlist_controller.move_plan(songs.size, target.insert_position, @dragged_song_positions)
+      return false unless plan
       callback = @on_move_songs
       return false unless callback
 
-      callback.call(playlist_name, moves)
+      callback.call(playlist_name, plan.moves)
       event.drop_action = Qt6::DropAction::MoveAction
       event.accept
       true
-    end
-
-    private def playlist_move_plan(playlist_name : String, insert_position : Int32) : Array(Tuple(Int32, Int32))
-      songs = @playlist_songs[playlist_name]?
-      return [] of Tuple(Int32, Int32) unless songs
-
-      selected_positions = @dragged_song_positions.select { |position| position >= 0 && position < songs.size }.sort!.uniq!
-      return [] of Tuple(Int32, Int32) if selected_positions.empty?
-
-      current_positions = (0...songs.size).to_a
-      remaining_positions = current_positions.reject { |position| selected_positions.includes?(position) }
-      target_position = insert_position.clamp(0, current_positions.size)
-      target_position -= selected_positions.count { |position| position < target_position }
-      target_position = target_position.clamp(0, remaining_positions.size)
-
-      desired_positions = remaining_positions.dup
-      selected_positions.each_with_index do |position, offset|
-        desired_positions.insert(target_position + offset, position)
-      end
-      return [] of Tuple(Int32, Int32) if desired_positions == current_positions
-
-      moves = [] of Tuple(Int32, Int32)
-      desired_positions.each_with_index do |position, desired_index|
-        current_index = current_positions.index(position)
-        next unless current_index
-        next if current_index == desired_index
-
-        moves << {current_index, desired_index}
-        moved_position = current_positions.delete_at(current_index)
-        current_positions.insert(desired_index, moved_position)
-      end
-
-      moves
     end
 
     private record SongDropTarget, playlist_name : String, insert_position : Int32
