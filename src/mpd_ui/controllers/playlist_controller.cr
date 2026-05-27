@@ -21,7 +21,7 @@ module MPDUI
     # The returned moves are safe to pass to MPD in order:
     # `playlistmove name, from, to`.
     def move_plan(size : Int32, insert_position : Int32, selected_positions : Array(Int32)) : MovePlan?
-      positions = selected_positions.select { |position| position >= 0 && position < size }.sort!.uniq!
+      positions = selected_positions.select(&.in?(0...size)).sort!.uniq!
       return if positions.empty?
 
       current_positions = (0...size).to_a

@@ -52,7 +52,7 @@ module MPDUI
     end
 
     def move_plan(insert_row : Int32, selected_rows : Array(Int32)) : MovePlan?
-      rows = selected_rows.select { |row| row >= 0 && row < @ids.size }.sort!.uniq!
+      rows = selected_rows.select(&.in?(0...@ids.size)).sort!.uniq!
       return if rows.empty?
 
       selected_ids = rows.compact_map { |row| @ids[row]? }
