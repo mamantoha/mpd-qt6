@@ -16,6 +16,7 @@ module MPDUI
     property on_delete : Proc(Nil)?
     property on_add_songs_to_queue : Proc(Nil)?
     property on_remove_songs : Proc(Nil)?
+    property on_move_songs : Proc(String, Array(Tuple(Int32, Int32)), Nil)?
     property on_song_selection_changed : Proc(Nil)?
     property on_song_mouse_press : Proc(Nil)?
     property on_song_drag_enter : Proc(Nil)?
@@ -36,6 +37,8 @@ module MPDUI
     @add_songs_to_queue_action : Qt6::Action
     @remove_songs_action : Qt6::Action
     @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
+    @dragged_song_playlist_name : String?
+    @dragged_song_positions : Array(Int32) = [] of Int32
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -272,16 +275,31 @@ module MPDUI
             show_context_menu(viewport, mouse_event.position)
             true
           else
-            @on_song_mouse_press.try(&.call) if song_index_at?(mouse_event.position)
+            if song_index_at?(mouse_event.position)
+              remember_dragged_song(mouse_event.position)
+              @on_song_mouse_press.try(&.call)
+            end
             false
           end
         when Qt6::EventType::DragEnter
           @on_song_drag_enter.try(&.call) if current_song?
           false
-        when Qt6::EventType::DragLeave
-          false
         when Qt6::EventType::Drop
-          @on_song_drag_finished.try(&.call)
+          drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          if internal_song_drag?
+            drop_event.ignore unless handle_internal_song_drop(drop_event)
+            @on_song_drag_finished.try(&.call)
+            clear_dragged_song
+            true
+          else
+            clear_dragged_song
+            @on_song_drag_finished.try(&.call)
+            false
+          end
+        when Qt6::EventType::MouseButtonRelease
+          clear_dragged_song
+          false
+        when Qt6::EventType::DragLeave
           false
         else
           false
@@ -291,6 +309,118 @@ module MPDUI
       viewport.install_event_filter(filter)
       @song_drag_filter = filter
       @context_filter = filter
+    end
+
+    private def remember_dragged_song(position : Qt6::PointF) : Nil
+      index = @song_view.index_at(position)
+      begin
+        unless index.valid? && song_index?(index)
+          clear_dragged_song
+          return
+        end
+
+        item = @song_model.item_from_index(index)
+        playlist_name = item.try(&.data(ItemRoles::PLAYLIST_NAME).as?(String))
+        position = item.try(&.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32))
+        unless playlist_name && position
+          clear_dragged_song
+          return
+        end
+
+        selected_positions = selected_song_items.compact_map do |selected_item|
+          next unless selected_item.data(ItemRoles::PLAYLIST_NAME).as?(String) == playlist_name
+
+          selected_item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+        end
+
+        @dragged_song_playlist_name = playlist_name
+        @dragged_song_positions = selected_positions.includes?(position) ? selected_positions : [position]
+      ensure
+        index.release
+      end
+    end
+
+    private def clear_dragged_song : Nil
+      @dragged_song_playlist_name = nil
+      @dragged_song_positions.clear
+    end
+
+    private def internal_song_drag? : Bool
+      !!@dragged_song_playlist_name && !@dragged_song_positions.empty?
+    end
+
+    private def handle_internal_song_drop(event : Qt6::DropEvent) : Bool
+      playlist_name = @dragged_song_playlist_name
+      return false unless playlist_name
+
+      target = song_drop_target(event.position)
+      return false unless target
+      return false unless target.playlist_name == playlist_name
+
+      moves = playlist_move_plan(playlist_name, target.insert_position)
+      return false if moves.empty?
+      callback = @on_move_songs
+      return false unless callback
+
+      callback.call(playlist_name, moves)
+      event.drop_action = Qt6::DropAction::MoveAction
+      event.accept
+      true
+    end
+
+    private def playlist_move_plan(playlist_name : String, insert_position : Int32) : Array(Tuple(Int32, Int32))
+      songs = @playlist_songs[playlist_name]?
+      return [] of Tuple(Int32, Int32) unless songs
+
+      selected_positions = @dragged_song_positions.select { |position| position >= 0 && position < songs.size }.sort!.uniq!
+      return [] of Tuple(Int32, Int32) if selected_positions.empty?
+
+      current_positions = (0...songs.size).to_a
+      remaining_positions = current_positions.reject { |position| selected_positions.includes?(position) }
+      target_position = insert_position.clamp(0, current_positions.size)
+      target_position -= selected_positions.count { |position| position < target_position }
+      target_position = target_position.clamp(0, remaining_positions.size)
+
+      desired_positions = remaining_positions.dup
+      selected_positions.each_with_index do |position, offset|
+        desired_positions.insert(target_position + offset, position)
+      end
+      return [] of Tuple(Int32, Int32) if desired_positions == current_positions
+
+      moves = [] of Tuple(Int32, Int32)
+      desired_positions.each_with_index do |position, desired_index|
+        current_index = current_positions.index(position)
+        next unless current_index
+        next if current_index == desired_index
+
+        moves << {current_index, desired_index}
+        moved_position = current_positions.delete_at(current_index)
+        current_positions.insert(desired_index, moved_position)
+      end
+
+      moves
+    end
+
+    private record SongDropTarget, playlist_name : String, insert_position : Int32
+
+    private def song_drop_target(position : Qt6::PointF) : SongDropTarget?
+      index = @song_view.index_at(position)
+      begin
+        return unless index.valid? && song_index?(index)
+
+        item = @song_model.item_from_index(index)
+        return unless item
+
+        playlist_name = item.data(ItemRoles::PLAYLIST_NAME).as?(String)
+        target_position = item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+        return unless playlist_name && target_position
+
+        rect = @song_view.visual_rect(index)
+        insert_position = position.y < rect.y + rect.height / 2.0 ? target_position : target_position + 1
+        SongDropTarget.new(playlist_name, insert_position)
+      ensure
+        index.release
+      end
     end
 
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
