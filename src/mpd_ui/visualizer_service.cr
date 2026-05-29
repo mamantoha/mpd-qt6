@@ -11,7 +11,7 @@ module MPDUI
   class VisualizerService
     # 2048 samples gives enough low-frequency resolution for bass bars while
     # still reacting quickly enough for a compact player header visualizer.
-    FFT_SIZE = 2048
+    FFT_SIZE    =     2048
     SAMPLE_RATE = 44_100.0
 
     # The highest recent band level is used as the current reference point.
@@ -25,9 +25,9 @@ module MPDUI
 
     # Only this many dB below the current peak remain visible. A narrower range
     # gives a more lively music-player look; a wider range looks flatter.
-    DYNAMIC_RANGE_DB = 36.0
-    MIN_MAGNITUDE = 1e-12
-    CONTRAST_POWER = 1.15
+    DYNAMIC_RANGE_DB =  36.0
+    MIN_MAGNITUDE    = 1e-12
+    CONTRAST_POWER   =  1.15
 
     getter path : String
 
