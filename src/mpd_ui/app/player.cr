@@ -43,6 +43,14 @@ module MPDUI
       @event_bridge.outputs_changed.connect do
         refresh_outputs_menu
       end
+
+      @event_bridge.connection_lost.connect do
+        reset_views
+      end
+
+      @event_bridge.connection_restored.connect do
+        reload_views
+      end
     end
 
     private def toggle_play_pause : Nil
@@ -61,6 +69,7 @@ module MPDUI
 
     private def request_status_refresh : Nil
       return if @quitting
+      return if @waiting_for_mpd_status && @status_retry_scheduled
       return if @status_refresh_pending.swap(true)
 
       previous_playlist_version = @playback_state.playlist_version
@@ -89,6 +98,7 @@ module MPDUI
         wait_for_status_after_reconnect
         return
       end
+      @waiting_for_mpd_status = false
 
       song = snapshot.song
 
@@ -158,7 +168,11 @@ module MPDUI
     end
 
     private def wait_for_status_after_reconnect : Nil
-      Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
+      unless @waiting_for_mpd_status
+        Log.info { "mpd_ui: waiting for MPD status after reconnect to #{@settings.host}:#{@settings.port}" }
+      end
+
+      @waiting_for_mpd_status = true
       @playback_state = PlaybackState.new
       @current_file = ""
       @cover_art_generation.add(1)

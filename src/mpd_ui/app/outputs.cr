@@ -51,6 +51,18 @@ module MPDUI
       end
     end
 
+    private def clear_outputs_menu(message : String) : Nil
+      menu = @app_actions.try(&.outputs_menu)
+      return unless menu
+
+      @output_actions.clear
+      menu.clear
+
+      action = menu.add_action(message)
+      action.enabled = false
+      @output_actions << action
+    end
+
     private def mpd_outputs : Array(MpdOutput)
       client = @client
       return [] of MpdOutput unless client
