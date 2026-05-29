@@ -5,10 +5,12 @@ module MPDUI
     getter root : Qt6::EventWidget
 
     @timer : Qt6::QTimer
+    @enabled : Bool = true
 
     def initialize(parent : Qt6::Widget, @service : VisualizerService)
       @root = Qt6::EventWidget.new(parent).tap do |widget|
         widget.fixed_height = HEIGHT
+        widget.visible = false
         widget.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
       end
 
@@ -18,8 +20,24 @@ module MPDUI
 
       @timer = Qt6::QTimer.new(@root)
       @timer.interval = 33
-      @timer.on_timeout { @root.update }
+      @timer.on_timeout { refresh }
       @timer.start
+    end
+
+    def enabled=(value : Bool) : Bool
+      @enabled = value
+      refresh
+      value
+    end
+
+    def enabled? : Bool
+      @enabled
+    end
+
+    private def refresh : Nil
+      visible = @enabled && @service.available?
+      @root.visible = visible if @root.visible? != visible
+      @root.update if visible
     end
 
     private def paint(painter : Qt6::QPainter) : Nil

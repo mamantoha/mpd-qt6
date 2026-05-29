@@ -15,6 +15,7 @@ module MPDUI
     getter volume_button : Qt6::PushButton
     getter volume_slider : Qt6::Slider
     getter volume_label : Qt6::Label
+    getter visualizer : VisualizerWidget
     getter play_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-start")
     getter pause_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-pause")
     getter stop_icon : Qt6::QIcon = Qt6::QIcon.from_theme("media-playback-stop")
@@ -185,13 +186,14 @@ module MPDUI
         label.tool_tip = "Volume"
       end
 
+      @visualizer = VisualizerWidget.new(parent, visualizer_service)
+
       build(
         parent,
         cover_art_size,
         progress_row_height,
         playback_controls_height,
-        actions,
-        visualizer_service
+        actions
       )
     end
 
@@ -214,7 +216,6 @@ module MPDUI
       progress_row_height : Int32,
       playback_controls_height : Int32,
       actions : AppActions,
-      visualizer_service : VisualizerService,
     ) : Nil
       setup_cover_art_toggle
 
@@ -251,7 +252,6 @@ module MPDUI
       options_button.menu = options_menu
 
       progress = build_progress(parent, progress_row_height)
-      visualizer = VisualizerWidget.new(parent, visualizer_service)
       controls = build_controls(parent, playback_controls_height)
 
       metadata_panel = Qt6::Widget.new(parent)
@@ -289,7 +289,7 @@ module MPDUI
         header_column.spacing = 6
         header_column.set_contents_margins(8, 8, 8, 8)
         header_column << header_body
-        header_column << visualizer.root
+        header_column << @visualizer.root
         header_column << controls
       end
 

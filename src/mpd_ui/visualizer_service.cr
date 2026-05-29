@@ -11,7 +11,7 @@ module MPDUI
   class VisualizerService
     # 2048 samples gives enough low-frequency resolution for bass bars while
     # still reacting quickly enough for a compact player header visualizer.
-    FFT_SIZE    =     2048
+    FFT_SIZE = 2048
     SAMPLE_RATE = 44_100.0
 
     # The highest recent band level is used as the current reference point.
@@ -25,18 +25,35 @@ module MPDUI
 
     # Only this many dB below the current peak remain visible. A narrower range
     # gives a more lively music-player look; a wider range looks flatter.
-    DYNAMIC_RANGE_DB =  36.0
-    MIN_MAGNITUDE    = 1e-12
-    CONTRAST_POWER   =  1.15
-
-    getter path : String
+    DYNAMIC_RANGE_DB = 36.0
+    MIN_MAGNITUDE = 1e-12
+    CONTRAST_POWER = 1.15
 
     @levels : Array(Float64)
     @mutex = Mutex.new
     @running = Atomic(Bool).new(false)
+    @enabled = Atomic(Bool).new(true)
+    @available = Atomic(Bool).new(false)
 
-    def initialize(@path : String = ENV["MPD_VIS_FIFO"]? || "/tmp/mpd.fifo", @bar_count : Int32 = 56)
+    def initialize(@path : String = "/tmp/mpd.fifo", @bar_count : Int32 = 56)
       @levels = Array.new(@bar_count, 0.0)
+    end
+
+    def path : String
+      @mutex.synchronize { @path }
+    end
+
+    def configure(enabled : Bool, path : String) : Nil
+      @enabled.set(enabled)
+      @available.set(false)
+      @mutex.synchronize do
+        @path = path.empty? ? "/tmp/mpd.fifo" : path
+        @levels = Array.new(@bar_count, 0.0) unless enabled
+      end
+    end
+
+    def available? : Bool
+      @available.get
     end
 
     def start : Nil
@@ -54,23 +71,38 @@ module MPDUI
     end
 
     def reset : Nil
+      @available.set(false)
       @mutex.synchronize { @levels = Array.new(@bar_count, 0.0) }
     end
 
     private def read_loop : Nil
       bytes_per_frame = 4 # signed 16-bit little-endian stereo
       buffer = Bytes.new(FFT_SIZE * bytes_per_frame)
-      peak = 1.0
+      peak = MIN_MAGNITUDE
       smoothing = Array.new(@bar_count, 0.0)
 
       while @running.get
-        begin
-          File.open(@path, "r") do |fifo|
-            while @running.get
-              bytes_read = read_full(fifo, buffer)
-              break unless bytes_read == buffer.size
+        unless @enabled.get
+          @available.set(false)
+          sleep 250.milliseconds
+          next
+        end
 
-              samples = decode_samples(buffer, bytes_read, bytes_per_frame)
+        begin
+          File.open(path, "r") do |fifo|
+            while @running.get
+              unless @enabled.get
+                reset
+                break
+              end
+
+              bytes_read = read_full(fifo, buffer)
+              unless bytes_read == buffer.size
+                @available.set(false)
+                break
+              end
+
+              samples = decode_spectrum_samples(buffer, bytes_read, bytes_per_frame)
               frame_levels = spectrum_levels(samples)
 
               # Normalize this frame against a slowly decaying peak so the
@@ -85,11 +117,14 @@ module MPDUI
               end
 
               @mutex.synchronize { @levels = normalized }
+              @available.set(true)
             end
           end
         rescue File::NotFoundError
+          @available.set(false)
           sleep 2.seconds
         rescue IO::Error
+          @available.set(false)
           sleep 500.milliseconds
         end
       end
@@ -108,7 +143,7 @@ module MPDUI
       bytes_read
     end
 
-    private def decode_samples(buffer : Bytes, bytes_read : Int32, bytes_per_frame : Int32) : Array(Float64)
+    private def decode_spectrum_samples(buffer : Bytes, bytes_read : Int32, bytes_per_frame : Int32) : Array(Float64)
       samples = Array.new(FFT_SIZE, 0.0)
       offset = 0
       index = 0

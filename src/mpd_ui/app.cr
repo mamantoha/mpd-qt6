@@ -108,6 +108,7 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @visualizer_service = VisualizerService.new
+      apply_visualizer_settings
       @queue_controller = QueueController.new
       @library_index = LibraryIndex.new
       bind_event_bridge
@@ -439,8 +440,17 @@ module MPDUI
 
       if SettingsDialog.edit(parent, @settings)
         setup_lastfm
+        apply_visualizer_settings
         connect
       end
+    end
+
+    private def apply_visualizer_settings : Nil
+      @visualizer_service.configure(
+        @settings.visualizer_enabled?,
+        @settings.visualizer_fifo_path
+      )
+      @player_header_view.try(&.visualizer.enabled = @settings.visualizer_enabled?)
     end
 
     private def quit_application : Nil
