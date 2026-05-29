@@ -153,6 +153,7 @@ module MPDUI
       elsif playback.stopped?
         @current_file = ""
         @cover_art_generation.add(1)
+        @visualizer_service.reset
         clear_cover_art
         @title_label.try(&.text = "Stopped")
         @subtitle_label.try(&.text = "")
@@ -176,6 +177,7 @@ module MPDUI
       @playback_state = PlaybackState.new
       @current_file = ""
       @cover_art_generation.add(1)
+      @visualizer_service.reset
       clear_cover_art
       @title_label.try(&.text = "Reconnecting")
       @subtitle_label.try(&.text = "#{@settings.host}:#{@settings.port}")

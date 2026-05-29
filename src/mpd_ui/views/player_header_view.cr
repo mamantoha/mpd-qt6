@@ -43,6 +43,7 @@ module MPDUI
       progress_row_height : Int32,
       playback_controls_height : Int32,
       actions : AppActions,
+      visualizer_service : VisualizerService,
     )
       @root = Qt6::EventWidget.new(parent).tap do |widget|
         widget.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
@@ -189,7 +190,8 @@ module MPDUI
         cover_art_size,
         progress_row_height,
         playback_controls_height,
-        actions
+        actions,
+        visualizer_service
       )
     end
 
@@ -212,6 +214,7 @@ module MPDUI
       progress_row_height : Int32,
       playback_controls_height : Int32,
       actions : AppActions,
+      visualizer_service : VisualizerService,
     ) : Nil
       setup_cover_art_toggle
 
@@ -248,6 +251,7 @@ module MPDUI
       options_button.menu = options_menu
 
       progress = build_progress(parent, progress_row_height)
+      visualizer = VisualizerWidget.new(parent, visualizer_service)
       controls = build_controls(parent, playback_controls_height)
 
       metadata_panel = Qt6::Widget.new(parent)
@@ -282,9 +286,10 @@ module MPDUI
       content = Qt6::Widget.new(@root)
       content.set_size_policy(Qt6::SizePolicy::Expanding, Qt6::SizePolicy::Fixed)
       content.vbox do |header_column|
-        header_column.spacing = 8
+        header_column.spacing = 6
         header_column.set_contents_margins(8, 8, 8, 8)
         header_column << header_body
+        header_column << visualizer.root
         header_column << controls
       end
 
