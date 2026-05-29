@@ -83,6 +83,8 @@ module MPDUI
     @just_moved_pos : Int32? = nil
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @status_retry_scheduled : Bool = false
+    @waiting_for_mpd_status : Bool = false
+    @mpd_available : Bool = false
     @syncing : Bool = false
     @syncing_volume : Bool = false
     @current_file : String = ""
@@ -441,10 +443,48 @@ module MPDUI
       save_expanded_layout_settings
       @quitting = true
       @event_bridge.shutdown
+      @callback_client.try(&.disconnect)
       @stored_playlist_idle_client.try(&.disconnect)
       @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
+    end
+
+    private def reset_views : Nil
+      return if @quitting
+      return unless @mpd_available
+
+      @mpd_available = false
+      @client.try(&.disconnect)
+      @client = nil
+      @database_loaded = false
+      @database_loading = false
+      @library_index.replace([] of Song)
+      @queue_controller.replace([] of Song)
+      @queue_view.try(&.render([] of Song) { |_pos| nil })
+      @playlists_view.try(&.render_message("Disconnected from MPD"))
+      show_database_message("Disconnected from MPD")
+      clear_outputs_menu("Disconnected")
+      wait_for_status_after_reconnect
+    end
+
+    private def reload_views : Nil
+      return if @quitting
+      return if @mpd_available
+
+      @client.try(&.disconnect)
+      @client = MPD::Client.new(@settings.host, @settings.port)
+      @mpd_available = true
+      @waiting_for_mpd_status = false
+      request_status_refresh
+      refresh_outputs_menu
+      ensure_database_loaded(force: true) if @library_view
+      refresh_stored_playlists if @playlists_view
+    rescue ex
+      @client = nil
+      @mpd_available = false
+      Log.warn { "mpd_ui: failed to restore MPD client after reconnect: #{ex.message || ex}" }
+      wait_for_status_after_reconnect
     end
 
     private def set_status(message : String) : Nil
