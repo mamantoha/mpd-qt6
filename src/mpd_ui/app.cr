@@ -73,6 +73,7 @@ module MPDUI
     @stored_playlist_idle_client : MPD::Client?
     @event_bridge : EventBridge
     @player_controller : PlayerController
+    @visualizer_service : VisualizerService
     @mpris_adapter : MprisAdapter?
     @lastfm_adapter : LastfmAdapter?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
@@ -106,6 +107,8 @@ module MPDUI
       end
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
+      @visualizer_service = VisualizerService.new
+      apply_visualizer_settings
       @queue_controller = QueueController.new
       @library_index = LibraryIndex.new
       bind_event_bridge
@@ -115,6 +118,7 @@ module MPDUI
     def run : Nil
       build_ui
       setup_mpris
+      @visualizer_service.start
       connect
       if @settings.expanded_interface? && @settings.expanded_window_maximized?
         @window.try(&.show_maximized)
@@ -215,7 +219,8 @@ module MPDUI
         COVER_ART_SIZE,
         PROGRESS_ROW_HEIGHT,
         PLAYBACK_CONTROLS_HEIGHT,
-        actions
+        actions,
+        @visualizer_service
       )
       player_header.on_previous = -> { mpd_action(&.previous) }
       player_header.on_play_pause = -> { toggle_play_pause }
@@ -435,14 +440,24 @@ module MPDUI
 
       if SettingsDialog.edit(parent, @settings)
         setup_lastfm
+        apply_visualizer_settings
         connect
       end
+    end
+
+    private def apply_visualizer_settings : Nil
+      @visualizer_service.configure(
+        @settings.visualizer_enabled?,
+        @settings.visualizer_fifo_path
+      )
+      @player_header_view.try(&.visualizer.enabled = @settings.visualizer_enabled?)
     end
 
     private def quit_application : Nil
       save_expanded_layout_settings
       @quitting = true
       @event_bridge.shutdown
+      @visualizer_service.stop
       @callback_client.try(&.disconnect)
       @stored_playlist_idle_client.try(&.disconnect)
       @mpris_adapter.try(&.stop)
@@ -461,6 +476,7 @@ module MPDUI
       @database_loading = false
       @library_index.replace([] of Song)
       @queue_controller.replace([] of Song)
+      @visualizer_service.reset
       @queue_view.try(&.render([] of Song) { |_pos| nil })
       @playlists_view.try(&.render_message("Disconnected from MPD"))
       show_database_message("Disconnected from MPD")

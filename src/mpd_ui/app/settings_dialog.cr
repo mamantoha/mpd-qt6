@@ -26,6 +26,12 @@ module MPDUI
       lastfm_status.word_wrap = true
       authenticate_lastfm_button = Qt6::PushButton.new(tr("Authenticate"), dialog)
 
+      visualizer_enabled = Qt6::CheckBox.new(tr("Show visualizer"), dialog)
+      visualizer_enabled.checked = settings.visualizer_enabled?
+
+      visualizer_fifo_path = Qt6::LineEdit.new(settings.visualizer_fifo_path, dialog)
+      visualizer_fifo_path.placeholder_text = "/tmp/mpd.fifo"
+
       pending_lastfm_username = settings.lastfm_username
       pending_lastfm_session_key = settings.lastfm_session_key
       tabs = Qt6::TabWidget.new(dialog)
@@ -92,6 +98,8 @@ module MPDUI
             settings.lastfm_enabled = lastfm_enabled.checked?
             settings.lastfm_username = lastfm_enabled.checked? ? pending_lastfm_username : username
             settings.lastfm_session_key = pending_lastfm_session_key
+            settings.visualizer_enabled = visualizer_enabled.checked?
+            settings.visualizer_fifo_path = visualizer_fifo_path.text.strip.empty? ? "/tmp/mpd.fifo" : visualizer_fifo_path.text.strip
             settings.save
             dialog.accept
           end
@@ -156,6 +164,39 @@ module MPDUI
 
       tabs.add_tab(connection_page, tr("MPD Connection"))
       tabs.add_tab(lastfm_page, tr("Last.fm"))
+
+      visualizer_page = Qt6::Widget.new(tabs)
+      visualizer_page.vbox do |visualizer_column|
+        visualizer_column.spacing = 10
+        visualizer_column.set_contents_margins(10, 10, 10, 10)
+
+        visualizer_group = Qt6::GroupBox.new(tr("FIFO Visualizer"), visualizer_page)
+        visualizer_group.vbox do |group_column|
+          group_column.spacing = 8
+          group_column.set_contents_margins(10, 10, 10, 10)
+
+          hint = Qt6::Label.new(
+            tr("Requires an MPD fifo output using format %1.").sub("%1", "44100:16:2"),
+            visualizer_group
+          )
+          hint.word_wrap = true
+
+          form = Qt6::FormLayout.new
+          form.field_growth_policy = Qt6::FormLayoutFieldGrowthPolicy::AllNonFixedFieldsGrow
+          form.row_wrap_policy = Qt6::FormLayoutRowWrapPolicy::WrapLongRows
+          form.horizontal_spacing = 12
+          form.vertical_spacing = 8
+          form.add_row(visualizer_enabled)
+          form.add_row(tr("FIFO path"), visualizer_fifo_path)
+          form.add_row(hint)
+          group_column.add(form)
+        end
+
+        visualizer_column << visualizer_group
+        visualizer_column.add_stretch
+      end
+
+      tabs.add_tab(visualizer_page, tr("Visualizer"))
 
       button_box = Qt6::DialogButtonBox.new(
         Qt6::DialogButtonBoxStandardButton::Ok | Qt6::DialogButtonBoxStandardButton::Cancel,

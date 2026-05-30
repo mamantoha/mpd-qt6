@@ -20,6 +20,8 @@ module MPDUI
     LASTFM_ENABLED_KEY     = "lastfm/enabled"
     LASTFM_USERNAME_KEY    = "lastfm/username"
     LASTFM_SESSION_KEY     = "lastfm/session_key"
+    VISUALIZER_ENABLED_KEY = "visualizer/enabled"
+    VISUALIZER_FIFO_KEY    = "visualizer/fifo_path"
 
     property host : String
     property port : Int32
@@ -34,6 +36,8 @@ module MPDUI
     property? lastfm_enabled : Bool
     property lastfm_username : String
     property lastfm_session_key : String
+    property? visualizer_enabled : Bool
+    property visualizer_fifo_path : String
 
     def initialize
       @host = "localhost"
@@ -49,6 +53,8 @@ module MPDUI
       @lastfm_enabled = false
       @lastfm_username = ""
       @lastfm_session_key = ""
+      @visualizer_enabled = true
+      @visualizer_fifo_path = "/tmp/mpd.fifo"
     end
 
     def self.load : Settings
@@ -67,6 +73,8 @@ module MPDUI
       settings.lastfm_enabled = read_bool(store, LASTFM_ENABLED_KEY, settings.lastfm_enabled?)
       settings.lastfm_username = store.value(LASTFM_USERNAME_KEY, settings.lastfm_username).as?(String) || settings.lastfm_username
       settings.lastfm_session_key = store.value(LASTFM_SESSION_KEY, settings.lastfm_session_key).as?(String) || settings.lastfm_session_key
+      settings.visualizer_enabled = read_bool(store, VISUALIZER_ENABLED_KEY, settings.visualizer_enabled?)
+      settings.visualizer_fifo_path = store.value(VISUALIZER_FIFO_KEY, settings.visualizer_fifo_path).as?(String) || settings.visualizer_fifo_path
       settings
     rescue
       new
@@ -87,6 +95,8 @@ module MPDUI
       store.set_value(LASTFM_ENABLED_KEY, @lastfm_enabled)
       store.set_value(LASTFM_USERNAME_KEY, @lastfm_username)
       store.set_value(LASTFM_SESSION_KEY, @lastfm_session_key)
+      store.set_value(VISUALIZER_ENABLED_KEY, @visualizer_enabled)
+      store.set_value(VISUALIZER_FIFO_KEY, @visualizer_fifo_path)
       store.sync
     rescue
       nil
