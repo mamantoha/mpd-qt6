@@ -17,9 +17,10 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Saved playlist management: browse MPD playlists, preview songs, save the current queue, rename/delete playlists, append playlists to the queue, or replace the queue with a playlist.
 - Configurable MPD connection and optional Last.fm scrobbling.
 - MPD output management for enabling or disabling configured audio outputs.
+- Optional MPD FIFO spectrum visualizer in the playback header.
 - Linux desktop integration through MPRISv2 for media keys, desktop media widgets, metadata, position, volume, shuffle/repeat, and cover art.
 - System tray support with close-to-tray behavior, restore/show toggle, and playback actions.
-- Persistent UI preferences for layout, expanded mode, menu visibility, blurred cover background, window size, and splitter sizes.
+- Persistent UI preferences for layout, expanded mode, menu visibility, blurred cover background, visualizer settings, window size, and splitter sizes.
 
 ## Requirements
 
@@ -78,12 +79,16 @@ Tested on Linux and macOS with Qt6. Windows are untested.
 - Domain/service objects keep non-Qt behavior isolated:
   - `song.cr` and `playback_state.cr` wrap MPD song metadata and current playback state
   - `cover_art_service.cr` fetches MPD cover art and handles the disk cover cache
+  - `visualizer_service.cr` reads MPD's raw FIFO audio, tracks FIFO availability/playback state, and exposes normalized levels for the UI
   - `library_index.cr` handles database filtering, artist/album/song grouping, album sorting by year, and song sorting by disc/track
   - `background_task.cr` centralizes short worker-thread jobs and Qt-main-thread callbacks
+- `src/mpd_ui/dsp/` contains small audio-processing helpers:
+  - `spectrum_analyzer.cr` converts raw PCM frames into logarithmic FFT spectrum bands for the header visualizer
 - View classes under `src/mpd_ui/views/` own Qt widget construction and rendering:
   - `application_menu.cr` builds the main menu/actions and menu shortcuts
   - `app_layout_view.cr` arranges the player header, library/queue splitter, and compact spacer
-  - `player_header_view.cr` owns the playback header widgets, controls, volume popup, cover click handling, and progress tooltip
+  - `player_header_view.cr` owns the playback header widgets, visualizer widget, controls, volume popup, cover click handling, and progress tooltip
+  - `visualizer_widget.cr` paints spectrum bars from `VisualizerService`
   - `queue_view.cr` owns the queue `QTreeView`, model rendering, context menu, shortcuts, selection helpers, drop filter, and row indicators
   - `library_view.cr` owns the database browser tree, search panel, genre filter, custom item delegate, context menu, drag filter, and selected URI collection
   - `playlists_view.cr` owns the saved playlist browser, playlist context menu, song preview, and playlist-song drag source
@@ -91,7 +96,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `player_controller.cr` reads MPD status/current-song/playlist snapshots and converts them into `PlaybackState` transitions
   - `queue_controller.cr` tracks queue positions/ids and plans multi-row reorders
 - App glue modules under `src/mpd_ui/app/` connect views/controllers/services to MPD commands and UI state:
-  - `player.cr` handles playback refresh, progress, volume, cover rendering, blurred header background, and current-song UI updates
+  - `player.cr` handles playback refresh, progress, volume, cover rendering, blurred header background, visualizer playback state, and current-song UI updates
   - `queue.cr` wires `QueueView`/`QueueController` to MPD queue commands and database-to-queue drops
   - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, genre filtering, and add-to-queue behavior
   - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
@@ -109,7 +114,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
 - One MPD client handles commands and status reads
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread
-- `Settings` wraps `QSettings` persistence for connection details, UI visibility preferences, layout size, and splitter state
+- `Settings` wraps `QSettings` persistence for connection details, UI visibility preferences, visualizer configuration, layout size, and splitter state
 - The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, tree views, standard item models, custom item delegates, event filters, shortcuts, and graphics effects
 
 ## License
