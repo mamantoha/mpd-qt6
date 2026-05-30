@@ -23,7 +23,8 @@ module MPDUI
     @mutex = Mutex.new
     @running = Atomic(Bool).new(false)
     @enabled = Atomic(Bool).new(true)
-    @available = Atomic(Bool).new(false)
+    @playback_active = Atomic(Bool).new(false)
+    @connected = Atomic(Bool).new(false)
     @analyzer : DSP::SpectrumAnalyzer
 
     def initialize(@path : String = "/tmp/mpd.fifo", @bar_count : Int32 = 56)
@@ -37,7 +38,7 @@ module MPDUI
 
     def configure(enabled : Bool, path : String) : Nil
       @enabled.set(enabled)
-      @available.set(false)
+      @connected.set(false)
       @mutex.synchronize do
         @path = path.empty? ? "/tmp/mpd.fifo" : path
         @levels = Array.new(@bar_count, 0.0) unless enabled
@@ -45,7 +46,13 @@ module MPDUI
     end
 
     def available? : Bool
-      @available.get
+      @enabled.get && (@connected.get || File.exists?(path))
+    end
+
+    def playback_active=(value : Bool) : Bool
+      @playback_active.set(value)
+      clear_levels unless value
+      value
     end
 
     def start : Nil
@@ -63,7 +70,11 @@ module MPDUI
     end
 
     def reset : Nil
-      @available.set(false)
+      @connected.set(false)
+      clear_levels
+    end
+
+    def clear_levels : Nil
       @mutex.synchronize { @levels = Array.new(@bar_count, 0.0) }
     end
 
@@ -75,7 +86,12 @@ module MPDUI
 
       while @running.get
         unless @enabled.get
-          @available.set(false)
+          sleep 250.milliseconds
+          next
+        end
+
+        unless @playback_active.get
+          clear_levels
           sleep 250.milliseconds
           next
         end
@@ -90,7 +106,11 @@ module MPDUI
 
               bytes_read = read_full(fifo, buffer)
               unless bytes_read == buffer.size
-                @available.set(false)
+                break
+              end
+
+              unless @playback_active.get
+                clear_levels
                 break
               end
 
@@ -108,14 +128,14 @@ module MPDUI
               end
 
               @mutex.synchronize { @levels = normalized }
-              @available.set(true)
+              @connected.set(true)
             end
           end
         rescue File::NotFoundError
-          @available.set(false)
+          @connected.set(false)
           sleep 2.seconds
         rescue IO::Error
-          @available.set(false)
+          @connected.set(false)
           sleep 500.milliseconds
         end
       end

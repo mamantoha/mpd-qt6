@@ -106,6 +106,7 @@ module MPDUI
       transition = @player_controller.transition_from_status(status, song, previous_playback, @queue_controller.empty?)
       playback = transition.playback
       @playback_state = playback
+      @visualizer_service.playback_active = !playback.stopped?
       if playback.stopped? || previous_playback.song_position != playback.song_position
         @player_header_view.try(&.cancel_progress_drag)
       end
@@ -153,7 +154,7 @@ module MPDUI
       elsif playback.stopped?
         @current_file = ""
         @cover_art_generation.add(1)
-        @visualizer_service.reset
+        @visualizer_service.clear_levels
         clear_cover_art
         @title_label.try(&.text = "Stopped")
         @subtitle_label.try(&.text = "")
