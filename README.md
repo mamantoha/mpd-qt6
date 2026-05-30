@@ -40,6 +40,27 @@ shards build --release -Dpreview_mt
 ./bin/garnetune
 ```
 
+## Visualizer
+
+Garnetune can show a spectrum visualizer in the playback header. MPD must be
+configured to write raw PCM audio to a FIFO because MPD does not expose spectrum
+data directly.
+
+Add a FIFO output to `mpd.conf`:
+
+```conf
+audio_output {
+    type   "fifo"
+    name   "visualizer"
+    path   "/tmp/mpd.fifo"
+    format "44100:16:2"
+}
+```
+
+Restart MPD after changing the config. In Garnetune, open Settings ->
+Visualizer, enable the visualizer, and set the FIFO path to the same value,
+for example `/tmp/mpd.fifo`.
+
 ## Dependencies
 
 | Shard | Purpose |
