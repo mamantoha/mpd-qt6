@@ -340,7 +340,7 @@ module MPDUI
       background.fill(Qt6::Color.new(0, 0, 0, 0))
       Qt6::QPainter.paint(background) do |painter|
         painter.draw_pixmap(Qt6::RectF.new(0, 0, width, height), scaled)
-        painter.fill_rect(Qt6::RectF.new(0, 0, width, height), Qt6::Color.new(0, 0, 0, 96))
+        painter.fill_rect(Qt6::RectF.new(0, 0, width, height), Qt6::Color.new(0, 0, 0, 140))
       end
 
       @playback_header.try(&.style_sheet = "")

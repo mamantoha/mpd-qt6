@@ -56,7 +56,7 @@ module MPDUI
         label.visible = false
 
         blur = Qt6::GraphicsBlurEffect.new(label).tap do |effect|
-          effect.blur_radius = 18
+          effect.blur_radius = 28
         end
 
         label.graphics_effect = blur

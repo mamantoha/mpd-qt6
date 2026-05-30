@@ -50,7 +50,6 @@ module MPDUI
 
       painter.antialiasing = true
       painter.pen = Qt6::QPen.new(Qt6::Color.new(0, 0, 0, 0), 0).tap { |pen| pen.style = Qt6::PenStyle::NoPen }
-      painter.brush = highlight_color
 
       gap = 2.0
       bar_width = {1.0, (width - gap * (levels.size - 1)) / levels.size}.max
@@ -60,13 +59,21 @@ module MPDUI
         x = index * (bar_width + gap)
         y = height - bar_height
 
+        painter.brush = shadow_color
+        painter.draw_rounded_rect(Qt6::RectF.new(x, y + 1.0, bar_width, bar_height), 2.0, 2.0)
+        painter.brush = highlight_color
         painter.draw_rounded_rect(Qt6::RectF.new(x, y, bar_width, bar_height), 2.0, 2.0)
       end
     end
 
     private def highlight_color : Qt6::Color
       color = @root.palette.color(Qt6::ColorRole::Highlight)
-      Qt6::Color.new(color.red, color.green, color.blue, 130)
+      Qt6::Color.new(color.red, color.green, color.blue)
+    end
+
+    private def shadow_color : Qt6::Color
+      color = @root.palette.color(Qt6::ColorRole::Shadow)
+      Qt6::Color.new(color.red, color.green, color.blue, 90)
     end
   end
 end
