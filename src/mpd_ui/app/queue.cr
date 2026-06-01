@@ -25,12 +25,8 @@ module MPDUI
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
         elsif drag_is_external_uri_drop?(drop_event)
-          if @drag_source_type == :stored_playlist
-            drop_event.drop_action = Qt6::DropAction::CopyAction
-            drop_event.accept
-          else
-            drop_event.accept_proposed_action
-          end
+          drop_event.drop_action = Qt6::DropAction::CopyAction
+          drop_event.accept
         end
       }
       queue.on_drag_leave = -> {
@@ -42,10 +38,8 @@ module MPDUI
         if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
           handled = move_selected_playlist_rows(queue.drop_row_for(drop_event))
         elsif external_uri_drag_source? && drag_is_external_uri_drop?(drop_event)
-          if @drag_source_type == :stored_playlist
-            drop_event.drop_action = Qt6::DropAction::CopyAction
-            drop_event.accept
-          end
+          drop_event.drop_action = Qt6::DropAction::CopyAction
+          drop_event.accept
           handled = append_selected_database_to_queue(queue.drop_row_for(drop_event))
         end
 
@@ -83,27 +77,41 @@ module MPDUI
       return false unless plan
 
       current_ids = plan.current_ids
-      mpd_action do |client|
-        client.with_command_list do
-          plan.desired_ids.each_with_index do |id, desired_index|
-            current_index = current_ids.index(id)
-            next unless current_index
-            next if current_index == desired_index
+      host = @settings.host
+      port = @settings.port
+      set_status("Updating queue order…")
 
-            client.moveid(id, desired_index)
-            moved_id = current_ids.delete_at(current_index)
-            current_ids.insert(desired_index, moved_id)
+      run_background(
+        ->(_result : Nil) {
+          @just_moved_pos = plan.target_row
+          set_status("Queue order updated")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to update queue order")
+        }
+      ) do
+        started_at = Time.instant
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "reorder queue command list start", plan.desired_ids.size
+        with_mpd_client(host, port) do |client|
+          client.with_command_list do
+            plan.desired_ids.each_with_index do |id, desired_index|
+              current_index = current_ids.index(id)
+              next unless current_index
+              next if current_index == desired_index
+
+              client.moveid(id, desired_index)
+              moved_id = current_ids.delete_at(current_index)
+              current_ids.insert(desired_index, moved_id)
+            end
           end
         end
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "reorder queue command list finished", plan.desired_ids.size, Time.instant - started_at
+        nil
       end
 
-      @just_moved_pos = plan.target_row
-      set_status("Queue order updated")
       true
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      false
     end
 
     private def clear_queue : Nil
@@ -118,6 +126,9 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
+      started_at = Time.instant
+      fetch_started_at = Time.instant
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist start"
       unless songs
         client = @client
         return unless client
@@ -125,17 +136,28 @@ module MPDUI
         songs = client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) })
       end
       return unless songs
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist fetched/mapped", songs.size, Time.instant - fetch_started_at
 
       @syncing = true
+      controller_started_at = Time.instant
       @queue_controller.replace(songs)
-      queue.render(songs) { |pos| playlist_indicator_icon(pos) }
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist controller replace", songs.size, Time.instant - controller_started_at
+
+      render_started_at = Time.instant
+      queue.render(songs) { |pos| playlist_indicator_text(pos) }
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist queue.render", songs.size, Time.instant - render_started_at
 
       if row = @just_moved_pos
+        select_started_at = Time.instant
         queue.select_row(row)
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist select moved row", row, Time.instant - select_started_at
         @just_moved_pos = nil
       elsif scroll_to_current
+        scroll_started_at = Time.instant
         scroll_playlist_to_current_song
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist scroll current", Time.instant - scroll_started_at
       end
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist total", songs.size, Time.instant - started_at
     ensure
       @syncing = false
     end
@@ -150,8 +172,8 @@ module MPDUI
 
     private def update_playlist_indicator(row : Int32) : Nil
       pos = @queue_controller.position_at(row)
-      icon = pos ? playlist_indicator_icon(pos) : nil
-      @queue_view.try(&.update_indicator(row, icon))
+      indicator = pos ? playlist_indicator_text(pos) : ""
+      @queue_view.try(&.update_indicator(row, indicator))
     end
 
     private def scroll_playlist_to_current_song : Nil
@@ -186,35 +208,59 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      positions = @queue_controller.positions_for_rows(queue.selected_rows)
+      selected_started_at = Time.instant
+      selected_rows = queue.selected_rows
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selected rows", selected_rows.size, Time.instant - selected_started_at
+
+      positions_started_at = Time.instant
+      positions = @queue_controller.positions_for_rows(selected_rows)
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue positions", positions.size, Time.instant - positions_started_at
       return if positions.empty?
 
-      mpd_action do |client|
-        client.with_command_list do
-          positions.sort.reverse_each do |pos|
-            client.delete(pos)
+      positions = positions.sort.reverse
+      host = @settings.host
+      port = @settings.port
+      suffix = positions.size == 1 ? "song" : "songs"
+      set_status("Removing #{positions.size} #{suffix} from Queue…")
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Removed #{positions.size} #{suffix} from Queue")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to remove songs from Queue")
+        }
+      ) do
+        started_at = Time.instant
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list start", positions.size
+        with_mpd_client(host, port) do |client|
+          client.with_command_list do
+            positions.each do |pos|
+              client.delete(pos)
+            end
           end
         end
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list finished", positions.size, Time.instant - started_at
+        nil
       end
-
-      suffix = positions.size == 1 ? "song" : "songs"
-      set_status("Removed #{positions.size} #{suffix} from Queue")
     end
 
     private def select_playlist_row(row : Int32) : Nil
       @queue_view.try(&.select_row(row))
     end
 
-    private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
+    private def playlist_indicator_text(pos : Int32) : String
       playback = @playback_state
-      return unless pos == playback.song_position
+      return "" unless pos == playback.song_position
 
       if playback.playing?
-        @play_icon
+        "▶"
       elsif playback.paused?
-        @pause_icon
+        "Ⅱ"
       else
-        @stop_icon
+        "■"
       end
     end
   end

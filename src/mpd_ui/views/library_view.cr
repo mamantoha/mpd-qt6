@@ -194,15 +194,32 @@ module MPDUI
     end
 
     def selected_uris : Array(String)
+      started_at = Time.instant
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_uris start"
       if selection_model = @tree.selection_model
         uris = [] of String
-        @model.row_count.times do |row|
-          if root_item = @model.item(row)
-            collect_selected_uris(root_item, selection_model, uris)
+        selected_indexes_started_at = Time.instant
+        selected_indexes = selection_model.selected_indexes
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_indexes", selected_indexes.size, Time.instant - selected_indexes_started_at
+
+        selected_indexes.each do |index|
+          begin
+            next unless index.valid?
+            next unless index.column == 0
+
+            if item = @model.item_from_index(index)
+              collect_uris(item, uris)
+            end
+          ensure
+            index.release
           end
         end
+
         uris.uniq!
-        return uris unless uris.empty?
+        unless uris.empty?
+          p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_uris", uris.size, Time.instant - started_at
+          return uris
+        end
       end
 
       index = @tree.current_index
@@ -214,6 +231,7 @@ module MPDUI
       uris = [] of String
       collect_uris(root_item, uris)
       uris.uniq!
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library current selected_uris", uris.size, Time.instant - started_at
       uris
     end
 
@@ -262,21 +280,6 @@ module MPDUI
         @context_menu.exec_at(viewport, position)
       ensure
         index.release
-      end
-    end
-
-    private def collect_selected_uris(item : Qt6::StandardItem, selection_model : Qt6::ItemSelectionModel, uris : Array(String)) : Nil
-      index = @model.index_from_item(item)
-      begin
-        collect_uris(item, uris) if selection_model.selected?(index)
-      ensure
-        index.release
-      end
-
-      item.row_count.times do |row|
-        if child = item.child(row)
-          collect_selected_uris(child, selection_model, uris)
-        end
       end
     end
 

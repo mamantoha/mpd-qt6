@@ -477,7 +477,7 @@ module MPDUI
       @library_index.replace([] of Song)
       @queue_controller.replace([] of Song)
       @visualizer_service.reset
-      @queue_view.try(&.render([] of Song) { |_pos| nil })
+      @queue_view.try(&.render([] of Song) { |_pos| "" })
       @playlists_view.try(&.render_message("Disconnected from MPD"))
       show_database_message("Disconnected from MPD")
       clear_outputs_menu("Disconnected")

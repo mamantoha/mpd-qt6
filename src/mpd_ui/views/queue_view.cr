@@ -1,7 +1,7 @@
 module MPDUI
   class QueueView
     getter view : Qt6::TreeView
-    getter model : Qt6::StandardItemModel
+    getter model : QueueModel
     getter drop_filter : Qt6::EventFilter?
 
     property on_play_selected : Proc(Nil)?
@@ -20,8 +20,7 @@ module MPDUI
 
     def initialize(parent : Qt6::Widget)
       @view = Qt6::TreeView.new(parent)
-      @model = Qt6::StandardItemModel.new(@view)
-      configure_model
+      @model = QueueModel.new(@view)
       configure_view
 
       @context_menu = Qt6::Menu.new("Queue", @view)
@@ -83,58 +82,35 @@ module MPDUI
       @drop_filter = filter
     end
 
-    def render(songs : Array(Song), & : Int32 -> Qt6::QIcon?) : Nil
-      @model.clear
-      configure_model
+    def render(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
+      started_at = Time.instant
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render start", songs.size
+
+      reset_started_at = Time.instant
+      @model.replace(songs) { |pos| indicator_for.call(pos) }
       configure_header
-
-      songs.each_with_index do |song, row|
-        pos = song.pos || row
-        tooltip = song.tooltip_html
-
-        indicator_item = Qt6::StandardItem.new("")
-        configure_queue_item(indicator_item)
-        icon = yield pos
-        indicator_item.icon = icon.not_nil! if icon && !icon.not_nil!.null?
-        indicator_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
-
-        title_item = Qt6::StandardItem.new(song.queue_title)
-        configure_queue_item(title_item)
-        title_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
-
-        time_item = Qt6::StandardItem.new(song.duration_label)
-        configure_queue_item(time_item)
-        time_item.set_data(tooltip, Qt6::ItemDataRole::ToolTip)
-        time_item.set_data((Qt6::AlignmentFlag::Right | Qt6::AlignmentFlag::VCenter).value, Qt6::ItemDataRole::TextAlignment)
-
-        @model.set_item(row, 0, indicator_item)
-        @model.set_item(row, 1, title_item)
-        @model.set_item(row, 2, time_item)
-      end
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render model reset", songs.size, Time.instant - reset_started_at
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render total", songs.size, Time.instant - started_at
     end
 
-    def update_indicator(row : Int32, icon : Qt6::QIcon?) : Nil
+    def update_indicator(row : Int32, value : String) : Nil
       return if row < 0 || row >= @model.row_count
 
-      item = @model.item(row, 0)
-      return unless item
-
-      item.icon = icon && !icon.null? ? icon : Qt6::QIcon.new
+      @model.update_indicator(row, value)
     end
 
     def selected_rows : Array(Int32)
       selection_model = @view.selection_model
       return current_rows unless selection_model
 
-      rows = [] of Int32
-      @model.row_count.times do |row|
-        index = @model.index(row, 0)
+      rows = selection_model.selected_rows(0).compact_map do |index|
         begin
-          rows << row if selection_model.selected?(index)
+          next unless index.valid?
+          index.row
         ensure
           index.release
         end
-      end
+      end.uniq!
 
       rows.empty? ? current_rows : rows
     end
@@ -198,16 +174,6 @@ module MPDUI
 
     def empty? : Bool
       row_count <= 0
-    end
-
-    private def configure_model : Nil
-      @model.set_horizontal_header_label(0, "State")
-      @model.set_horizontal_header_label(1, "Track")
-      @model.set_horizontal_header_label(2, "Time")
-    end
-
-    private def configure_queue_item(item : Qt6::StandardItem) : Nil
-      item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
     end
 
     private def configure_view : Nil

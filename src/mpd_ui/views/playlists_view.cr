@@ -507,21 +507,15 @@ module MPDUI
       selection_model = @song_view.selection_model
       return [] of Qt6::StandardItem unless selection_model
 
-      items = [] of Qt6::StandardItem
-      @playlist_items.each_value do |playlist_item|
-        playlist_item.row_count.times do |row|
-          child = playlist_item.child(row, 0)
-          next unless child
+      selection_model.selected_rows(0).compact_map do |index|
+        begin
+          next unless index.valid? && song_index?(index)
 
-          index = @song_model.index_from_item(child)
-          begin
-            items << child if selection_model.selected?(index)
-          ensure
-            index.release
-          end
+          @song_model.item_from_index(index)
+        ensure
+          index.release
         end
       end
-      items
     end
 
     private def current_song_items : Array(Qt6::StandardItem)

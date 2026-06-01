@@ -138,5 +138,12 @@ module MPDUI
       @title_label.try(&.text = "Error")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
     end
+
+    private def with_mpd_client(host : String, port : Int32, & : MPD::Client -> T) : T forall T
+      client = MPD::Client.new(host, port)
+      yield client
+    ensure
+      client.try(&.disconnect)
+    end
   end
 end

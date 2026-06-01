@@ -12,7 +12,7 @@ module MPDUI
       library.on_add_to_queue = -> { add_selected_database_to_queue }
       library.on_selection_changed = -> {
         @playlist_drag_source_row = nil
-        @dragged_database_uris = selected_database_uris
+        @dragged_database_uris.clear
       }
       library.on_mouse_press = -> {
         @playlist_drag_source_row = nil
@@ -154,26 +154,43 @@ module MPDUI
       uris = @dragged_database_uris.empty? ? selected_database_uris : @dragged_database_uris.dup
       return false if uris.empty?
 
-      mpd_action do |client|
-        client.with_command_list do
-          if base_position = @queue_controller.base_position_for_insert(insert_row)
-            uris.each_with_index do |uri, offset|
-              client.addid(uri, base_position + offset)
+      base_position = @queue_controller.base_position_for_insert(insert_row)
+      host = @settings.host
+      port = @settings.port
+      suffix = uris.size == 1 ? "song" : "songs"
+      action = insert_row ? "Inserting" : "Adding"
+      set_status("#{action} #{uris.size} #{suffix} from Database…")
+
+      run_background(
+        ->(_result : Nil) {
+          done_action = insert_row ? "Inserted" : "Added"
+          set_status("#{done_action} #{uris.size} #{suffix} from Database")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to add songs from Database")
+        }
+      ) do
+        started_at = Time.instant
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "add database selection to queue start", uris.size, base_position
+        with_mpd_client(host, port) do |client|
+          client.with_command_list do
+            if base_position
+              uris.each_with_index do |uri, offset|
+                client.addid(uri, base_position + offset)
+              end
+            else
+              uris.each { |uri| client.add(uri) }
             end
-          else
-            uris.each { |uri| client.add(uri) }
           end
         end
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "add database selection to queue finished", uris.size, Time.instant - started_at
+        nil
       end
-      suffix = uris.size == 1 ? "song" : "songs"
-      action = insert_row ? "Inserted" : "Added"
-      set_status("#{action} #{uris.size} #{suffix} from Database")
+
       @dragged_database_uris.clear
       true
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      false
     end
   end
 end
