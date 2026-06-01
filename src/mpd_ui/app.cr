@@ -61,6 +61,10 @@ module MPDUI
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
+    @database_filter_timer : Qt6::QTimer?
+    @last_database_filter_query : String? = nil
+    @last_database_filter_genre : String? = nil
+    @database_filter_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @queue_drop_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
     @output_actions : Array(Qt6::Action) = [] of Qt6::Action

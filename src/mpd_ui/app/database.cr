@@ -6,7 +6,13 @@ module MPDUI
 
     private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
       library = LibraryView.new(parent)
-      library.on_search_changed = -> { apply_database_filter }
+      @database_filter_timer = Qt6::QTimer.new(parent).tap do |timer|
+        timer.single_shot = true
+        timer.interval = 180
+        timer.on_timeout { apply_database_filter }
+      end
+
+      library.on_search_changed = -> { schedule_database_filter }
       library.on_search_closed = -> { hide_database_search }
       library.on_genre_changed = -> { apply_database_filter }
       library.on_add_to_queue = -> { add_selected_database_to_queue }
@@ -95,7 +101,7 @@ module MPDUI
           @database_loaded = true
           @database_loading = false
           @library_view.try(&.render_genres(result.genres))
-          apply_database_filter
+          apply_database_filter(force: true)
         },
         ->(ex : Exception) {
           @database_loaded = false
@@ -132,18 +138,60 @@ module MPDUI
     end
 
     private def apply_database_filter : Nil
+      apply_database_filter(force: false)
+    end
+
+    private def apply_database_filter(*, force : Bool) : Nil
       library = @library_view
-      return unless library
-
-      result = @library_index.filter(library.query, library.selected_genre)
-      library.render(result, expand_all: !library.query.empty?)
-      @dragged_database_uris.clear
-
-      if result.filtered
-        set_status("Database filter: #{result.songs_count} of #{@library_index.songs.size} songs")
-      else
-        set_status("Database loaded • #{@library_index.songs.size} songs") if @database_loaded
+      unless library
+        return
       end
+      library = library.as(LibraryView)
+
+      query = library.query
+      genre = library.selected_genre
+      return if !force && query == @last_database_filter_query && genre == @last_database_filter_genre
+
+      @database_filter_timer.try(&.stop)
+      @last_database_filter_query = query
+      @last_database_filter_genre = genre
+
+      songs = @library_index.songs.dup
+      generation = @database_filter_generation.add(1) + 1
+
+      run_background(
+        ->(result : LibraryIndex::Result) {
+          if @database_filter_generation.get == generation
+            library = @library_view
+            if library
+              library = library.as(LibraryView)
+            end
+
+            if library && library.query == query && library.selected_genre == genre
+              library.render(result, expand_all: !query.empty?)
+              @dragged_database_uris.clear
+
+              if result.filtered
+                set_status("Database filter: #{result.songs_count} of #{songs.size} songs")
+              else
+                set_status("Database loaded • #{songs.size} songs") if @database_loaded
+              end
+            end
+          end
+        },
+        ->(ex : Exception) {
+          if @database_filter_generation.get == generation
+            show_database_message("Failed to filter database")
+            set_status("Database filter failed: #{ex.message || ex}")
+          end
+        }
+      ) do
+        LibraryIndex.new(songs).filter(query, genre)
+      end
+    end
+
+    private def schedule_database_filter : Nil
+      @database_filter_timer.try(&.start)
     end
 
     private def selected_database_uris : Array(String)
