@@ -59,7 +59,7 @@ module MPDUI
         when Qt6::EventType::DragMove
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           @on_drag_move.try(&.call(drop_event))
-          false
+          drop_event.accepted? && !row_at(drop_event.position)
         when Qt6::EventType::DragLeave
           @on_drag_leave.try(&.call)
           false
@@ -104,14 +104,15 @@ module MPDUI
       selection_model = @view.selection_model
       return current_rows unless selection_model
 
-      rows = selection_model.selected_rows(0).compact_map do |index|
-        begin
-          next unless index.valid?
-          index.row
-        ensure
-          index.release
+      rows = [] of Int32
+      selection_model.selected_row_ranges(0).each do |top, bottom|
+        next if bottom < top
+
+        top.upto(bottom) do |row|
+          rows << row
         end
-      end.uniq!
+      end
+      rows.uniq!
 
       rows.empty? ? current_rows : rows
     end

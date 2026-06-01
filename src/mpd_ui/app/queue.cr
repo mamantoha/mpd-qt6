@@ -249,15 +249,53 @@ module MPDUI
         started_at = Time.instant
         p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list start", positions.size
         with_mpd_client(host, port) do |client|
-          client.with_command_list do
-            positions.each do |pos|
-              client.delete(pos)
-            end
-          end
+          delete_queue_positions(client, positions)
         end
         p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list finished", positions.size, Time.instant - started_at
         nil
       end
+    end
+
+    private def delete_queue_positions(client : MPD::Client, positions : Array(Int32)) : Nil
+      if positions.size >= @queue_controller.size
+        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue using clear", positions.size
+        client.clear
+        return
+      end
+
+      ranges = queue_delete_ranges(positions)
+      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue ranges", ranges.size
+      client.with_command_list do
+        ranges.reverse_each do |first, last|
+          if first == last
+            client.delete(first)
+          else
+            client.delete(first..last)
+          end
+        end
+      end
+    end
+
+    private def queue_delete_ranges(positions : Array(Int32)) : Array(Tuple(Int32, Int32))
+      sorted = positions.sort.uniq!
+      return [] of Tuple(Int32, Int32) if sorted.empty?
+
+      ranges = [] of Tuple(Int32, Int32)
+      first = sorted.first
+      last = first
+
+      sorted[1..].each do |position|
+        if position == last + 1
+          last = position
+        else
+          ranges << {first, last}
+          first = position
+          last = position
+        end
+      end
+
+      ranges << {first, last}
+      ranges
     end
 
     private def select_playlist_row(row : Int32) : Nil
