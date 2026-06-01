@@ -202,6 +202,7 @@ module MPDUI
           begin
             next unless index.valid?
             next unless index.column == 0
+            next if selected_ancestor?(selection_model, index)
 
             if item = @model.item_from_index(index)
               collect_uris(item, uris)
@@ -227,6 +228,23 @@ module MPDUI
       collect_uris(root_item, uris)
       uris.uniq!
       uris
+    end
+
+    private def selected_ancestor?(selection_model : Qt6::ItemSelectionModel, index : Qt6::ModelIndex) : Bool
+      parent = index.parent(@model)
+
+      loop do
+        begin
+          return false unless parent.valid?
+          return true if selection_model.selected?(parent)
+
+          next_parent = parent.parent(@model)
+        ensure
+          parent.release
+        end
+
+        parent = next_parent
+      end
     end
 
     private def configure_tree : Nil

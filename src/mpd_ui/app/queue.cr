@@ -12,12 +12,6 @@ module MPDUI
       }
       queue.on_drag_enter = ->(drop_event : Qt6::DropEvent) {
         @drag_source_type ||= :playlist
-        case @drag_source_type
-        when :database
-          @dragged_database_uris = selected_database_uris
-        when :stored_playlist
-          @dragged_database_uris = selected_stored_playlist_song_uris
-        end
 
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
@@ -66,7 +60,7 @@ module MPDUI
     end
 
     private def drag_is_external_uri_drop?(event : Qt6::DropEvent) : Bool
-      external_uri_drag_source? && !!event.mime_data && @dragged_database_uris.present?
+      external_uri_drag_source? && !!event.mime_data
     end
 
     private def external_uri_drag_source? : Bool
