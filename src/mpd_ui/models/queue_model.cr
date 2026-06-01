@@ -67,8 +67,6 @@ module MPDUI
         if index.column == 2
           (Qt6::AlignmentFlag::Right | Qt6::AlignmentFlag::VCenter).value
         end
-      else
-        nil
       end
     end
 

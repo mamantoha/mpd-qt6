@@ -151,8 +151,6 @@ module MPDUI
         node.song_uri
       when Qt6::ItemDataRole::ToolTip.value
         node.tooltip
-      else
-        nil
       end
     end
 

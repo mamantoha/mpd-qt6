@@ -13,8 +13,6 @@ module MPDUI
         when Artist then "artist"
         when Album  then "album"
         when Song   then "song"
-        else
-          nil
         end
       end
     end
@@ -134,8 +132,6 @@ module MPDUI
         node.file
       when Qt6::ItemDataRole::ToolTip.value
         node.tooltip
-      else
-        nil
       end
     end
 
