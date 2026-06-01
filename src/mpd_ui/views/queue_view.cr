@@ -16,12 +16,16 @@ module MPDUI
 
     @context_menu : Qt6::Menu
     @play_now_action : Qt6::Action
+    @selection : QueueSelection
+    @drag_drop : QueueDragDrop
     @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
 
     def initialize(parent : Qt6::Widget)
       @view = Qt6::TreeView.new(parent)
       @model = QueueModel.new(@view)
       configure_view
+      @selection = QueueSelection.new(@view)
+      @drag_drop = QueueDragDrop.new(@view, @model)
 
       @context_menu = Qt6::Menu.new("Queue", @view)
       @play_now_action = add_context_action("Play Now", "media-playback-start") { @on_play_selected.try(&.call) }
@@ -34,53 +38,15 @@ module MPDUI
     end
 
     def install_drop_filter : Nil
-      viewport = @view.viewport
-      viewport.accept_drops = true
-
-      filter = Qt6::EventFilter.new(viewport)
-      filter.on_event do |_watched, event|
-        case event.type
-        when Qt6::EventType::MouseButtonPress
-          mouse_event = event.mouse_event
-          if mouse_event.button == 2
-            show_context_menu(viewport, mouse_event.position)
-            true
-          else
-            @on_mouse_press_row.try(&.call(row_at(mouse_event.position)))
-            false
-          end
-        when Qt6::EventType::MouseButtonDblClick
-          @on_play_selected.try(&.call)
-          true
-        when Qt6::EventType::DragEnter
-          drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          @on_drag_enter.try(&.call(drop_event))
-          false
-        when Qt6::EventType::DragMove
-          drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          @on_drag_move.try(&.call(drop_event))
-          false
-        when Qt6::EventType::DragLeave
-          @on_drag_leave.try(&.call)
-          false
-        when Qt6::EventType::Drop
-          drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          handled = @on_drop.try(&.call(drop_event)) || false
-
-          if handled
-            drop_event.accept_proposed_action unless drop_event.accepted?
-          else
-            drop_event.ignore
-          end
-
-          true
-        else
-          false
-        end
-      end
-
-      viewport.install_event_filter(filter)
-      @drop_filter = filter
+      @drag_drop.on_context_menu = ->(viewport : Qt6::Widget, position : Qt6::PointF) { show_context_menu(viewport, position) }
+      @drag_drop.on_play_selected = -> { @on_play_selected.try(&.call) }
+      @drag_drop.on_mouse_press_row = ->(row : Int32?) { @on_mouse_press_row.try(&.call(row)) }
+      @drag_drop.on_drag_enter = ->(event : Qt6::DropEvent) { @on_drag_enter.try(&.call(event)) }
+      @drag_drop.on_drag_move = ->(event : Qt6::DropEvent) { @on_drag_move.try(&.call(event)) }
+      @drag_drop.on_drag_leave = -> { @on_drag_leave.try(&.call) }
+      @drag_drop.on_drop = ->(event : Qt6::DropEvent) { @on_drop.try(&.call(event)) || false }
+      @drag_drop.install
+      @drop_filter = @drag_drop.filter
     end
 
     def render(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
@@ -95,78 +61,23 @@ module MPDUI
     end
 
     def selected_rows : Array(Int32)
-      selected_row_ranges.flat_map do |first, last|
-        (first..last).to_a
-      end
+      @selection.selected_rows
     end
 
     def selected_row_ranges : Array(Tuple(Int32, Int32))
-      selection_model = @view.selection_model
-      return current_row_ranges unless selection_model
-
-      ranges = [] of Tuple(Int32, Int32)
-      selection = selection_model.selection
-      begin
-        selection.count.times do |index|
-          range = selection.at(index)
-          begin
-            next if range.bottom < range.top
-            next unless range.left <= 0 && range.right >= 0
-
-            ranges << {range.top, range.bottom}
-          ensure
-            range.release
-          end
-        end
-      ensure
-        selection.release
-      end
-
-      ranges.empty? ? current_row_ranges : merge_row_ranges(ranges)
+      @selection.selected_row_ranges
     end
 
     def selected_row_count : Int32
-      selected_row_ranges.sum do |first, last|
-        last - first + 1
-      end
+      @selection.selected_row_count
     end
 
     def selected_row?(row : Int32) : Bool
-      selected_row_ranges.any? do |first, last|
-        row.in?(first..last)
-      end
+      @selection.selected_row?(row)
     end
 
     def current_rows : Array(Int32)
-      index = @view.current_index
-      begin
-        index.valid? ? [index.row] : [] of Int32
-      ensure
-        index.release
-      end
-    end
-
-    private def current_row_ranges : Array(Tuple(Int32, Int32))
-      current_rows.map { |row| {row, row} }
-    end
-
-    private def merge_row_ranges(ranges : Array(Tuple(Int32, Int32))) : Array(Tuple(Int32, Int32))
-      sorted = ranges.sort_by { |first, _last| first }
-      merged = [] of Tuple(Int32, Int32)
-
-      sorted.each do |first, last|
-        if current = merged.last?
-          current_first, current_last = current
-          if first <= current_last + 1
-            merged[-1] = {current_first, Math.max(current_last, last)}
-            next
-          end
-        end
-
-        merged << {first, last}
-      end
-
-      merged
+      @selection.current_rows
     end
 
     def select_row(row : Int32, *, scroll : Bool = true) : Nil
@@ -186,31 +97,11 @@ module MPDUI
     end
 
     def drop_row_for(event : Qt6::DropEvent) : Int32
-      return 0 if @model.row_count <= 0
-
-      y = event.position.y
-      return 0 if y <= 4.0
-
-      index = @view.index_at(event.position)
-      unless index.valid?
-        index.release
-        return @model.row_count
-      end
-
-      rect = @view.visual_rect(index)
-      row = index.row
-      index.release
-
-      y < rect.y + rect.height / 2.0 ? row : row + 1
+      @drag_drop.drop_row_for(event)
     end
 
     def row_at(position : Qt6::PointF) : Int32?
-      index = @view.index_at(position)
-      begin
-        index.valid? ? index.row : nil
-      ensure
-        index.release
-      end
+      @drag_drop.row_at(position)
     end
 
     def row_count : Int32
