@@ -1,8 +1,5 @@
 module MPDUI
   class PlaylistsView
-    ROW_TYPE_PLAYLIST = PlaylistsModel::ROW_TYPE_PLAYLIST
-    ROW_TYPE_SONG     = PlaylistsModel::ROW_TYPE_SONG
-
     getter root : Qt6::Widget
     getter song_view : Qt6::TreeView
     getter song_model : PlaylistsModel
@@ -21,10 +18,13 @@ module MPDUI
     property on_song_mouse_press : Proc(Nil)?
     property on_song_drag_enter : Proc(Nil)?
     property on_song_drag_finished : Proc(Nil)?
+    property on_external_song_drag : Proc(Nil)?
+    property on_external_song_drop : Proc(String, Int32?, Bool)?
 
-    @last_selected_playlist_name : String?
     @syncing_selection = false
     @delegate : Qt6::StyledItemDelegate
+    @selection : PlaylistTreeSelection
+    @drag_drop : PlaylistTreeDragDrop
     @context_menu : Qt6::Menu
     @replace_queue_action : Qt6::Action
     @add_to_queue_action : Qt6::Action
@@ -34,14 +34,6 @@ module MPDUI
     @add_songs_to_queue_action : Qt6::Action
     @remove_songs_action : Qt6::Action
     @song_shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
-    @dragged_song_playlist_name : String?
-    @dragged_song_positions : Array(Int32) = [] of Int32
-    @dragged_song_uris : Array(String) = [] of String
-    @selected_song_uris_cache : Array(String) = [] of String
-    @selected_song_positions_cache : Array(Int32) = [] of Int32
-    @selected_song_playlist_name_cache : String?
-    @selection_cache_dirty = true
-    @playlist_controller = PlaylistController.new
 
     def initialize(parent : Qt6::Widget)
       @root = Qt6::Widget.new(parent)
@@ -51,6 +43,8 @@ module MPDUI
       configure_song_view
       @delegate = TwoLineItemDelegate.build(@song_view, @song_model)
       @song_view.item_delegate = @delegate
+      @selection = PlaylistTreeSelection.new(@song_view, @song_model)
+      @drag_drop = PlaylistTreeDragDrop.new(@song_view, @song_model, @selection)
 
       @context_menu = Qt6::Menu.new("Playlist", @song_view)
       add_context_action("Refresh", "view-refresh") { @on_refresh.try(&.call) }
@@ -67,6 +61,7 @@ module MPDUI
       update_action_buttons
 
       @song_view.on_current_index_changed { handle_current_index_changed }
+      install_context_filter
       install_song_drag_filter
 
       @root.vbox do |column|
@@ -85,9 +80,9 @@ module MPDUI
       configure_song_header
 
       name_to_select = previous_name && @song_model.has_playlist?(previous_name) ? previous_name : @song_model.first_playlist_name
-      @last_selected_playlist_name = name_to_select
+      @selection.last_selected_playlist_name = name_to_select
       restore_expanded_playlists(expanded_names)
-      select_playlist(name_to_select)
+      @selection.select_playlist(name_to_select)
     ensure
       @syncing_selection = false
       update_action_buttons
@@ -100,26 +95,18 @@ module MPDUI
     end
 
     def selected_playlist_name : String?
-      index = @song_view.current_index
-      begin
-        return playlist_name_for_index(index) if index.valid?
-      ensure
-        index.release
-      end
-
-      @last_selected_playlist_name
+      @selection.selected_playlist_name
     end
 
     def selected_song_uris : Array(String)
-      return @dragged_song_uris.dup unless @dragged_song_uris.empty?
+      dragged = @drag_drop.dragged_song_uris
+      return dragged.dup unless dragged.empty?
 
-      refresh_selection_cache if @selection_cache_dirty
-      @selected_song_uris_cache.dup
+      @selection.selected_song_uris
     end
 
     def selected_song_positions : Array(Int32)
-      refresh_selection_cache if @selection_cache_dirty
-      @selected_song_positions_cache.dup
+      @selection.selected_song_positions
     end
 
     private def configure_song_view : Nil
@@ -189,8 +176,7 @@ module MPDUI
 
     private def update_action_buttons : Nil
       playlist_selected = !!selected_playlist_name
-      refresh_selection_cache if @selection_cache_dirty
-      song_selected = !@selected_song_positions_cache.empty?
+      song_selected = @selection.selected_song?
       @replace_queue_action.enabled = playlist_selected
       @add_to_queue_action.enabled = playlist_selected
       @rename_action.enabled = playlist_selected
@@ -199,9 +185,8 @@ module MPDUI
       @remove_songs_action.enabled = song_selected
     end
 
-    private def install_song_drag_filter : Nil
+    private def install_context_filter : Nil
       viewport = @song_view.viewport
-      viewport.accept_drops = true
 
       filter = Qt6::EventFilter.new(viewport)
       filter.on_event do |_watched, event|
@@ -212,131 +197,26 @@ module MPDUI
             show_context_menu(viewport, mouse_event.position)
             true
           else
-            if song_index_at?(mouse_event.position)
-              remember_dragged_song(mouse_event.position)
-              @on_song_mouse_press.try(&.call)
-            end
             false
           end
-        when Qt6::EventType::DragEnter
-          @on_song_drag_enter.try(&.call) if current_song?
-          false
-        when Qt6::EventType::Drop
-          drop_event = Qt6::DropEvent.new(event.to_unsafe)
-          if internal_song_drag?
-            drop_event.ignore unless handle_internal_song_drop(drop_event)
-            @on_song_drag_finished.try(&.call)
-            clear_dragged_song
-            true
-          else
-            clear_dragged_song
-            @on_song_drag_finished.try(&.call)
-            false
-          end
-        when Qt6::EventType::MouseButtonRelease
-          clear_dragged_song
-          false
-        when Qt6::EventType::DragLeave
-          false
         else
           false
         end
       end
 
       viewport.install_event_filter(filter)
-      @song_drag_filter = filter
       @context_filter = filter
     end
 
-    private def remember_dragged_song(position : Qt6::PointF) : Nil
-      index = @song_view.index_at(position)
-      begin
-        unless index.valid? && song_index?(index)
-          clear_dragged_song
-          return
-        end
-
-        playlist_name = playlist_name_for_index(index)
-        song_position = song_position_for_index(index)
-        song_uri = song_uri_for_index(index)
-        unless playlist_name && song_position && song_uri
-          clear_dragged_song
-          return
-        end
-
-        selection_model = @song_view.selection_model
-        selected_drag = selection_model && selection_model.selected?(index)
-        refresh_selection_cache if selected_drag && @selection_cache_dirty
-
-        if selected_drag && @selected_song_playlist_name_cache == playlist_name && @selected_song_positions_cache.includes?(song_position)
-          @dragged_song_playlist_name = playlist_name
-          @dragged_song_positions = @selected_song_positions_cache.dup
-          @dragged_song_uris = @selected_song_uris_cache.dup
-        else
-          @dragged_song_playlist_name = playlist_name
-          @dragged_song_positions = [song_position]
-          @dragged_song_uris = [song_uri]
-          @selected_song_playlist_name_cache = playlist_name
-          @selected_song_positions_cache = @dragged_song_positions.dup
-          @selected_song_uris_cache = @dragged_song_uris.dup
-          @selection_cache_dirty = false
-        end
-      ensure
-        index.release
-      end
-    end
-
-    private def clear_dragged_song : Nil
-      @dragged_song_playlist_name = nil
-      @dragged_song_positions.clear
-      @dragged_song_uris.clear
-    end
-
-    private def internal_song_drag? : Bool
-      !!@dragged_song_playlist_name && !@dragged_song_positions.empty?
-    end
-
-    private def handle_internal_song_drop(event : Qt6::DropEvent) : Bool
-      playlist_name = @dragged_song_playlist_name
-      return false unless playlist_name
-
-      target = song_drop_target(event.position)
-      return false unless target
-      return false unless target.playlist_name == playlist_name
-
-      parent_index = parent_index_for_playlist(playlist_name)
-      begin
-        plan = @playlist_controller.move_plan(@song_model.row_count(parent_index), target.insert_position, @dragged_song_positions)
-      ensure
-        parent_index.release
-      end
-      return false unless plan
-      callback = @on_move_songs
-      return false unless callback
-
-      callback.call(playlist_name, plan.moves)
-      event.drop_action = Qt6::DropAction::MoveAction
-      event.accept
-      true
-    end
-
-    private record SongDropTarget, playlist_name : String, insert_position : Int32
-
-    private def song_drop_target(position : Qt6::PointF) : SongDropTarget?
-      index = @song_view.index_at(position)
-      begin
-        return unless index.valid? && song_index?(index)
-
-        playlist_name = playlist_name_for_index(index)
-        target_position = song_position_for_index(index)
-        return unless playlist_name && target_position
-
-        rect = @song_view.visual_rect(index)
-        insert_position = position.y < rect.y + rect.height / 2.0 ? target_position : target_position + 1
-        SongDropTarget.new(playlist_name, insert_position)
-      ensure
-        index.release
-      end
+    private def install_song_drag_filter : Nil
+      @drag_drop.on_song_mouse_press = -> { @on_song_mouse_press.try(&.call) }
+      @drag_drop.on_song_drag_enter = -> { @on_song_drag_enter.try(&.call) }
+      @drag_drop.on_song_drag_finished = -> { @on_song_drag_finished.try(&.call) }
+      @drag_drop.on_move_songs = ->(name : String, moves : Array(Tuple(Int32, Int32))) { @on_move_songs.try(&.call(name, moves)) }
+      @drag_drop.on_external_song_drag = -> { @on_external_song_drag.try(&.call) }
+      @drag_drop.on_external_song_drop = ->(name : String, position : Int32?) { @on_external_song_drop.try(&.call(name, position)) || false }
+      @drag_drop.install
+      @song_drag_filter = @drag_drop.filter
     end
 
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
@@ -344,10 +224,10 @@ module MPDUI
       begin
         return unless index.valid?
 
-        select_index_if_needed(index)
+        @selection.select_index_if_needed(index)
         update_action_buttons
 
-        if song_index?(index)
+        if @selection.song_index?(index)
           @song_context_menu.exec_at(viewport, position)
         else
           @context_menu.exec_at(viewport, position)
@@ -357,38 +237,16 @@ module MPDUI
       end
     end
 
-    private def select_index_if_needed(index : Qt6::ModelIndex) : Nil
-      selection_model = @song_view.selection_model
-      unless selection_model && selection_model.selected?(index)
-        selection_model.try(&.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect | Qt6::SelectionFlag::Rows))
-        @song_view.current_index = index
-      end
-    end
-
     private def handle_current_index_changed : Nil
-      mark_selection_cache_dirty
+      @selection.mark_dirty
       update_action_buttons
       @on_song_selection_changed.try(&.call)
       return if @syncing_selection
 
       name = selected_playlist_name
-      return if name == @last_selected_playlist_name
+      return if name == @selection.last_selected_playlist_name
 
-      @last_selected_playlist_name = name
-    end
-
-    private def select_playlist(name : String?) : Nil
-      return unless name
-
-      index = @song_model.index_for_playlist(name)
-      return unless index
-
-      begin
-        @song_view.selection_model.try(&.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect | Qt6::SelectionFlag::Rows))
-        @song_view.current_index = index
-      ensure
-        index.release
-      end
+      @selection.last_selected_playlist_name = name
     end
 
     private def add_context_action(label : String, icon_name : String, &block : ->) : Qt6::Action
@@ -414,139 +272,12 @@ module MPDUI
       action.context = Qt6::ShortcutContext::WidgetWithChildrenShortcut
       action.on_activated do
         next unless @song_view.has_focus? || @song_view.viewport.has_focus?
-        refresh_selection_cache if @selection_cache_dirty
-        next if @selected_song_positions_cache.empty?
+        next unless @selection.selected_song?
 
         block.call
       end
       @song_shortcuts << action
       action
-    end
-
-    private def current_song? : Bool
-      index = @song_view.current_index
-      begin
-        song_index?(index)
-      ensure
-        index.release
-      end
-    end
-
-    private def song_index_at?(position : Qt6::PointF) : Bool
-      index = @song_view.index_at(position)
-      begin
-        song_index?(index)
-      ensure
-        index.release
-      end
-    end
-
-    private def song_index?(index : Qt6::ModelIndex) : Bool
-      row_type(index) == ROW_TYPE_SONG
-    end
-
-    private def playlist_name_for_index(index : Qt6::ModelIndex) : String?
-      return unless index.valid?
-
-      index.data(@song_model, ItemRoles::PLAYLIST_NAME).as?(String)
-    end
-
-    private def selected_song_indexes : Array(Qt6::ModelIndex)
-      selection_model = @song_view.selection_model
-      return [] of Qt6::ModelIndex unless selection_model
-
-      selection_model.selected_rows(0).compact_map do |index|
-        if index.valid? && song_index?(index)
-          index
-        else
-          index.release
-          nil
-        end
-      end
-    end
-
-    private def current_song_indexes : Array(Qt6::ModelIndex)
-      index = @song_view.current_index
-      unless index.valid? && song_index?(index)
-        index.release
-        return [] of Qt6::ModelIndex
-      end
-
-      [index]
-    end
-
-    private def mark_selection_cache_dirty : Nil
-      @selection_cache_dirty = true
-    end
-
-    private def refresh_selection_cache : Nil
-      uris = [] of String
-      positions = [] of Int32
-      playlist_name : String? = nil
-
-      indexes = selected_song_indexes
-      begin
-        indexes.each do |index|
-          index_playlist_name = playlist_name_for_index(index)
-          uri = song_uri_for_index(index)
-          position = song_position_for_index(index)
-          next unless index_playlist_name && uri && position
-
-          playlist_name ||= index_playlist_name
-          next unless playlist_name == index_playlist_name
-
-          uris << uri
-          positions << position
-        end
-      ensure
-        indexes.each(&.release)
-      end
-
-      if uris.empty?
-        indexes = current_song_indexes
-        begin
-          indexes.each do |index|
-            index_playlist_name = playlist_name_for_index(index)
-            uri = song_uri_for_index(index)
-            position = song_position_for_index(index)
-            next unless index_playlist_name && uri && position
-
-            playlist_name = index_playlist_name
-            uris << uri
-            positions << position
-          end
-        ensure
-          indexes.each(&.release)
-        end
-      end
-
-      @selected_song_playlist_name_cache = playlist_name
-      @selected_song_uris_cache = uris.uniq!
-      @selected_song_positions_cache = positions
-      @selection_cache_dirty = false
-    end
-
-    private def row_type(index : Qt6::ModelIndex) : String?
-      return unless index.valid?
-
-      index.data(@song_model, ItemRoles::PLAYLIST_ROW_TYPE).as?(String)
-    end
-
-    private def song_uri_for_index(index : Qt6::ModelIndex) : String?
-      return unless row_type(index) == ROW_TYPE_SONG
-
-      uri = index.data(@song_model, ItemRoles::PLAYLIST_SONG_URI).as?(String)
-      uri unless uri.nil? || uri.empty?
-    end
-
-    private def song_position_for_index(index : Qt6::ModelIndex) : Int32?
-      return unless row_type(index) == ROW_TYPE_SONG
-
-      index.data(@song_model, ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
-    end
-
-    private def parent_index_for_playlist(name : String) : Qt6::ModelIndex
-      @song_model.index_for_playlist(name) || Qt6::ModelIndex.new
     end
   end
 end

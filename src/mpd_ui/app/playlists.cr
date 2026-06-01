@@ -13,7 +13,9 @@ module MPDUI
       playlists.on_song_mouse_press = -> {
         @drag_context.begin_stored_playlist_drag
       }
-      playlists.on_song_drag_enter = -> { @drag_context.begin_stored_playlist_drag }
+      playlists.on_song_drag_enter = -> { @drag_context.begin_stored_playlist_drag unless @drag_context.queue? }
+      playlists.on_external_song_drag = -> { }
+      playlists.on_external_song_drop = ->(name : String, position : Int32?) { add_selected_queue_songs_to_stored_playlist(name, position) }
       playlists.on_song_drag_finished = -> { @drag_context.finish_drag }
       playlists.render_message("No playlist selected")
       @playlists_view = playlists
@@ -168,6 +170,47 @@ module MPDUI
 
     private def selected_stored_playlist_song_uris : Array(String)
       @playlists_view.try(&.selected_song_uris) || [] of String
+    end
+
+    private def selected_queue_song_uris : Array(String)
+      queue = @queue_view
+      return [] of String unless queue
+
+      queue.selected_rows.compact_map do |row|
+        file = queue.model.song_at(row).try(&.file)
+        file unless file.nil? || file.empty?
+      end
+    end
+
+    private def add_selected_queue_songs_to_stored_playlist(name : String, position : Int32?) : Bool
+      return false unless @drag_context.queue?
+
+      uris = selected_queue_song_uris
+      return false if uris.empty?
+
+      set_status("Adding #{uris.size} #{uris.size == 1 ? "song" : "songs"} to playlist #{name}…")
+      host = @settings.host
+      port = @settings.port
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Added #{uris.size} #{uris.size == 1 ? "song" : "songs"} to playlist #{name}")
+        },
+        ->(ex : Exception) {
+          show_playlist_message("Add Songs Failed", ex.message || ex.to_s)
+          set_status("Failed to add songs to playlist #{name}")
+        }
+      ) do
+        with_playlist_client(host, port) do |client|
+          client.with_command_list do
+            uris.each_with_index do |uri, offset|
+              client.playlistadd(name, uri, position.try { |value| value + offset })
+            end
+          end
+        end
+      end
+
+      true
     end
 
     private def add_selected_stored_playlist_songs_to_queue : Nil

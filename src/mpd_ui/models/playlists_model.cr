@@ -195,7 +195,7 @@ module MPDUI
     end
 
     protected def model_supported_drop_actions : Qt6::DropAction
-      Qt6::DropAction::MoveAction
+      Qt6::DropAction::CopyAction | Qt6::DropAction::MoveAction
     end
 
     private def clear_nodes : Nil
