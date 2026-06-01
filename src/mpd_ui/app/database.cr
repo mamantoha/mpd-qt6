@@ -172,8 +172,6 @@ module MPDUI
           set_status("Failed to add songs from Database")
         }
       ) do
-        started_at = Time.instant
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "add database selection to queue start", uris.size, base_position
         with_mpd_client(host, port) do |client|
           client.with_command_list do
             if base_position
@@ -185,7 +183,6 @@ module MPDUI
             end
           end
         end
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "add database selection to queue finished", uris.size, Time.instant - started_at
         nil
       end
 

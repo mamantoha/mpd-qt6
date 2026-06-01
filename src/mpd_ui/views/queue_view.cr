@@ -84,14 +84,8 @@ module MPDUI
     end
 
     def render(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
-      started_at = Time.instant
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render start", songs.size
-
-      reset_started_at = Time.instant
       @model.replace(songs) { |pos| indicator_for.call(pos) }
       configure_header
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render model reset", songs.size, Time.instant - reset_started_at
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "queue.render total", songs.size, Time.instant - started_at
     end
 
     def update_indicator(row : Int32, value : String) : Nil

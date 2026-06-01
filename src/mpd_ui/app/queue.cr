@@ -105,8 +105,6 @@ module MPDUI
           set_status("Failed to update queue order")
         }
       ) do
-        started_at = Time.instant
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "reorder queue command list start", plan.desired_ids.size
         with_mpd_client(host, port) do |client|
           client.with_command_list do
             plan.desired_ids.each_with_index do |id, desired_index|
@@ -120,7 +118,6 @@ module MPDUI
             end
           end
         end
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "reorder queue command list finished", plan.desired_ids.size, Time.instant - started_at
         nil
       end
 
@@ -139,9 +136,6 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      started_at = Time.instant
-      fetch_started_at = Time.instant
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist start"
       unless songs
         client = @client
         return unless client
@@ -149,28 +143,18 @@ module MPDUI
         songs = client.playlistinfo.try(&.map { |metadata| Song.from_mpd(metadata) })
       end
       return unless songs
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist fetched/mapped", songs.size, Time.instant - fetch_started_at
 
       @syncing = true
-      controller_started_at = Time.instant
       @queue_controller.replace(songs)
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist controller replace", songs.size, Time.instant - controller_started_at
 
-      render_started_at = Time.instant
       queue.render(songs) { |pos| playlist_indicator_text(pos) }
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist queue.render", songs.size, Time.instant - render_started_at
 
       if row = @just_moved_pos
-        select_started_at = Time.instant
         queue.select_row(row)
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist select moved row", row, Time.instant - select_started_at
         @just_moved_pos = nil
       elsif scroll_to_current
-        scroll_started_at = Time.instant
         scroll_playlist_to_current_song
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist scroll current", Time.instant - scroll_started_at
       end
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "refresh_playlist total", songs.size, Time.instant - started_at
     ensure
       @syncing = false
     end
@@ -221,13 +205,9 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      selected_started_at = Time.instant
       selected_rows = queue.selected_rows
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selected rows", selected_rows.size, Time.instant - selected_started_at
 
-      positions_started_at = Time.instant
       positions = @queue_controller.positions_for_rows(selected_rows)
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue positions", positions.size, Time.instant - positions_started_at
       return if positions.empty?
 
       positions = positions.sort.reverse
@@ -246,25 +226,20 @@ module MPDUI
           set_status("Failed to remove songs from Queue")
         }
       ) do
-        started_at = Time.instant
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list start", positions.size
         with_mpd_client(host, port) do |client|
           delete_queue_positions(client, positions)
         end
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue selection command list finished", positions.size, Time.instant - started_at
         nil
       end
     end
 
     private def delete_queue_positions(client : MPD::Client, positions : Array(Int32)) : Nil
       if positions.size >= @queue_controller.size
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue using clear", positions.size
         client.clear
         return
       end
 
       ranges = queue_delete_ranges(positions)
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "delete queue ranges", ranges.size
       client.with_command_list do
         ranges.reverse_each do |first, last|
           if first == last

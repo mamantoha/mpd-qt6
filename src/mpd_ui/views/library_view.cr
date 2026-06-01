@@ -194,13 +194,9 @@ module MPDUI
     end
 
     def selected_uris : Array(String)
-      started_at = Time.instant
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_uris start"
       if selection_model = @tree.selection_model
         uris = [] of String
-        selected_indexes_started_at = Time.instant
         selected_indexes = selection_model.selected_indexes
-        p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_indexes", selected_indexes.size, Time.instant - selected_indexes_started_at
 
         selected_indexes.each do |index|
           begin
@@ -217,7 +213,6 @@ module MPDUI
 
         uris.uniq!
         unless uris.empty?
-          p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library selected_uris", uris.size, Time.instant - started_at
           return uris
         end
       end
@@ -231,7 +226,6 @@ module MPDUI
       uris = [] of String
       collect_uris(root_item, uris)
       uris.uniq!
-      p! "mpd_ui debug time", Time.local.to_s("%H:%M:%S.%6N"), "library current selected_uris", uris.size, Time.instant - started_at
       uris
     end
 
