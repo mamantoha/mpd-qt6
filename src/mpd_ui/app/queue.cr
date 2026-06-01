@@ -56,11 +56,11 @@ module MPDUI
 
     private def drag_is_playlist_reorder?(event : Qt6::DropEvent) : Bool
       row = @playlist_drag_source_row
-      @drag_source_type == :playlist && !!event.mime_data && !row.nil? && @queue_controller.size > 1
+      @drag_source_type == :playlist && !row.nil? && @queue_controller.size > 1
     end
 
     private def drag_is_external_uri_drop?(event : Qt6::DropEvent) : Bool
-      external_uri_drag_source? && !!event.mime_data
+      external_uri_drag_source?
     end
 
     private def external_uri_drag_source? : Bool

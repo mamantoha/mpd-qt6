@@ -38,6 +38,7 @@ module MPDUI
     @root_children = [] of UInt64
     @playlist_node_ids = {} of String => UInt64
     @next_id = 1_u64
+    @drag_mime_data = Qt6::MimeData.new
 
     def replace(playlists : Array(PlaylistEntry)) : Nil
       begin_reset_model
@@ -184,10 +185,9 @@ module MPDUI
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
       return unless indexes.any? { |index| song_index?(index) }
 
-      mime = Qt6::MimeData.new
-      mime.set_data(MIME_TYPE, "selection")
-      mime.text = "garnetune-stored-playlist-selection"
-      mime
+      @drag_mime_data.set_data(MIME_TYPE, "selection")
+      @drag_mime_data.text = "garnetune-stored-playlist-selection"
+      @drag_mime_data
     end
 
     protected def model_supported_drag_actions : Qt6::DropAction

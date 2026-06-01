@@ -35,6 +35,7 @@ module MPDUI
     @nodes = {} of UInt64 => Node
     @root_children = [] of UInt64
     @next_id = 1_u64
+    @drag_mime_data = Qt6::MimeData.new
 
     def replace(result : LibraryIndex::Result) : Nil
       begin_reset_model
@@ -160,10 +161,9 @@ module MPDUI
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
       return unless indexes.any? { |index| draggable_index?(index) }
 
-      mime = Qt6::MimeData.new
-      mime.set_data(MIME_TYPE, "selection")
-      mime.text = "garnetune-library-selection"
-      mime
+      @drag_mime_data.set_data(MIME_TYPE, "selection")
+      @drag_mime_data.text = "garnetune-library-selection"
+      @drag_mime_data
     end
 
     protected def model_supported_drag_actions : Qt6::DropAction

@@ -5,6 +5,7 @@ module MPDUI
 
     @songs : Array(Song) = [] of Song
     @indicators : Array(String) = [] of String
+    @drag_mime_data = Qt6::MimeData.new
 
     def replace(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
       new_indicators = indicators_for(songs) { |pos| indicator_for.call(pos) }
@@ -99,17 +100,16 @@ module MPDUI
       end.uniq!.sort!
       return if rows.empty?
 
-      mime = Qt6::MimeData.new
       value = rows.join(",")
-      mime.set_data(MIME_TYPE, value)
-      mime.text = value
-      mime
+      @drag_mime_data.set_data(MIME_TYPE, value)
+      @drag_mime_data.text = value
+      @drag_mime_data
     end
 
     protected def model_drop_mime_data(mime_data : Qt6::MimeData, action : Qt6::DropAction, row : Int32, column : Int32, parent : Qt6::ModelIndex) : Bool
       return false if action == Qt6::DropAction::IgnoreAction
 
-      mime_data.has_format?(MIME_TYPE) || mime_data.has_format?(QT_ITEM_MODEL_MIME) || mime_data.has_text?
+      action == Qt6::DropAction::CopyAction || action == Qt6::DropAction::MoveAction
     end
 
     protected def model_supported_drag_actions : Qt6::DropAction
