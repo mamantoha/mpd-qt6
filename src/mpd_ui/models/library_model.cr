@@ -7,6 +7,16 @@ module MPDUI
       Artist
       Album
       Song
+
+      def icon_kind : String?
+        case self
+        when Artist then "artist"
+        when Album  then "album"
+        when Song   then "song"
+        else
+          nil
+        end
+      end
     end
 
     private class Node
@@ -118,6 +128,8 @@ module MPDUI
         node.title
       when ItemRoles::SUBTITLE.value
         node.subtitle
+      when ItemRoles::ICON_KIND.value
+        node.kind.icon_kind
       when Qt6::ItemDataRole::User.value
         node.file
       when Qt6::ItemDataRole::ToolTip.value

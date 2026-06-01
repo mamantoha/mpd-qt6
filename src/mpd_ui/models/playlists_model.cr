@@ -139,6 +139,8 @@ module MPDUI
         node.title
       when ItemRoles::SUBTITLE.value
         node.subtitle
+      when ItemRoles::ICON_KIND.value
+        node.row_type == ROW_TYPE_PLAYLIST ? "playlist" : node.row_type
       when ItemRoles::PLAYLIST_ROW_TYPE.value
         node.row_type
       when ItemRoles::PLAYLIST_NAME.value
