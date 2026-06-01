@@ -95,10 +95,16 @@ module MPDUI
     end
 
     def selected_rows : Array(Int32)
-      selection_model = @view.selection_model
-      return current_rows unless selection_model
+      selected_row_ranges.flat_map do |first, last|
+        (first..last).to_a
+      end
+    end
 
-      rows = [] of Int32
+    def selected_row_ranges : Array(Tuple(Int32, Int32))
+      selection_model = @view.selection_model
+      return current_row_ranges unless selection_model
+
+      ranges = [] of Tuple(Int32, Int32)
       selection = selection_model.selection
       begin
         selection.count.times do |index|
@@ -107,9 +113,7 @@ module MPDUI
             next if range.bottom < range.top
             next unless range.left <= 0 && range.right >= 0
 
-            range.top.upto(range.bottom) do |row|
-              rows << row
-            end
+            ranges << {range.top, range.bottom}
           ensure
             range.release
           end
@@ -117,9 +121,20 @@ module MPDUI
       ensure
         selection.release
       end
-      rows.uniq!
 
-      rows.empty? ? current_rows : rows
+      ranges.empty? ? current_row_ranges : merge_row_ranges(ranges)
+    end
+
+    def selected_row_count : Int32
+      selected_row_ranges.sum do |first, last|
+        last - first + 1
+      end
+    end
+
+    def selected_row?(row : Int32) : Bool
+      selected_row_ranges.any? do |first, last|
+        row.in?(first..last)
+      end
     end
 
     def current_rows : Array(Int32)
@@ -129,6 +144,29 @@ module MPDUI
       ensure
         index.release
       end
+    end
+
+    private def current_row_ranges : Array(Tuple(Int32, Int32))
+      current_rows.map { |row| {row, row} }
+    end
+
+    private def merge_row_ranges(ranges : Array(Tuple(Int32, Int32))) : Array(Tuple(Int32, Int32))
+      sorted = ranges.sort_by { |first, _last| first }
+      merged = [] of Tuple(Int32, Int32)
+
+      sorted.each do |first, last|
+        if current = merged.last?
+          current_first, current_last = current
+          if first <= current_last + 1
+            merged[-1] = {current_first, Math.max(current_last, last)}
+            next
+          end
+        end
+
+        merged << {first, last}
+      end
+
+      merged
     end
 
     def select_row(row : Int32, *, scroll : Bool = true) : Nil
@@ -246,9 +284,9 @@ module MPDUI
       row = row_at(position)
       return unless row
 
-      select_row(row) unless selected_rows.includes?(row)
+      select_row(row) unless selected_row?(row)
       @on_context_menu_open.try(&.call(row))
-      @play_now_action.enabled = selected_rows.size == 1
+      @play_now_action.enabled = selected_row_count == 1
       @context_menu.exec_at(viewport, position)
     end
   end

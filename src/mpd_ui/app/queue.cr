@@ -199,20 +199,19 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      selected_rows = queue.selected_rows
+      row_ranges = queue.selected_row_ranges
+      position_ranges = @queue_controller.position_ranges_for_row_ranges(row_ranges)
+      return if position_ranges.empty?
 
-      positions = @queue_controller.positions_for_rows(selected_rows)
-      return if positions.empty?
-
-      positions = positions.sort.reverse
+      selected_count = position_ranges.sum { |first, last| last - first + 1 }
       host = @settings.host
       port = @settings.port
-      suffix = positions.size == 1 ? "song" : "songs"
-      set_status("Removing #{positions.size} #{suffix} from Queue…")
+      suffix = selected_count == 1 ? "song" : "songs"
+      set_status("Removing #{selected_count} #{suffix} from Queue…")
 
       run_background(
         ->(_result : Nil) {
-          set_status("Removed #{positions.size} #{suffix} from Queue")
+          set_status("Removed #{selected_count} #{suffix} from Queue")
         },
         ->(ex : Exception) {
           @title_label.try(&.text = "Error")
@@ -221,21 +220,21 @@ module MPDUI
         }
       ) do
         with_mpd_client(host, port) do |client|
-          delete_queue_positions(client, positions)
+          delete_queue_position_ranges(client, position_ranges)
         end
         nil
       end
     end
 
-    private def delete_queue_positions(client : MPD::Client, positions : Array(Int32)) : Nil
-      if positions.size >= @queue_controller.size
+    private def delete_queue_position_ranges(client : MPD::Client, ranges : Array(Tuple(Int32, Int32))) : Nil
+      selected_count = ranges.sum { |first, last| last - first + 1 }
+      if selected_count >= @queue_controller.size
         client.clear
         return
       end
 
-      ranges = queue_delete_ranges(positions)
       client.with_command_list do
-        ranges.reverse_each do |first, last|
+        ranges.sort_by { |first, _last| first }.reverse_each do |first, last|
           if first == last
             client.delete(first)
           else
@@ -243,28 +242,6 @@ module MPDUI
           end
         end
       end
-    end
-
-    private def queue_delete_ranges(positions : Array(Int32)) : Array(Tuple(Int32, Int32))
-      sorted = positions.sort.uniq!
-      return [] of Tuple(Int32, Int32) if sorted.empty?
-
-      ranges = [] of Tuple(Int32, Int32)
-      first = sorted.first
-      last = first
-
-      sorted[1..].each do |position|
-        if position == last + 1
-          last = position
-        else
-          ranges << {first, last}
-          first = position
-          last = position
-        end
-      end
-
-      ranges << {first, last}
-      ranges
     end
 
     private def select_playlist_row(row : Int32) : Nil

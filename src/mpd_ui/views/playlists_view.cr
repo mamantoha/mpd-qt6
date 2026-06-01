@@ -25,6 +25,7 @@ module MPDUI
     @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
     @playlist_songs : Hash(String, Array(Song)) = {} of String => Array(Song)
     @playlist_items : Hash(String, Qt6::StandardItem) = {} of String => Qt6::StandardItem
+    @loaded_playlist_names = Set(String).new
     @last_selected_playlist_name : String?
     @syncing_selection = false
     @delegate : Qt6::StyledItemDelegate
@@ -95,6 +96,7 @@ module MPDUI
     def render_message(message : String) : Nil
       @song_model.clear
       @playlist_items.clear
+      @loaded_playlist_names.clear
       configure_song_model
       configure_song_header
 
@@ -174,6 +176,7 @@ module MPDUI
       @syncing_selection = true
       @song_model.clear
       @playlist_items.clear
+      @loaded_playlist_names.clear
       configure_song_model
       configure_song_header
 
@@ -189,7 +192,7 @@ module MPDUI
         @song_model.set_item(row, 0, playlist_item)
         @playlist_items[playlist.name] = playlist_item
 
-        append_playlist_songs(playlist.name, playlist_item)
+        append_playlist_placeholder(playlist.name, playlist_item)
       end
 
       name_to_select = selected_name && @playlist_items.has_key?(selected_name) ? selected_name : @playlists.first?.try(&.name)
@@ -198,6 +201,37 @@ module MPDUI
       select_playlist(name_to_select)
     ensure
       @syncing_selection = false
+    end
+
+    private def append_playlist_placeholder(playlist_name : String, playlist_item : Qt6::StandardItem) : Nil
+      songs = @playlist_songs[playlist_name]?
+      return unless songs && !songs.empty?
+
+      placeholder = Qt6::StandardItem.new("")
+      placeholder.flags = Qt6::ItemFlag::None
+      playlist_item.set_child(0, 0, placeholder)
+    end
+
+    private def ensure_playlist_songs_loaded(playlist_name : String) : Nil
+      return if @loaded_playlist_names.includes?(playlist_name)
+
+      playlist_item = @playlist_items[playlist_name]?
+      return unless playlist_item
+
+      append_playlist_songs(playlist_name, playlist_item)
+      @loaded_playlist_names << playlist_name
+    end
+
+    private def ensure_playlist_songs_loaded_at(position : Qt6::PointF) : Nil
+      index = @song_view.index_at(position)
+      begin
+        return unless index.valid?
+
+        name = playlist_name_for_index(index)
+        ensure_playlist_songs_loaded(name) if name
+      ensure
+        index.release
+      end
     end
 
     private def append_playlist_songs(playlist_name : String, playlist_item : Qt6::StandardItem) : Nil
@@ -243,6 +277,7 @@ module MPDUI
         item = @playlist_items[name]?
         next unless item
 
+        ensure_playlist_songs_loaded(name)
         index = @song_model.index_from_item(item)
         begin
           @song_view.expand(index) if index.valid?
@@ -276,6 +311,7 @@ module MPDUI
             show_context_menu(viewport, mouse_event.position)
             true
           else
+            ensure_playlist_songs_loaded_at(mouse_event.position)
             if song_index_at?(mouse_event.position)
               remember_dragged_song(mouse_event.position)
               @on_song_mouse_press.try(&.call)
@@ -426,6 +462,7 @@ module MPDUI
       return if @syncing_selection
 
       name = selected_playlist_name
+      ensure_playlist_songs_loaded(name) if name
       return if name == @last_selected_playlist_name
 
       @last_selected_playlist_name = name
