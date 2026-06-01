@@ -150,13 +150,11 @@ module MPDUI
     end
 
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
-      uris = uris_for_indexes(indexes)
-      return if uris.empty?
+      return unless indexes.any? { |index| draggable_index?(index) }
 
       mime = Qt6::MimeData.new
-      value = uris.join('\n')
-      mime.set_data(MIME_TYPE, value)
-      mime.text = value
+      mime.set_data(MIME_TYPE, "selection")
+      mime.text = "garnetune-library-selection"
       mime
     end
 
@@ -199,6 +197,13 @@ module MPDUI
       return unless index.valid?
 
       @nodes[index.internal_id]?
+    end
+
+    private def draggable_index?(index : Qt6::ModelIndex) : Bool
+      return false unless index.valid?
+
+      node = node_for(index)
+      !!node && node.kind != NodeKind::Message
     end
 
     private def children_for(parent : Qt6::ModelIndex) : Array(UInt64)

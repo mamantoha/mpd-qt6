@@ -182,21 +182,11 @@ module MPDUI
     end
 
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
-      values = indexes.compact_map do |index|
-        next unless index.valid? && index.column == 0
-
-        node = node_for(index)
-        next unless node && node.row_type == ROW_TYPE_SONG
-        next unless node.song_uri
-
-        node.song_uri
-      end.uniq!
-      return if values.empty?
+      return unless indexes.any? { |index| song_index?(index) }
 
       mime = Qt6::MimeData.new
-      value = values.join('\n')
-      mime.set_data(MIME_TYPE, value)
-      mime.text = value
+      mime.set_data(MIME_TYPE, "selection")
+      mime.text = "garnetune-stored-playlist-selection"
       mime
     end
 
@@ -244,6 +234,13 @@ module MPDUI
       return unless index.valid?
 
       @nodes[index.internal_id]?
+    end
+
+    private def song_index?(index : Qt6::ModelIndex) : Bool
+      return false unless index.valid? && index.column == 0
+
+      node = node_for(index)
+      !!node && node.row_type == ROW_TYPE_SONG
     end
 
     private def children_for(parent : Qt6::ModelIndex) : Array(UInt64)
