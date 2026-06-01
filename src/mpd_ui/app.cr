@@ -458,12 +458,19 @@ module MPDUI
     end
 
     private def quit_application : Nil
+      return if @quitting
+
       save_expanded_layout_settings
       @quitting = true
+      @callback_generation.set(@callback_generation.get + 1)
       @event_bridge.shutdown
       @visualizer_service.stop
+      @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
       @stored_playlist_idle_client.try(&.disconnect)
+      @client = nil
+      @callback_client = nil
+      @stored_playlist_idle_client = nil
       @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
       @qt_app.quit
