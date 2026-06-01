@@ -7,11 +7,12 @@ module MPDUI
     @indicators : Array(String) = [] of String
 
     def replace(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
+      new_indicators = indicators_for(songs) { |pos| indicator_for.call(pos) }
+      return replace_incrementally(songs, new_indicators) if can_diff_by_id?(@songs, songs)
+
       begin_reset_model
       @songs = songs
-      @indicators = songs.map_with_index do |song, row|
-        indicator_for.call(song.pos || row)
-      end
+      @indicators = new_indicators
       end_reset_model
     end
 
@@ -129,6 +130,85 @@ module MPDUI
         song.duration_label
       else
         ""
+      end
+    end
+
+    private def indicators_for(songs : Array(Song), &indicator_for : Int32 -> String) : Array(String)
+      songs.map_with_index do |song, row|
+        indicator_for.call(song.pos || row)
+      end
+    end
+
+    private def can_diff_by_id?(old_songs : Array(Song), new_songs : Array(Song)) : Bool
+      old_songs.all?(&.id) && new_songs.all?(&.id)
+    end
+
+    private def replace_incrementally(new_songs : Array(Song), new_indicators : Array(String)) : Nil
+      old_ids = @songs.compact_map(&.id)
+      new_ids = new_songs.compact_map(&.id)
+
+      if old_ids == new_ids
+        @songs = new_songs
+        @indicators = new_indicators
+        emit_all_rows_changed unless @songs.empty?
+        return
+      end
+
+      first_changed = first_changed_row(old_ids, new_ids)
+      old_suffix, new_suffix = matching_suffix_lengths(old_ids, new_ids, first_changed)
+      removed_count = old_ids.size - first_changed - old_suffix
+      inserted_count = new_ids.size - first_changed - new_suffix
+
+      if removed_count > 0 && inserted_count == 0
+        begin_remove_rows(first_changed, first_changed + removed_count - 1)
+        @songs = new_songs
+        @indicators = new_indicators
+        end_remove_rows
+      elsif inserted_count > 0 && removed_count == 0
+        begin_insert_rows(first_changed, first_changed + inserted_count - 1)
+        @songs = new_songs
+        @indicators = new_indicators
+        end_insert_rows
+      else
+        begin_reset_model
+        @songs = new_songs
+        @indicators = new_indicators
+        end_reset_model
+      end
+    end
+
+    private def first_changed_row(old_ids : Array(Int32), new_ids : Array(Int32)) : Int32
+      limit = Math.min(old_ids.size, new_ids.size)
+      limit.times do |row|
+        return row unless old_ids[row] == new_ids[row]
+      end
+      limit
+    end
+
+    private def matching_suffix_lengths(old_ids : Array(Int32), new_ids : Array(Int32), first_changed : Int32) : Tuple(Int32, Int32)
+      old_index = old_ids.size - 1
+      new_index = new_ids.size - 1
+      old_count = 0
+      new_count = 0
+
+      while old_index >= first_changed && new_index >= first_changed && old_ids[old_index] == new_ids[new_index]
+        old_count += 1
+        new_count += 1
+        old_index -= 1
+        new_index -= 1
+      end
+
+      {old_count, new_count}
+    end
+
+    private def emit_all_rows_changed : Nil
+      top_left = index(0, 0)
+      bottom_right = index(@songs.size - 1, 2)
+      begin
+        data_changed(top_left, bottom_right)
+      ensure
+        top_left.release
+        bottom_right.release
       end
     end
   end
