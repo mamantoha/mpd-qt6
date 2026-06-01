@@ -105,12 +105,23 @@ module MPDUI
       return current_rows unless selection_model
 
       rows = [] of Int32
-      selection_model.selected_row_ranges(0).each do |top, bottom|
-        next if bottom < top
+      selection = selection_model.selection
+      begin
+        selection.count.times do |index|
+          range = selection.at(index)
+          begin
+            next if range.bottom < range.top
+            next unless range.left <= 0 && range.right >= 0
 
-        top.upto(bottom) do |row|
-          rows << row
+            range.top.upto(range.bottom) do |row|
+              rows << row
+            end
+          ensure
+            range.release
+          end
         end
+      ensure
+        selection.release
       end
       rows.uniq!
 
