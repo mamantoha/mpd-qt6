@@ -150,8 +150,19 @@ module MPDUI
       @library_view.try(&.selected_uris) || [] of String
     end
 
+    private def queue_source_uris : Array(String)
+      return @dragged_database_uris.dup unless @dragged_database_uris.empty?
+
+      case @drag_source_type
+      when :stored_playlist
+        selected_stored_playlist_song_uris
+      else
+        selected_database_uris
+      end
+    end
+
     private def append_selected_database_to_queue(insert_row : Int32? = nil) : Bool
-      uris = @dragged_database_uris.empty? ? selected_database_uris : @dragged_database_uris.dup
+      uris = queue_source_uris
       return false if uris.empty?
 
       base_position = @queue_controller.base_position_for_insert(insert_row)

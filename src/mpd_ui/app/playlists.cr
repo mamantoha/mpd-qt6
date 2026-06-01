@@ -10,7 +10,7 @@ module MPDUI
       playlists.on_add_songs_to_queue = -> { add_selected_stored_playlist_songs_to_queue }
       playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
       playlists.on_move_songs = ->(name : String, moves : Array(Tuple(Int32, Int32))) { move_stored_playlist_songs(name, moves) }
-      playlists.on_song_selection_changed = -> { @dragged_database_uris = selected_stored_playlist_song_uris }
+      playlists.on_song_selection_changed = -> { @dragged_database_uris.clear }
       playlists.on_song_mouse_press = -> {
         @playlist_drag_source_row = nil
         @dragged_database_uris.clear
