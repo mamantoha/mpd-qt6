@@ -146,10 +146,9 @@ module MPDUI
       unless library
         return
       end
-      library = library.as(LibraryView)
 
-      query = library.query
-      genre = library.selected_genre
+      query = library.as(LibraryView).query
+      genre = library.as(LibraryView).selected_genre
       return if !force && query == @last_database_filter_query && genre == @last_database_filter_genre
 
       @database_filter_timer.try(&.stop)
@@ -163,12 +162,9 @@ module MPDUI
         ->(result : LibraryIndex::Result) {
           if @database_filter_generation.get == generation
             library = @library_view
-            if library
-              library = library.as(LibraryView)
-            end
 
-            if library && library.query == query && library.selected_genre == genre
-              library.render(result, expand_all: !query.empty?)
+            if library && library.as(LibraryView).query == query && library.as(LibraryView).selected_genre == genre
+              library.as(LibraryView).render(result, expand_all: !query.empty?)
               @dragged_database_uris.clear
 
               if result.filtered
