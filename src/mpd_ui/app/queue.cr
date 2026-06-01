@@ -78,7 +78,6 @@ module MPDUI
       plan = @queue_controller.move_plan(insert_row, queue.selected_rows)
       return false unless plan
 
-      current_ids = plan.current_ids
       host = @settings.host
       port = @settings.port
       set_status("Updating queue order…")
@@ -95,17 +94,7 @@ module MPDUI
         }
       ) do
         with_mpd_client(host, port) do |client|
-          client.with_command_list do
-            plan.desired_ids.each_with_index do |id, desired_index|
-              current_index = current_ids.index(id)
-              next unless current_index
-              next if current_index == desired_index
-
-              client.moveid(id, desired_index)
-              moved_id = current_ids.delete_at(current_index)
-              current_ids.insert(desired_index, moved_id)
-            end
-          end
+          @queue_commands.move_to_plan(client, plan)
         end
         nil
       end
@@ -215,27 +204,9 @@ module MPDUI
         }
       ) do
         with_mpd_client(host, port) do |client|
-          delete_queue_position_ranges(client, position_ranges)
+          @queue_commands.delete_position_ranges(client, position_ranges, @queue_controller.size)
         end
         nil
-      end
-    end
-
-    private def delete_queue_position_ranges(client : MPD::Client, ranges : Array(Tuple(Int32, Int32))) : Nil
-      selected_count = ranges.sum { |first, last| last - first + 1 }
-      if selected_count >= @queue_controller.size
-        client.clear
-        return
-      end
-
-      client.with_command_list do
-        ranges.sort_by { |first, _last| first }.reverse_each do |first, last|
-          if first == last
-            client.delete(first)
-          else
-            client.delete(first..last)
-          end
-        end
       end
     end
 
