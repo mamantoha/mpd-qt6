@@ -98,7 +98,7 @@ module MPDUI
         when Qt6::EventType::DragEnter
           @on_drag_enter.try(&.call)
           false
-        when Qt6::EventType::DragLeave, Qt6::EventType::Drop
+        when Qt6::EventType::Drop
           @on_drag_finished.try(&.call)
           false
         else

@@ -1,6 +1,7 @@
 module MPDUI
   class QueueModel < Qt6::AbstractTreeModel
-    MIME_TYPE = "application/x-garnetune-queue-row"
+    MIME_TYPE          = "application/x-garnetune-queue-row"
+    QT_ITEM_MODEL_MIME = "application/x-qabstractitemmodeldatalist"
 
     @songs : Array(Song) = [] of Song
     @indicators : Array(String) = [] of String
@@ -89,7 +90,7 @@ module MPDUI
     end
 
     protected def model_mime_types : Array(String)
-      [MIME_TYPE, "text/plain"]
+      [MIME_TYPE, QT_ITEM_MODEL_MIME, "text/plain"]
     end
 
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
@@ -104,6 +105,12 @@ module MPDUI
       mime.set_data(MIME_TYPE, value)
       mime.text = value
       mime
+    end
+
+    protected def model_drop_mime_data(mime_data : Qt6::MimeData, action : Qt6::DropAction, row : Int32, column : Int32, parent : Qt6::ModelIndex) : Bool
+      return false if action == Qt6::DropAction::IgnoreAction
+
+      mime_data.has_format?(MIME_TYPE) || mime_data.has_format?(QT_ITEM_MODEL_MIME) || mime_data.has_text?
     end
 
     protected def model_supported_drag_actions : Qt6::DropAction

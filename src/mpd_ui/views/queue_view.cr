@@ -9,7 +9,7 @@ module MPDUI
     property on_save_as_playlist : Proc(Nil)?
     property on_context_menu_open : Proc(Int32, Nil)?
     property on_mouse_press_row : Proc(Int32?, Nil)?
-    property on_drag_enter : Proc(Nil)?
+    property on_drag_enter : Proc(Qt6::DropEvent, Nil)?
     property on_drag_move : Proc(Qt6::DropEvent, Nil)?
     property on_drag_leave : Proc(Nil)?
     property on_drop : Proc(Qt6::DropEvent, Bool)?
@@ -53,7 +53,8 @@ module MPDUI
           @on_play_selected.try(&.call)
           true
         when Qt6::EventType::DragEnter
-          @on_drag_enter.try(&.call)
+          drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          @on_drag_enter.try(&.call(drop_event))
           false
         when Qt6::EventType::DragMove
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
