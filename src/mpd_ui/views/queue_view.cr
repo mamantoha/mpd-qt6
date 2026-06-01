@@ -59,7 +59,7 @@ module MPDUI
         when Qt6::EventType::DragMove
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           @on_drag_move.try(&.call(drop_event))
-          drop_event.accepted? && !row_at(drop_event.position)
+          false
         when Qt6::EventType::DragLeave
           @on_drag_leave.try(&.call)
           false

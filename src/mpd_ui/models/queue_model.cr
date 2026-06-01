@@ -84,7 +84,7 @@ module MPDUI
     end
 
     protected def model_flags(index : Qt6::ModelIndex) : Qt6::ItemFlag
-      return Qt6::ItemFlag::DropEnabled unless index.valid?
+      return Qt6::ItemFlag::Enabled | Qt6::ItemFlag::DropEnabled unless index.valid?
 
       Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled | Qt6::ItemFlag::DropEnabled
     end
