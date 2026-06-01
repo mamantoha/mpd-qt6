@@ -42,6 +42,7 @@ module MPDUI
     @queue_view : QueueView?
     @queue_controller : QueueController
     @queue_commands : QueueCommandService
+    @stored_playlists : StoredPlaylistService
     @playlist_view : Qt6::TreeView?
     @toggle_window_action : Qt6::Action?
     @playback_header : Qt6::Widget?
@@ -114,6 +115,7 @@ module MPDUI
       apply_visualizer_settings
       @queue_controller = QueueController.new
       @queue_commands = QueueCommandService.new
+      @stored_playlists = StoredPlaylistService.new
       @library_index = LibraryIndex.new
       bind_event_bridge
       setup_lastfm

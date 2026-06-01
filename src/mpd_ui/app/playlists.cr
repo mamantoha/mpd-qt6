@@ -51,9 +51,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          existing = playlist_entries(client)
-          mode = existing.any? { |playlist| playlist.name == playlist_name } ? "replace" : nil
-          client.save(playlist_name, mode)
+          @stored_playlists.save_queue(client, playlist_name)
         end
       end
     end
@@ -74,7 +72,7 @@ module MPDUI
           set_status("Failed to load playlists: #{ex.message || ex}")
         }
       ) do
-        with_playlist_client(host, port) { |client| playlist_entries(client) }
+        with_playlist_client(host, port) { |client| @stored_playlists.entries(client) }
       end
     end
 
@@ -96,8 +94,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.clear if replace
-          client.load(name)
+          @stored_playlists.load(client, name, replace: replace)
         end
       end
     end
@@ -122,7 +119,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.rm(name)
+          @stored_playlists.delete(client, name)
         end
       end
     end
@@ -151,21 +148,9 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.rename(old_name, new_name)
+          @stored_playlists.rename(client, old_name, new_name)
         end
       end
-    end
-
-    private def playlist_entries(client : MPD::Client) : Array(PlaylistEntry)
-      client.listplaylists.try do |playlists|
-        playlists.compact_map do |metadata|
-          playlist_entry = PlaylistEntry.from_mpd(metadata)
-          next unless playlist_entry
-
-          songs = client.listplaylistinfo(playlist_entry.name).try(&.map { |song_metadata| Song.from_mpd(song_metadata) }) || [] of Song
-          playlist_entry.build(songs)
-        end.sort_by!(&.name.downcase)
-      end || [] of PlaylistEntry
     end
 
     private def selected_stored_playlist_song_uris : Array(String)
@@ -202,11 +187,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.with_command_list do
-            uris.each_with_index do |uri, offset|
-              client.playlistadd(name, uri, position.try { |value| value + offset })
-            end
-          end
+          @stored_playlists.add_queue_songs_to_playlist(client, name, uris, position)
         end
       end
 
@@ -231,9 +212,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.with_command_list do
-            uris.each { |uri| client.add(uri) }
-          end
+          @stored_playlists.add_songs_to_queue(client, uris)
         end
       end
     end
@@ -262,9 +241,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.with_command_list do
-            positions.each { |position| client.playlistdelete(name, position) }
-          end
+          @stored_playlists.remove_songs(client, name, positions)
         end
       end
     end
@@ -287,11 +264,7 @@ module MPDUI
         }
       ) do
         with_playlist_client(host, port) do |client|
-          client.with_command_list do
-            moves.each do |from, to|
-              client.playlistmove(name, from, to)
-            end
-          end
+          @stored_playlists.move_songs(client, name, moves)
         end
       end
     end
