@@ -17,18 +17,15 @@ module MPDUI
       library.on_genre_changed = -> { apply_database_filter }
       library.on_add_to_queue = -> { add_selected_database_to_queue }
       library.on_selection_changed = -> {
-        @playlist_drag_source_row = nil
-        @dragged_database_uris.clear
+        @drag_context.reset_selection
         library.clear_drag_uris
       }
       library.on_mouse_press = -> {
-        @playlist_drag_source_row = nil
-        @dragged_database_uris.clear
+        @drag_context.begin_database_drag
         library.clear_drag_uris
-        @drag_source_type = :database
       }
-      library.on_drag_enter = -> { @drag_source_type = :database }
-      library.on_drag_finished = -> { @drag_source_type = nil }
+      library.on_drag_enter = -> { @drag_context.begin_database_drag }
+      library.on_drag_finished = -> { @drag_context.finish_drag }
 
       @library_view = library
       setup_database_drag_source(library)
@@ -42,7 +39,6 @@ module MPDUI
     end
 
     private def add_selected_database_to_queue : Nil
-      @dragged_database_uris.clear
       append_selected_database_to_queue
     end
 
@@ -167,7 +163,6 @@ module MPDUI
 
             if library && library.as(LibraryView).query == query && library.as(LibraryView).selected_genre == genre
               library.as(LibraryView).render(result, expand_all: !query.empty?)
-              @dragged_database_uris.clear
 
               if result.filtered
                 set_status("Database filter: #{result.songs_count} of #{songs.size} songs")
@@ -197,12 +192,9 @@ module MPDUI
     end
 
     private def queue_source_uris : Array(String)
-      return @dragged_database_uris.dup unless @dragged_database_uris.empty?
-
-      case @drag_source_type
-      when :stored_playlist
+      if @drag_context.stored_playlist?
         selected_stored_playlist_song_uris
-      when :database
+      elsif @drag_context.database?
         drag_uris = @library_view.try(&.drag_uris) || [] of String
         drag_uris.empty? ? selected_database_uris : drag_uris.dup
       else
@@ -246,7 +238,6 @@ module MPDUI
         nil
       end
 
-      @dragged_database_uris.clear
       true
     end
   end

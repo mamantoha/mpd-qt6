@@ -10,14 +10,11 @@ module MPDUI
       playlists.on_add_songs_to_queue = -> { add_selected_stored_playlist_songs_to_queue }
       playlists.on_remove_songs = -> { remove_selected_stored_playlist_songs }
       playlists.on_move_songs = ->(name : String, moves : Array(Tuple(Int32, Int32))) { move_stored_playlist_songs(name, moves) }
-      playlists.on_song_selection_changed = -> { @dragged_database_uris.clear }
       playlists.on_song_mouse_press = -> {
-        @playlist_drag_source_row = nil
-        @dragged_database_uris.clear
-        @drag_source_type = :stored_playlist
+        @drag_context.begin_stored_playlist_drag
       }
-      playlists.on_song_drag_enter = -> { @drag_source_type = :stored_playlist }
-      playlists.on_song_drag_finished = -> { @drag_source_type = nil }
+      playlists.on_song_drag_enter = -> { @drag_context.begin_stored_playlist_drag }
+      playlists.on_song_drag_finished = -> { @drag_context.finish_drag }
       playlists.render_message("No playlist selected")
       @playlists_view = playlists
       playlists

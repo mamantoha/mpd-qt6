@@ -6,12 +6,10 @@ module MPDUI
       queue.on_remove_selected = -> { delete_selected_playlist_row }
       queue.on_save_as_playlist = -> { save_queue_as_playlist }
       queue.on_mouse_press_row = ->(row : Int32?) {
-        @playlist_drag_source_row = row
-        @dragged_database_uris.clear
-        @drag_source_type = :playlist
+        @drag_context.begin_queue_drag(row)
       }
       queue.on_drag_enter = ->(drop_event : Qt6::DropEvent) {
-        @drag_source_type ||= :playlist
+        @drag_context.assume_queue_drag
 
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
@@ -20,7 +18,7 @@ module MPDUI
         end
       }
       queue.on_drag_move = ->(drop_event : Qt6::DropEvent) {
-        @playlist_drag_source_row = queue.current_rows.first? if @drag_source_type == :playlist
+        @drag_context.queue_source_row = queue.current_rows.first? if @drag_context.queue?
 
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
@@ -29,20 +27,18 @@ module MPDUI
         end
       }
       queue.on_drag_leave = -> {
-        @playlist_drag_source_row = nil
-        @drag_source_type = nil
+        @drag_context.finish_drag
       }
       queue.on_drop = ->(drop_event : Qt6::DropEvent) {
         handled = false
-        if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
+        if @drag_context.queue? && drag_is_playlist_reorder?(drop_event)
           handled = move_selected_playlist_rows(queue.drop_row_for(drop_event))
         elsif external_uri_drag_source? && drag_is_external_uri_drop?(drop_event)
           accept_external_uri_drop(drop_event)
           handled = append_selected_database_to_queue(queue.drop_row_for(drop_event))
         end
 
-        @playlist_drag_source_row = nil
-        @drag_source_type = nil
+        @drag_context.finish_drag
         handled
       }
 
@@ -55,8 +51,8 @@ module MPDUI
     end
 
     private def drag_is_playlist_reorder?(event : Qt6::DropEvent) : Bool
-      row = @playlist_drag_source_row
-      @drag_source_type == :playlist && !row.nil? && @queue_controller.size > 1
+      row = @drag_context.queue_source_row
+      @drag_context.queue? && !row.nil? && @queue_controller.size > 1
     end
 
     private def drag_is_external_uri_drop?(event : Qt6::DropEvent) : Bool
@@ -64,11 +60,11 @@ module MPDUI
     end
 
     private def external_uri_drag_source? : Bool
-      @drag_source_type == :database || @drag_source_type == :stored_playlist
+      @drag_context.external_uri_source?
     end
 
     private def accept_external_uri_drop(event : Qt6::DropEvent) : Nil
-      if @drag_source_type == :stored_playlist
+      if @drag_context.stored_playlist?
         event.drop_action = Qt6::DropAction::CopyAction
         event.accept
       else

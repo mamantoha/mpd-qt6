@@ -68,10 +68,7 @@ module MPDUI
     @queue_drop_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
     @output_actions : Array(Qt6::Action) = [] of Qt6::Action
-    @playlist_drag_source_row : Int32? = nil
-    @dragged_database_uris : Array(String) = [] of String
-    # Track drag source: :playlist, :database, or nil
-    @drag_source_type : Symbol? = nil
+    @drag_context : DragContext
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @stored_playlist_idle_client : MPD::Client?
@@ -112,6 +109,7 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @visualizer_service = VisualizerService.new
+      @drag_context = DragContext.new
       apply_visualizer_settings
       @queue_controller = QueueController.new
       @library_index = LibraryIndex.new
