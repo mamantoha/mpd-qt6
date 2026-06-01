@@ -39,7 +39,12 @@ module MPDUI
 
     def install_drop_filter : Nil
       @drag_drop.on_context_menu = ->(viewport : Qt6::Widget, position : Qt6::PointF) { show_context_menu(viewport, position) }
-      @drag_drop.on_play_selected = -> { @on_play_selected.try(&.call) }
+      @drag_drop.on_double_click_row = ->(row : Int32?) {
+        if row
+          select_row(row, scroll: false)
+          @on_play_selected.try(&.call)
+        end
+      }
       @drag_drop.on_mouse_press_row = ->(row : Int32?) { @on_mouse_press_row.try(&.call(row)) }
       @drag_drop.on_drag_enter = ->(event : Qt6::DropEvent) { @on_drag_enter.try(&.call(event)) }
       @drag_drop.on_drag_move = ->(event : Qt6::DropEvent) { @on_drag_move.try(&.call(event)) }
