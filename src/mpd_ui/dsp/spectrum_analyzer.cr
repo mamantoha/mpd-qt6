@@ -92,7 +92,7 @@ module MPDUI
           edges[index] = {edges[index], edges[index - 1] + 1}.max
         end
 
-        edges.map { |edge| edge.clamp(min_bin, max_bin + 1) }
+        edges.map(&.clamp(min_bin, max_bin + 1))
       end
 
       private def frequency_weight(frequency : Float64) : Float64

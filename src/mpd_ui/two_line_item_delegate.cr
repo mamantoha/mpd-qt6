@@ -1,7 +1,7 @@
 module MPDUI
   module TwoLineItemDelegate
     ICON_SIZE    = 24
-    ICON_SPACING = 8
+    ICON_SPACING =  8
 
     @@icons = {} of String => Qt6::QIcon
 
@@ -102,9 +102,9 @@ module MPDUI
 
     private def self.icon_names(kind : String) : Array(String)
       case kind
-      when "artist" then ["user-identity", "avatar-default", "contact-new"]
-      when "album" then ["media-optical-audio", "media-optical"]
-      when "song" then ["audio-x-generic", "audio-mpeg"]
+      when "artist"   then ["user-identity", "avatar-default", "contact-new"]
+      when "album"    then ["media-optical-audio", "media-optical"]
+      when "song"     then ["audio-x-generic", "audio-mpeg"]
       when "playlist" then ["view-media-playlist", "format-list-unordered"]
       else
         [] of String

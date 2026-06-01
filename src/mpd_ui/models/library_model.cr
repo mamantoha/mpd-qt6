@@ -121,7 +121,7 @@ module MPDUI
 
     protected def model_data(index : Qt6::ModelIndex, role : Int32) : Qt6::ModelData
       node = node_for(index)
-      return nil unless node
+      return unless node
 
       case role
       when Qt6::ItemDataRole::Display.value, ItemRoles::TITLE.value
@@ -140,8 +140,8 @@ module MPDUI
     end
 
     protected def model_header_data(section : Int32, orientation : Qt6::Orientation, role : Int32) : Qt6::ModelData
-      return nil unless orientation.horizontal?
-      return nil unless role == Qt6::ItemDataRole::Display.value
+      return unless orientation.horizontal?
+      return unless role == Qt6::ItemDataRole::Display.value
 
       section == 0 ? "Database" : nil
     end
