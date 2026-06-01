@@ -1,11 +1,11 @@
 module MPDUI
   class PlaylistsView
-    ROW_TYPE_PLAYLIST = "playlist"
-    ROW_TYPE_SONG     = "song"
+    ROW_TYPE_PLAYLIST = PlaylistsModel::ROW_TYPE_PLAYLIST
+    ROW_TYPE_SONG     = PlaylistsModel::ROW_TYPE_SONG
 
     getter root : Qt6::Widget
     getter song_view : Qt6::TreeView
-    getter song_model : Qt6::StandardItemModel
+    getter song_model : PlaylistsModel
     getter context_filter : Qt6::EventFilter?
     getter song_drag_filter : Qt6::EventFilter?
 
@@ -22,10 +22,6 @@ module MPDUI
     property on_song_drag_enter : Proc(Nil)?
     property on_song_drag_finished : Proc(Nil)?
 
-    @playlists : Array(PlaylistEntry) = [] of PlaylistEntry
-    @playlist_songs : Hash(String, Array(Song)) = {} of String => Array(Song)
-    @playlist_items : Hash(String, Qt6::StandardItem) = {} of String => Qt6::StandardItem
-    @loaded_playlist_names = Set(String).new
     @last_selected_playlist_name : String?
     @syncing_selection = false
     @delegate : Qt6::StyledItemDelegate
@@ -46,7 +42,7 @@ module MPDUI
       @root = Qt6::Widget.new(parent)
       @root.minimum_width = 220
       @song_view = Qt6::TreeView.new(@root)
-      @song_model = Qt6::StandardItemModel.new(@song_view)
+      @song_model = PlaylistsModel.new(@song_view)
       configure_song_view
       @delegate = TwoLineItemDelegate.build(@song_view, @song_model)
       @song_view.item_delegate = @delegate
@@ -77,32 +73,25 @@ module MPDUI
 
     def render_playlists(playlists : Array(PlaylistEntry)) : Nil
       previous_name = selected_playlist_name
-      @playlists = playlists
-      @playlist_songs.select! { |name, _songs| @playlists.any? { |playlist| playlist.name == name } }
-      @playlists.each do |playlist|
-        @playlist_songs[playlist.name] = playlist.songs
-      end
+      expanded_names = expanded_playlist_names
 
-      if @playlists.empty?
-        @last_selected_playlist_name = nil
-        render_message("No stored playlists")
-      else
-        render_tree(previous_name || @playlists.first.name)
-      end
+      @syncing_selection = true
+      @song_model.replace(playlists)
+      configure_song_header
 
+      name_to_select = previous_name && @song_model.has_playlist?(previous_name) ? previous_name : @song_model.first_playlist_name
+      @last_selected_playlist_name = name_to_select
+      restore_expanded_playlists(expanded_names)
+      select_playlist(name_to_select)
+    ensure
+      @syncing_selection = false
       update_action_buttons
     end
 
     def render_message(message : String) : Nil
-      @song_model.clear
-      @playlist_items.clear
-      @loaded_playlist_names.clear
-      configure_song_model
+      @song_model.show_message(message)
       configure_song_header
-
-      item = Qt6::StandardItem.new(message)
-      item.flags = Qt6::ItemFlag::Enabled
-      @song_model << item
+      update_action_buttons
     end
 
     def selected_playlist_name : String?
@@ -117,28 +106,46 @@ module MPDUI
     end
 
     def selected_song_uris : Array(String)
-      items = selected_song_items
-      items = current_song_items if items.empty?
+      indexes = selected_song_indexes
+      begin
+        uris = indexes.compact_map { |index| song_uri_for_index(index) }.uniq!
+        return uris unless uris.empty?
+      ensure
+        indexes.each(&.release)
+      end
 
-      items.compact_map { |item| song_uri_for_item(item) }.uniq!
+      indexes = current_song_indexes
+      begin
+        indexes.compact_map { |index| song_uri_for_index(index) }.uniq!
+      ensure
+        indexes.each(&.release)
+      end
     end
 
     def selected_song_positions : Array(Int32)
-      items = selected_song_items
-      items = current_song_items if items.empty?
+      indexes = selected_song_indexes
+      begin
+        positions = indexes.compact_map { |index| song_position_for_index(index) }
+        return positions unless positions.empty?
+      ensure
+        indexes.each(&.release)
+      end
 
-      items.compact_map { |item| song_position_for_item(item) }
+      indexes = current_song_indexes
+      begin
+        indexes.compact_map { |index| song_position_for_index(index) }
+      ensure
+        indexes.each(&.release)
+      end
     end
 
     private def configure_song_view : Nil
-      configure_song_model
       @song_view.model = @song_model
       @song_view.header_hidden = true
       @song_view.header.stretch_last_section = true
       @song_view.header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Stretch)
       @song_view.root_is_decorated = true
       @song_view.uniform_row_heights = false
-      @song_view.icon_size = Qt6::Size.new(24, 24)
       @song_view.alternating_row_colors = true
       @song_view.selection_mode = Qt6::ItemSelectionMode::ExtendedSelection
       @song_view.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
@@ -161,107 +168,19 @@ module MPDUI
       configure_song_header
     end
 
-    private def configure_song_model : Nil
-      @song_model.set_horizontal_header_label(0, "Playlist")
-    end
-
     private def configure_song_header : Nil
       header = @song_view.header
       header.stretch_last_section = true
       header.set_section_resize_mode(0, Qt6::HeaderResizeMode::Stretch)
     end
 
-    private def render_tree(selected_name : String?) : Nil
-      expanded_names = expanded_playlist_names
-      @syncing_selection = true
-      @song_model.clear
-      @playlist_items.clear
-      @loaded_playlist_names.clear
-      configure_song_model
-      configure_song_header
-
-      playlist_icon = Qt6::QIcon.from_theme("view-media-playlist")
-      @playlists.each_with_index do |playlist, row|
-        playlist_item = TwoLineItemDelegate.item(playlist.name, playlist_subtitle(playlist))
-        playlist_item.icon = playlist_icon unless playlist_icon.null?
-        playlist_item.set_data(ROW_TYPE_PLAYLIST, ItemRoles::PLAYLIST_ROW_TYPE)
-        playlist_item.set_data(playlist.name, ItemRoles::PLAYLIST_NAME)
-        playlist_item.set_data(playlist.tooltip, Qt6::ItemDataRole::ToolTip)
-        playlist_item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DropEnabled
-
-        @song_model.set_item(row, 0, playlist_item)
-        @playlist_items[playlist.name] = playlist_item
-
-        append_playlist_placeholder(playlist.name, playlist_item)
-      end
-
-      name_to_select = selected_name && @playlist_items.has_key?(selected_name) ? selected_name : @playlists.first?.try(&.name)
-      @last_selected_playlist_name = name_to_select
-      restore_expanded_playlists(expanded_names)
-      select_playlist(name_to_select)
-    ensure
-      @syncing_selection = false
-    end
-
-    private def append_playlist_placeholder(playlist_name : String, playlist_item : Qt6::StandardItem) : Nil
-      songs = @playlist_songs[playlist_name]?
-      return unless songs && !songs.empty?
-
-      placeholder = Qt6::StandardItem.new("")
-      placeholder.flags = Qt6::ItemFlag::None
-      playlist_item.set_child(0, 0, placeholder)
-    end
-
-    private def ensure_playlist_songs_loaded(playlist_name : String) : Nil
-      return if @loaded_playlist_names.includes?(playlist_name)
-
-      playlist_item = @playlist_items[playlist_name]?
-      return unless playlist_item
-
-      append_playlist_songs(playlist_name, playlist_item)
-      @loaded_playlist_names << playlist_name
-    end
-
-    private def ensure_playlist_songs_loaded_at(position : Qt6::PointF) : Nil
-      index = @song_view.index_at(position)
-      begin
-        return unless index.valid?
-
-        name = playlist_name_for_index(index)
-        ensure_playlist_songs_loaded(name) if name
-      ensure
-        index.release
-      end
-    end
-
-    private def append_playlist_songs(playlist_name : String, playlist_item : Qt6::StandardItem) : Nil
-      songs = @playlist_songs[playlist_name]?
-      return unless songs
-
-      music_icon = Qt6::QIcon.from_theme("audio-x-generic")
-      songs.each_with_index do |song, row|
-        title_item = TwoLineItemDelegate.item(song.title, song.subtitle)
-        title_item.icon = music_icon unless music_icon.null?
-        configure_song_item(title_item)
-        title_item.set_data(ROW_TYPE_SONG, ItemRoles::PLAYLIST_ROW_TYPE)
-        title_item.set_data(playlist_name, ItemRoles::PLAYLIST_NAME)
-        title_item.set_data(row, ItemRoles::PLAYLIST_SONG_POSITION)
-        title_item.set_data(song.file || "", ItemRoles::PLAYLIST_SONG_URI)
-        title_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
-
-        playlist_item.set_child(row, 0, title_item)
-      end
-    end
-
-    private def configure_song_item(item : Qt6::StandardItem) : Nil
-      item.flags = Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable | Qt6::ItemFlag::DragEnabled
-    end
-
     private def expanded_playlist_names : Set(String)
       expanded = Set(String).new
 
-      @playlist_items.each do |name, item|
-        index = @song_model.index_from_item(item)
+      @song_model.playlist_names.each do |name|
+        index = @song_model.index_for_playlist(name)
+        next unless index
+
         begin
           expanded << name if index.valid? && @song_view.expanded?(index)
         ensure
@@ -274,11 +193,9 @@ module MPDUI
 
     private def restore_expanded_playlists(names : Set(String)) : Nil
       names.each do |name|
-        item = @playlist_items[name]?
-        next unless item
+        index = @song_model.index_for_playlist(name)
+        next unless index
 
-        ensure_playlist_songs_loaded(name)
-        index = @song_model.index_from_item(item)
         begin
           @song_view.expand(index) if index.valid?
         ensure
@@ -311,7 +228,6 @@ module MPDUI
             show_context_menu(viewport, mouse_event.position)
             true
           else
-            ensure_playlist_songs_loaded_at(mouse_event.position)
             if song_index_at?(mouse_event.position)
               remember_dragged_song(mouse_event.position)
               @on_song_mouse_press.try(&.call)
@@ -356,18 +272,22 @@ module MPDUI
           return
         end
 
-        item = @song_model.item_from_index(index)
-        playlist_name = item.try(&.data(ItemRoles::PLAYLIST_NAME).as?(String))
-        position = item.try(&.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32))
+        playlist_name = playlist_name_for_index(index)
+        position = song_position_for_index(index)
         unless playlist_name && position
           clear_dragged_song
           return
         end
 
-        selected_positions = selected_song_items.compact_map do |selected_item|
-          next unless selected_item.data(ItemRoles::PLAYLIST_NAME).as?(String) == playlist_name
+        selected_indexes = selected_song_indexes
+        selected_positions = begin
+          selected_indexes.compact_map do |selected_index|
+            next unless playlist_name_for_index(selected_index) == playlist_name
 
-          selected_item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+            song_position_for_index(selected_index)
+          end
+        ensure
+          selected_indexes.each(&.release)
         end
 
         @dragged_song_playlist_name = playlist_name
@@ -394,10 +314,12 @@ module MPDUI
       return false unless target
       return false unless target.playlist_name == playlist_name
 
-      songs = @playlist_songs[playlist_name]?
-      return false unless songs
-
-      plan = @playlist_controller.move_plan(songs.size, target.insert_position, @dragged_song_positions)
+      parent_index = parent_index_for_playlist(playlist_name)
+      begin
+        plan = @playlist_controller.move_plan(@song_model.row_count(parent_index), target.insert_position, @dragged_song_positions)
+      ensure
+        parent_index.release
+      end
       return false unless plan
       callback = @on_move_songs
       return false unless callback
@@ -415,11 +337,8 @@ module MPDUI
       begin
         return unless index.valid? && song_index?(index)
 
-        item = @song_model.item_from_index(index)
-        return unless item
-
-        playlist_name = item.data(ItemRoles::PLAYLIST_NAME).as?(String)
-        target_position = item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+        playlist_name = playlist_name_for_index(index)
+        target_position = song_position_for_index(index)
         return unless playlist_name && target_position
 
         rect = @song_view.visual_rect(index)
@@ -462,17 +381,17 @@ module MPDUI
       return if @syncing_selection
 
       name = selected_playlist_name
-      ensure_playlist_songs_loaded(name) if name
       return if name == @last_selected_playlist_name
 
       @last_selected_playlist_name = name
     end
 
     private def select_playlist(name : String?) : Nil
-      item = name.try { |value| @playlist_items[value]? }
-      return unless item
+      return unless name
 
-      index = @song_model.index_from_item(item)
+      index = @song_model.index_for_playlist(name)
+      return unless index
+
       begin
         @song_view.selection_model.try(&.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect | Qt6::SelectionFlag::Rows))
         @song_view.current_index = index
@@ -540,31 +459,28 @@ module MPDUI
       index.data(@song_model, ItemRoles::PLAYLIST_NAME).as?(String)
     end
 
-    private def selected_song_items : Array(Qt6::StandardItem)
+    private def selected_song_indexes : Array(Qt6::ModelIndex)
       selection_model = @song_view.selection_model
-      return [] of Qt6::StandardItem unless selection_model
+      return [] of Qt6::ModelIndex unless selection_model
 
       selection_model.selected_rows(0).compact_map do |index|
-        begin
-          next unless index.valid? && song_index?(index)
-
-          @song_model.item_from_index(index)
-        ensure
+        if index.valid? && song_index?(index)
+          index
+        else
           index.release
+          nil
         end
       end
     end
 
-    private def current_song_items : Array(Qt6::StandardItem)
+    private def current_song_indexes : Array(Qt6::ModelIndex)
       index = @song_view.current_index
-      begin
-        return [] of Qt6::StandardItem unless index.valid? && song_index?(index)
-
-        item = @song_model.item_from_index(index)
-        item ? [item] : [] of Qt6::StandardItem
-      ensure
+      unless index.valid? && song_index?(index)
         index.release
+        return [] of Qt6::ModelIndex
       end
+
+      [index]
     end
 
     private def row_type(index : Qt6::ModelIndex) : String?
@@ -573,27 +489,21 @@ module MPDUI
       index.data(@song_model, ItemRoles::PLAYLIST_ROW_TYPE).as?(String)
     end
 
-    private def song_uri_for_item(item : Qt6::StandardItem) : String?
-      return unless item.data(ItemRoles::PLAYLIST_ROW_TYPE).as?(String) == ROW_TYPE_SONG
+    private def song_uri_for_index(index : Qt6::ModelIndex) : String?
+      return unless row_type(index) == ROW_TYPE_SONG
 
-      uri = item.data(ItemRoles::PLAYLIST_SONG_URI).as?(String)
+      uri = index.data(@song_model, ItemRoles::PLAYLIST_SONG_URI).as?(String)
       uri unless uri.nil? || uri.empty?
     end
 
-    private def song_position_for_item(item : Qt6::StandardItem) : Int32?
-      return unless item.data(ItemRoles::PLAYLIST_ROW_TYPE).as?(String) == ROW_TYPE_SONG
+    private def song_position_for_index(index : Qt6::ModelIndex) : Int32?
+      return unless row_type(index) == ROW_TYPE_SONG
 
-      item.data(ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
+      index.data(@song_model, ItemRoles::PLAYLIST_SONG_POSITION).as?(Int32)
     end
 
-    private def playlist_subtitle(playlist : PlaylistEntry) : String?
-      return playlist.summary if playlist.summary
-
-      songs = @playlist_songs[playlist.name]?
-      return unless songs
-      count = songs.size
-      total = songs.compact_map(&.duration).sum
-      "#{count} #{count == 1 ? "Track" : "Tracks"} (#{Song.format_time(total)})"
+    private def parent_index_for_playlist(name : String) : Qt6::ModelIndex
+      @song_model.index_for_playlist(name) || Qt6::ModelIndex.new
     end
   end
 end

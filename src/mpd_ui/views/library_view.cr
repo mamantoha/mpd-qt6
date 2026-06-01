@@ -2,7 +2,7 @@ module MPDUI
   class LibraryView
     getter root : Qt6::Widget
     getter tree : Qt6::TreeView
-    getter model : Qt6::StandardItemModel
+    getter model : LibraryModel
     getter search_panel : Qt6::Widget
     getter search_edit : Qt6::LineEdit
     getter genre_combo : Qt6::ComboBox
@@ -38,7 +38,7 @@ module MPDUI
       close_search_button.tool_tip = "Close search"
 
       @tree = Qt6::TreeView.new(@root)
-      @model = Qt6::StandardItemModel.new(@tree)
+      @model = LibraryModel.new(@tree)
       configure_tree
       @genre_combo = Qt6::ComboBox.new(@root)
       @genre_combo.add_item("All Genres")
@@ -151,68 +151,20 @@ module MPDUI
     end
 
     def show_message(message : String) : Nil
-      @model.clear
-      configure_model
-      @model << Qt6::StandardItem.new(message)
+      @model.show_message(message)
     end
 
     def render(result : LibraryIndex::Result, *, expand_all : Bool = false) : Nil
-      @model.clear
-      configure_model
-
-      if result.artists.empty?
-        @model << item(result.filtered ? "No matching songs" : "Database is empty")
-        return
-      end
-
-      artist_icon = themed_icon("user-identiry", "person.circle")
-      album_icon = themed_icon("media-optical-audio", "media-optical")
-      song_icon = themed_icon("audio-x-generic", "music.note.list")
-
-      result.artists.each do |artist|
-        artist_item = item(artist.name, artist.summary)
-        artist_item.icon = artist_icon unless artist_icon.null?
-
-        artist.albums.each do |album|
-          album_item = item(album.title, album.summary)
-          album_item.icon = album_icon unless album_icon.null?
-
-          album.songs.each do |song|
-            song_item = item(song_title(song), song.duration_label, song.file)
-            song_item.icon = song_icon unless song_icon.null?
-            song_item.set_data(song.tooltip_html, Qt6::ItemDataRole::ToolTip)
-            album_item << song_item
-          end
-
-          artist_item << album_item
-        end
-
-        @model << artist_item
-      end
-
+      @model.replace(result)
       @tree.expand_all if expand_all
     end
 
     def selected_uris : Array(String)
       if selection_model = @tree.selection_model
-        uris = [] of String
-        selected_indexes = selection_model.selected_indexes
+        selected_indexes = selection_model.selected_rows(0)
+        uris = @model.uris_for_indexes(selected_indexes, selection_model)
 
-        selected_indexes.each do |index|
-          begin
-            next unless index.valid?
-            next unless index.column == 0
-            next if selected_ancestor?(selection_model, index)
-
-            if item = @model.item_from_index(index)
-              collect_uris(item, uris)
-            end
-          ensure
-            index.release
-          end
-        end
-
-        uris.uniq!
+        selected_indexes.each(&.release)
         unless uris.empty?
           return uris
         end
@@ -221,30 +173,7 @@ module MPDUI
       index = @tree.current_index
       return [] of String unless index.valid?
 
-      root_item = @model.item_from_index(index)
-      return [] of String unless root_item
-
-      uris = [] of String
-      collect_uris(root_item, uris)
-      uris.uniq!
-      uris
-    end
-
-    private def selected_ancestor?(selection_model : Qt6::ItemSelectionModel, index : Qt6::ModelIndex) : Bool
-      parent = index.parent(@model)
-
-      loop do
-        begin
-          return false unless parent.valid?
-          return true if selection_model.selected?(parent)
-
-          next_parent = parent.parent(@model)
-        ensure
-          parent.release
-        end
-
-        parent = next_parent
-      end
+      @model.uris_for_index(index)
     end
 
     private def configure_tree : Nil
@@ -274,10 +203,6 @@ module MPDUI
         CSS
     end
 
-    private def configure_model : Nil
-      @model.set_horizontal_header_label(0, "Database")
-    end
-
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil
       index = @tree.index_at(position)
       begin
@@ -295,34 +220,7 @@ module MPDUI
       end
     end
 
-    private def collect_uris(item : Qt6::StandardItem, uris : Array(String)) : Nil
-      if file = item.data(Qt6::ItemDataRole::User).as?(String)
-        uris << file unless file.empty?
-      end
-
-      item.row_count.times do |row|
-        child = item.child(row)
-        collect_uris(child, uris) if child
-      end
-    end
-
-    private def item(title : String, subtitle : String? = nil, file : String? = nil) : Qt6::StandardItem
-      item = TwoLineItemDelegate.item(title, subtitle)
-      item.set_data(file, Qt6::ItemDataRole::User) if file
-      item
-    end
-
-    private def song_title(song : Song) : String
-      song.database_label.split(" • ", 2).first
-    end
-
-    private def themed_icon(*names : String) : Qt6::QIcon
-      names.each do |name|
-        icon = Qt6::QIcon.from_theme(name)
-        return icon unless icon.null?
-      end
-
-      Qt6::QIcon.new
+    private def configure_model : Nil
     end
   end
 end

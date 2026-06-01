@@ -15,9 +15,9 @@ module MPDUI
 
     # Only this many dB below the current peak remain visible. A narrower range
     # gives a more lively music-player look; a wider range looks flatter.
-    DYNAMIC_RANGE_DB = 36.0
-    MIN_MAGNITUDE = 1e-12
-    CONTRAST_POWER = 1.15
+    DYNAMIC_RANGE_DB =  36.0
+    MIN_MAGNITUDE    = 1e-12
+    CONTRAST_POWER   =  1.15
 
     @levels : Array(Float64)
     @mutex = Mutex.new
@@ -164,6 +164,5 @@ module MPDUI
       value = ((db + DYNAMIC_RANGE_DB) / DYNAMIC_RANGE_DB).clamp(0.0, 1.0)
       value ** CONTRAST_POWER
     end
-
   end
 end

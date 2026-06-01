@@ -3,7 +3,7 @@ module MPDUI
     class SpectrumAnalyzer
       # 2048 samples gives enough low-frequency resolution for bass bars while
       # still reacting quickly enough for a compact player header visualizer.
-      FFT_SIZE = 2048
+      FFT_SIZE    =     2048
       SAMPLE_RATE = 44_100.0
 
       def initialize(@bar_count : Int32)
