@@ -36,6 +36,7 @@ module MPDUI
     @root_children = [] of UInt64
     @next_id = 1_u64
     @drag_mime_data = Qt6::MimeData.new
+    getter drag_uris : Array(String) = [] of String
 
     def replace(result : LibraryIndex::Result) : Nil
       begin_reset_model
@@ -75,12 +76,17 @@ module MPDUI
 
     def uris_for_indexes(indexes : Enumerable(Qt6::ModelIndex), selection_model : Qt6::ItemSelectionModel? = nil) : Array(String)
       uris = [] of String
-      indexes.each do |index|
+      node_ids = indexes.compact_map do |index|
         next unless index.valid?
         next unless index.column == 0
-        next if selection_model && selected_ancestor?(selection_model, index)
+        index.internal_id
+      end
+      selected_ids = node_ids.to_set
 
-        collect_uris(index.internal_id, uris)
+      node_ids.each do |node_id|
+        next if selected_ancestor?(selected_ids, node_id)
+
+        collect_uris(node_id, uris)
       end
       uris.uniq!
     end
@@ -161,6 +167,7 @@ module MPDUI
     protected def model_mime_data(indexes : Array(Qt6::ModelIndex)) : Qt6::MimeData?
       return unless indexes.any? { |index| draggable_index?(index) }
 
+      @drag_uris = uris_for_indexes(indexes)
       @drag_mime_data.set_data(MIME_TYPE, "selection")
       @drag_mime_data.text = "garnetune-library-selection"
       @drag_mime_data
@@ -174,6 +181,7 @@ module MPDUI
       @nodes.clear
       @root_children.clear
       @next_id = 1_u64
+      @drag_uris.clear
     end
 
     private def add_root(kind : NodeKind, title : String, subtitle : String = "", file : String? = nil, tooltip : String? = nil) : UInt64
@@ -233,21 +241,16 @@ module MPDUI
       end
     end
 
-    private def selected_ancestor?(selection_model : Qt6::ItemSelectionModel, index : Qt6::ModelIndex) : Bool
-      parent = index.parent(self)
+    private def selected_ancestor?(selected_ids : Set(UInt64), node_id : UInt64) : Bool
+      parent_id = @nodes[node_id]?.try(&.parent_id)
 
-      loop do
-        begin
-          return false unless parent.valid?
-          return true if selection_model.selected?(parent)
+      while parent_id
+        return true if selected_ids.includes?(parent_id)
 
-          next_parent = parent.parent(self)
-        ensure
-          parent.release
-        end
-
-        parent = next_parent
+        parent_id = @nodes[parent_id]?.try(&.parent_id)
       end
+
+      false
     end
 
     private def song_title(song : Song) : String

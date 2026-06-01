@@ -176,6 +176,14 @@ module MPDUI
       @model.uris_for_index(index)
     end
 
+    def drag_uris : Array(String)
+      @model.drag_uris
+    end
+
+    def clear_drag_uris : Nil
+      @model.drag_uris.clear
+    end
+
     private def configure_tree : Nil
       configure_model
       @tree.model = @model

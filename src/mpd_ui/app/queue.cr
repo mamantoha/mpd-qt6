@@ -20,7 +20,7 @@ module MPDUI
         end
       }
       queue.on_drag_move = ->(drop_event : Qt6::DropEvent) {
-        @playlist_drag_source_row = queue.current_rows.first?
+        @playlist_drag_source_row = queue.current_rows.first? if @drag_source_type == :playlist
 
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action

@@ -19,10 +19,12 @@ module MPDUI
       library.on_selection_changed = -> {
         @playlist_drag_source_row = nil
         @dragged_database_uris.clear
+        library.clear_drag_uris
       }
       library.on_mouse_press = -> {
         @playlist_drag_source_row = nil
         @dragged_database_uris.clear
+        library.clear_drag_uris
         @drag_source_type = :database
       }
       library.on_drag_enter = -> { @drag_source_type = :database }
@@ -200,6 +202,9 @@ module MPDUI
       case @drag_source_type
       when :stored_playlist
         selected_stored_playlist_song_uris
+      when :database
+        drag_uris = @library_view.try(&.drag_uris) || [] of String
+        drag_uris.empty? ? selected_database_uris : drag_uris.dup
       else
         selected_database_uris
       end

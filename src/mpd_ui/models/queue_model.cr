@@ -106,7 +106,7 @@ module MPDUI
       @drag_mime_data
     end
 
-    protected def model_drop_mime_data(mime_data : Qt6::MimeData, action : Qt6::DropAction, row : Int32, column : Int32, parent : Qt6::ModelIndex) : Bool
+    protected def model_drop_mime_data_handle(mime_data_handle : Qt6::LibQt6::Handle, action : Qt6::DropAction, row : Int32, column : Int32, parent : Qt6::ModelIndex) : Bool
       return false if action == Qt6::DropAction::IgnoreAction
 
       action == Qt6::DropAction::CopyAction || action == Qt6::DropAction::MoveAction
