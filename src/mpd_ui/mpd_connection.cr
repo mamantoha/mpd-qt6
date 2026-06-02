@@ -1,36 +1,72 @@
 module MPDUI
   module AppMPDConnection
     private def connect : Nil
-      Log.info { "mpd_ui: reconnecting to #{@settings.host}:#{@settings.port}" }
+      host = @settings.host
+      port = @settings.port
+      generation = @connection_generation.add(1) + 1
+
+      Log.info { "mpd_ui: reconnecting to #{host}:#{port}" }
 
       @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
       @stored_playlist_idle_client.try(&.disconnect)
+      @callback_generation.set(@callback_generation.get + 1)
+      @mpd_available = false
       @callback_client = nil
       @stored_playlist_idle_client = nil
-
-      @client = MPD::Client.new(@settings.host, @settings.port)
-      @mpd_available = true
-      Log.info { "mpd_ui: connected to #{@settings.host}:#{@settings.port}" }
       @library_index.replace([] of Song)
       @database_loaded = false
       @database_loading = false
+      @client = nil
+      @event_bridge.reset
+      wait_for_status_after_reconnect
+
+      run_background(
+        ->(client : MPD::Client) {
+          if generation != @connection_generation.get
+            client.disconnect
+          else
+            finish_connect(host, port, client)
+          end
+        },
+        ->(ex : Exception) {
+          fail_connect(host, port, ex) if generation == @connection_generation.get
+        }
+      ) do
+        MPD::Client.new(host, port)
+      end
+    end
+
+    private def finish_connect(host : String, port : Int32, client : MPD::Client) : Nil
+      @client.try(&.disconnect)
+      @client = client
+      @waiting_for_mpd_status = false
+      Log.info { "mpd_ui: connected to #{host}:#{port}" }
       show_database_message("Open the Database tab to load your library")
       @event_bridge.reset
-      generation = @callback_generation.get + 1
-      @callback_generation.set(generation)
-      start_callback_listener(generation)
-      start_idle_listener(generation)
+      callback_generation = @callback_generation.get + 1
+      @callback_generation.set(callback_generation)
+      @mpd_available = true
+      start_callback_listener(callback_generation)
+      start_idle_listener(callback_generation)
       refresh_status
       refresh_outputs_menu
       ensure_database_loaded(force: true) if @library_view
       refresh_stored_playlists if @playlists_view
-    rescue ex
-      Log.error { "mpd_ui: failed to connect to #{@settings.host}:#{@settings.port}: #{ex.message || ex}" }
+    end
+
+    private def fail_connect(host : String, port : Int32, ex : Exception) : Nil
+      Log.error { "mpd_ui: failed to connect to #{host}:#{port}: #{ex.message || ex}" }
+      @client = nil
       @mpd_available = false
+      @waiting_for_mpd_status = false
       @title_label.try(&.text = "Connection failed")
       @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      set_status("Unable to connect to #{@settings.host}:#{@settings.port}")
+      set_status("Unable to connect to #{host}:#{port}")
+      show_database_message("Unable to connect to #{host}:#{port}")
+      @playlists_view.try(&.render_message("Unable to connect to MPD"))
+      clear_outputs_menu("Disconnected")
+      sync_playback_controls
     end
 
     private def start_callback_listener(generation : Int32) : Nil

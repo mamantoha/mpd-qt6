@@ -80,6 +80,7 @@ module MPDUI
     @mpris_adapter : MprisAdapter?
     @lastfm_adapter : LastfmAdapter?
     @callback_generation : Atomic(Int32) = Atomic(Int32).new(0)
+    @connection_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @play_icon : Qt6::QIcon?
     @pause_icon : Qt6::QIcon?
     @stop_icon : Qt6::QIcon?
@@ -473,6 +474,7 @@ module MPDUI
 
       save_expanded_layout_settings
       @quitting = true
+      @connection_generation.set(@connection_generation.get + 1)
       @callback_generation.set(@callback_generation.get + 1)
       @event_bridge.shutdown
       @visualizer_service.stop
