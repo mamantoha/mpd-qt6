@@ -229,6 +229,7 @@ module LastFM
     @scrobble_sent : Bool = false
     @flushing_queue : Bool = false
     @queue : Array(PendingScrobble)
+    @stopped = Atomic(Bool).new(false)
 
     # `enabled` and `session_key` are callbacks so the app can change settings
     # without rebuilding this object for every update.
@@ -242,6 +243,8 @@ module LastFM
     # Last.fm threshold is reached. This mirrors common desktop player behavior,
     # including Cantata's timing.
     def update(song : Hash(String, String)?, state : String, elapsed : Float64, duration : Float64) : Nil
+      return if @stopped.get
+
       unless active?
         reset
         return
@@ -264,6 +267,12 @@ module LastFM
       send_now_playing(track) if changed
       flush_queue
       send_scrobble(track) if elapsed >= track.threshold
+    end
+
+    def stop : Nil
+      return if @stopped.swap(true)
+
+      reset
     end
 
     # Updates local track bookkeeping without implying that playback is active.
@@ -340,8 +349,11 @@ module LastFM
       end
 
       return unless should_send
+      return if @stopped.get
 
       run_background("lastfm-now-playing") do
+        next if @stopped.get
+
         @client.update_now_playing(track, @session_key.call)
         Log.debug { "updated now playing: #{track.artist} - #{track.title}" }
       rescue ex
@@ -360,8 +372,11 @@ module LastFM
       end
 
       return unless should_send
+      return if @stopped.get
 
       run_background("lastfm-scrobble") do
+        next if @stopped.get
+
         @client.scrobble(track, @session_key.call)
         Log.info { "scrobbled: #{track.artist} - #{track.title}" }
       rescue ex
@@ -382,10 +397,13 @@ module LastFM
       end
 
       return if pending.empty?
+      return if @stopped.get
 
       run_background("lastfm-flush") do
         failed = [] of PendingScrobble
         pending.each do |item|
+          break if @stopped.get
+
           track = item.to_track
           begin
             @client.scrobble(track, @session_key.call)

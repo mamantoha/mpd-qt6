@@ -131,7 +131,10 @@ module MPDUI
       else
         @window.try(&.show)
       end
-      exit(@qt_app.run)
+
+      exit_code = @qt_app.run
+      shutdown_application
+      Process.exit(exit_code)
     end
 
     private def build_ui : Nil
@@ -460,6 +463,11 @@ module MPDUI
     end
 
     private def quit_application : Nil
+      shutdown_application
+      @qt_app.quit
+    end
+
+    private def shutdown_application : Nil
       return if @quitting
 
       save_expanded_layout_settings
@@ -473,9 +481,9 @@ module MPDUI
       @client = nil
       @callback_client = nil
       @stored_playlist_idle_client = nil
+      @lastfm_adapter.try(&.stop)
       @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
-      @qt_app.quit
     end
 
     private def reset_views : Nil

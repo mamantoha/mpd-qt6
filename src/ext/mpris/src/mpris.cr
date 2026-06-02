@@ -133,7 +133,7 @@ module MPRIS
       authenticate(socket)
       hello
       request_name
-      socket.read_timeout = 500.milliseconds
+      socket.read_timeout = 100.milliseconds
 
       while @running.get
         begin
