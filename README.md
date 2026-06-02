@@ -25,6 +25,8 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 ## Requirements
 
 - Crystal >= 1.19.1
+- Garnetune must be built with Crystal's multithreaded execution context flags:
+  `-Dpreview_mt -Dexecution_context`
 - Qt6 Widgets development packages
   - Arch: `pacman -S qt6-base`
   - Ubuntu: `apt-get install qt6-base-dev`
@@ -37,8 +39,14 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 git clone https://github.com/mamantoha/mpd-qt6
 cd mpd-qt6
 shards install
-shards build --release -Dpreview_mt
+shards build --release -Dpreview_mt -Dexecution_context
 ./bin/garnetune
+```
+
+For local development, use the same flags:
+
+```sh
+crystal run src/main.cr -Dpreview_mt -Dexecution_context
 ```
 
 ## Visualizer

@@ -428,11 +428,7 @@ module LastFM
     end
 
     private def run_background(name : String, block : Proc(Nil)) : Nil
-      {% if flag?(:execution_context) %}
-        Fiber::ExecutionContext::Isolated.new(name) { block.call }
-      {% else %}
-        Thread.new(name: name) { block.call }
-      {% end %}
+      Fiber::ExecutionContext::Isolated.new(name) { block.call }
     end
 
     private def cache_failed_scrobble(track : Track) : Nil

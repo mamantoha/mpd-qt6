@@ -112,11 +112,7 @@ module MPRIS
     end
 
     private def run_background(name : String, block : Proc(Nil)) : Nil
-      {% if flag?(:execution_context) %}
-        Fiber::ExecutionContext::Isolated.new(name) { block.call }
-      {% else %}
-        Thread.new(name: name) { block.call }
-      {% end %}
+      Fiber::ExecutionContext::Isolated.new(name) { block.call }
     end
 
     # Opens the session bus, publishes this service as an MPRIS player, and

@@ -57,8 +57,14 @@ require "./mpd_ui/app/about_dialog"
 require "./mpd_ui/app/player"
 require "./mpd_ui/app"
 
+{% unless flag?(:preview_mt) && flag?(:execution_context) %}
+  {% raise "Garnetune must be built with -Dpreview_mt -Dexecution_context" %}
+{% end %}
+
 module MPDUI
   def self.run : Nil
+    Log.setup_from_env(backend: Log::IOBackend.new(STDERR, dispatcher: Log::DispatchMode::Sync))
+
     App.new.run
   end
 end
