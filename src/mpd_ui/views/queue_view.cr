@@ -85,6 +85,10 @@ module MPDUI
       @selection.current_rows
     end
 
+    def focused? : Bool
+      @view.has_focus? || @view.viewport.has_focus?
+    end
+
     def select_row(row : Int32, *, scroll : Bool = true) : Nil
       return if row < 0 || row >= @model.row_count
 

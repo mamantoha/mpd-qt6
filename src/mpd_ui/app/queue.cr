@@ -122,6 +122,8 @@ module MPDUI
       end
       return unless songs
 
+      selected_row = queue.focused? ? queue.current_rows.first? : nil
+
       @syncing = true
       @queue_controller.replace(songs)
 
@@ -130,6 +132,8 @@ module MPDUI
       if row = @just_moved_pos
         queue.select_row(row)
         @just_moved_pos = nil
+      elsif selected_row && selected_row < queue.row_count
+        queue.select_row(selected_row, scroll: false)
       elsif scroll_to_current
         scroll_playlist_to_current_song
       end
