@@ -4,6 +4,7 @@ module MPDUI
       queue = QueueView.new(parent)
       queue.on_play_selected = -> { play_selected_playlist_row }
       queue.on_remove_selected = -> { delete_selected_playlist_row }
+      queue.on_clear_queue = -> { clear_queue }
       queue.on_save_as_playlist = -> { save_queue_as_playlist }
       queue.on_scroll_to_current = -> { scroll_playlist_to_current_song }
       queue.on_mouse_press_row = ->(row : Int32?) {

@@ -6,6 +6,7 @@ module MPDUI
 
     property on_play_selected : Proc(Nil)?
     property on_remove_selected : Proc(Nil)?
+    property on_clear_queue : Proc(Nil)?
     property on_save_as_playlist : Proc(Nil)?
     property on_scroll_to_current : Proc(Nil)?
     property on_context_menu_open : Proc(Int32, Nil)?
@@ -31,6 +32,7 @@ module MPDUI
       @context_menu = Qt6::Menu.new("Queue", @view)
       @play_now_action = add_context_action("Play Now", "media-playback-start") { @on_play_selected.try(&.call) }
       add_context_action("Remove from Queue", "edit-delete") { @on_remove_selected.try(&.call) }
+      add_context_action("Clear Queue", "edit-clear") { @on_clear_queue.try(&.call) }
       @context_menu.add_separator
       add_context_action("Scroll to Current Song", "go-jump") { @on_scroll_to_current.try(&.call) }
       add_context_action("Save Queue as Playlist...", "document-save") { @on_save_as_playlist.try(&.call) }
