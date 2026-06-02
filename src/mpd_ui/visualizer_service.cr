@@ -15,9 +15,9 @@ module MPDUI
 
     # Only this many dB below the current peak remain visible. A narrower range
     # gives a more lively music-player look; a wider range looks flatter.
-    DYNAMIC_RANGE_DB = 36.0
-    MIN_MAGNITUDE = 1e-12
-    CONTRAST_POWER = 1.15
+    DYNAMIC_RANGE_DB =  36.0
+    MIN_MAGNITUDE    = 1e-12
+    CONTRAST_POWER   =  1.15
 
     @levels : Array(Float64)
     @mutex = Mutex.new
@@ -97,7 +97,8 @@ module MPDUI
         end
 
         begin
-          File.open(path, "r") do |fifo|
+          fifo = open_fifo
+          begin
             while @running.get
               unless @enabled.get
                 reset
@@ -106,6 +107,7 @@ module MPDUI
 
               bytes_read = read_full(fifo, buffer)
               unless bytes_read == buffer.size
+                sleep 100.milliseconds if @running.get && @enabled.get && @playback_active.get
                 break
               end
 
@@ -130,8 +132,10 @@ module MPDUI
               @mutex.synchronize { @levels = normalized }
               @connected.set(true)
             end
+          ensure
+            fifo.close
           end
-        rescue File::NotFoundError
+        rescue File::Error
           @connected.set(false)
           sleep 2.seconds
         rescue IO::Error
@@ -139,6 +143,17 @@ module MPDUI
           sleep 500.milliseconds
         end
       end
+    end
+
+    private def open_fifo : IO
+      {% if flag?(:unix) %}
+        fd = LibC.open(path, LibC::O_RDONLY | LibC::O_NONBLOCK)
+        raise File::Error.from_errno("Unable to open FIFO", file: path) if fd == -1
+
+        IO::FileDescriptor.new(fd)
+      {% else %}
+        File.open(path, "r")
+      {% end %}
     end
 
     private def read_full(io : IO, buffer : Bytes) : Int32
@@ -164,6 +179,5 @@ module MPDUI
       value = ((db + DYNAMIC_RANGE_DB) / DYNAMIC_RANGE_DB).clamp(0.0, 1.0)
       value ** CONTRAST_POWER
     end
-
   end
 end

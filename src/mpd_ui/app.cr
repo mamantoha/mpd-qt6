@@ -41,6 +41,8 @@ module MPDUI
     @player_header_view : PlayerHeaderView?
     @queue_view : QueueView?
     @queue_controller : QueueController
+    @queue_commands : QueueCommandService
+    @stored_playlists : StoredPlaylistService
     @playlist_view : Qt6::TreeView?
     @toggle_window_action : Qt6::Action?
     @playback_header : Qt6::Widget?
@@ -61,13 +63,14 @@ module MPDUI
     @database_loaded : Bool = false
     @database_loading : Bool = false
     @database_drag_filter : Qt6::EventFilter?
+    @database_filter_timer : Qt6::QTimer?
+    @last_database_filter_query : String? = nil
+    @last_database_filter_genre : String? = nil
+    @database_filter_generation : Atomic(Int32) = Atomic(Int32).new(0)
     @queue_drop_filter : Qt6::EventFilter?
     @window_event_filter : Qt6::EventFilter?
     @output_actions : Array(Qt6::Action) = [] of Qt6::Action
-    @playlist_drag_source_row : Int32? = nil
-    @dragged_database_uris : Array(String) = [] of String
-    # Track drag source: :playlist, :database, or nil
-    @drag_source_type : Symbol? = nil
+    @drag_context : DragContext
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @stored_playlist_idle_client : MPD::Client?
@@ -82,6 +85,7 @@ module MPDUI
     @stop_icon : Qt6::QIcon?
     @playback_state : PlaybackState = PlaybackState.new
     @just_moved_pos : Int32? = nil
+    @preserve_queue_scroll_once : Bool = false
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @status_retry_scheduled : Bool = false
     @waiting_for_mpd_status : Bool = false
@@ -108,8 +112,11 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @visualizer_service = VisualizerService.new
+      @drag_context = DragContext.new
       apply_visualizer_settings
       @queue_controller = QueueController.new
+      @queue_commands = QueueCommandService.new
+      @stored_playlists = StoredPlaylistService.new
       @library_index = LibraryIndex.new
       bind_event_bridge
       setup_lastfm
@@ -125,7 +132,10 @@ module MPDUI
       else
         @window.try(&.show)
       end
-      exit(@qt_app.run)
+
+      exit_code = @qt_app.run
+      shutdown_application
+      Process.exit(exit_code)
     end
 
     private def build_ui : Nil
@@ -454,15 +464,27 @@ module MPDUI
     end
 
     private def quit_application : Nil
+      shutdown_application
+      @qt_app.quit
+    end
+
+    private def shutdown_application : Nil
+      return if @quitting
+
       save_expanded_layout_settings
       @quitting = true
+      @callback_generation.set(@callback_generation.get + 1)
       @event_bridge.shutdown
       @visualizer_service.stop
+      @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
       @stored_playlist_idle_client.try(&.disconnect)
+      @client = nil
+      @callback_client = nil
+      @stored_playlist_idle_client = nil
+      @lastfm_adapter.try(&.stop)
       @mpris_adapter.try(&.stop)
       @tray_icon.try(&.hide)
-      @qt_app.quit
     end
 
     private def reset_views : Nil
@@ -477,7 +499,7 @@ module MPDUI
       @library_index.replace([] of Song)
       @queue_controller.replace([] of Song)
       @visualizer_service.reset
-      @queue_view.try(&.render([] of Song) { |_pos| nil })
+      @queue_view.try(&.render([] of Song) { |_pos| "" })
       @playlists_view.try(&.render_message("Disconnected from MPD"))
       show_database_message("Disconnected from MPD")
       clear_outputs_menu("Disconnected")

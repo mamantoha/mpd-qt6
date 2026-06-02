@@ -44,6 +44,33 @@ module MPDUI
       rows.compact_map { |row| position_at(row) }
     end
 
+    def position_ranges_for_row_ranges(row_ranges : Array(Tuple(Int32, Int32))) : Array(Tuple(Int32, Int32))
+      return [] of Tuple(Int32, Int32) if @positions.empty?
+
+      ranges = [] of Tuple(Int32, Int32)
+      row_ranges.each do |first_row, last_row|
+        next if first_row > last_row
+
+        first_row = first_row.clamp(0, @positions.size - 1)
+        last_row = last_row.clamp(0, @positions.size - 1)
+        next if first_row > last_row
+
+        first_position = position_at(first_row)
+        last_position = position_at(last_row)
+        next unless first_position && last_position
+
+        if last_position - first_position == last_row - first_row
+          ranges << {first_position, last_position}
+        else
+          first_row.upto(last_row) do |row|
+            position = position_at(row)
+            ranges << {position, position} if position
+          end
+        end
+      end
+      ranges
+    end
+
     def base_position_for_insert(row : Int32?) : Int32?
       return unless row
       return unless row < @positions.size

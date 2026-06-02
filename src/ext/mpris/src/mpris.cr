@@ -133,10 +133,15 @@ module MPRIS
       authenticate(socket)
       hello
       request_name
+      socket.read_timeout = 100.milliseconds
 
       while @running.get
-        message = Message.read(socket)
-        handle(message) if message
+        begin
+          message = Message.read(socket)
+          handle(message) if message
+        rescue IO::TimeoutError
+          next
+        end
       end
     ensure
       @socket.try(&.close)

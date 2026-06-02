@@ -49,7 +49,7 @@ module MPDUI
       return unless width.positive? && height.positive?
 
       painter.antialiasing = true
-      painter.pen = Qt6::QPen.new(Qt6::Color.new(0, 0, 0, 0), 0).tap { |pen| pen.style = Qt6::PenStyle::NoPen }
+      painter.pen = Qt6::QPen.new(Qt6::Color.new(0, 0, 0, 0), 0).tap(&.style=(Qt6::PenStyle::NoPen))
 
       gap = 2.0
       bar_width = {1.0, (width - gap * (levels.size - 1)) / levels.size}.max

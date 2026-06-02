@@ -21,5 +21,9 @@ module MPDUI
     def sync(playback : PlaybackState, song : Song?) : Nil
       @scrobbler.update(song.try(&.metadata), playback.state, playback.elapsed, playback.duration)
     end
+
+    def stop : Nil
+      @scrobbler.stop
+    end
   end
 end

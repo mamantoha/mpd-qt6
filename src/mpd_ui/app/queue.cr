@@ -5,52 +5,41 @@ module MPDUI
       queue.on_play_selected = -> { play_selected_playlist_row }
       queue.on_remove_selected = -> { delete_selected_playlist_row }
       queue.on_save_as_playlist = -> { save_queue_as_playlist }
+      queue.on_scroll_to_current = -> { scroll_playlist_to_current_song }
       queue.on_mouse_press_row = ->(row : Int32?) {
-        @playlist_drag_source_row = row
-        @dragged_database_uris.clear
-        @drag_source_type = :playlist
+        @drag_context.begin_queue_drag(row)
       }
-      queue.on_drag_enter = -> {
-        @drag_source_type ||= :playlist
-        case @drag_source_type
-        when :database
-          @dragged_database_uris = selected_database_uris
-        when :stored_playlist
-          @dragged_database_uris = selected_stored_playlist_song_uris
-        end
-      }
-      queue.on_drag_move = ->(drop_event : Qt6::DropEvent) {
-        @playlist_drag_source_row = queue.current_rows.first?
+      queue.on_drag_enter = ->(drop_event : Qt6::DropEvent) {
+        @drag_context.assume_queue_drag
 
         if drag_is_playlist_reorder?(drop_event)
           drop_event.accept_proposed_action
         elsif drag_is_external_uri_drop?(drop_event)
-          if @drag_source_type == :stored_playlist
-            drop_event.drop_action = Qt6::DropAction::CopyAction
-            drop_event.accept
-          else
-            drop_event.accept_proposed_action
-          end
+          accept_external_uri_drop(drop_event)
+        end
+      }
+      queue.on_drag_move = ->(drop_event : Qt6::DropEvent) {
+        @drag_context.queue_source_row = queue.current_rows.first? if @drag_context.queue?
+
+        if drag_is_playlist_reorder?(drop_event)
+          drop_event.accept_proposed_action
+        elsif drag_is_external_uri_drop?(drop_event)
+          accept_external_uri_drop(drop_event)
         end
       }
       queue.on_drag_leave = -> {
-        @playlist_drag_source_row = nil
-        @drag_source_type = nil
       }
       queue.on_drop = ->(drop_event : Qt6::DropEvent) {
         handled = false
-        if @drag_source_type == :playlist && drag_is_playlist_reorder?(drop_event)
+        if @drag_context.queue? && drag_is_playlist_reorder?(drop_event)
           handled = move_selected_playlist_rows(queue.drop_row_for(drop_event))
         elsif external_uri_drag_source? && drag_is_external_uri_drop?(drop_event)
-          if @drag_source_type == :stored_playlist
-            drop_event.drop_action = Qt6::DropAction::CopyAction
-            drop_event.accept
-          end
+          accept_external_uri_drop(drop_event)
           handled = append_selected_database_to_queue(queue.drop_row_for(drop_event))
+          @preserve_queue_scroll_once = true if handled
         end
 
-        @playlist_drag_source_row = nil
-        @drag_source_type = nil
+        @drag_context.finish_drag
         handled
       }
 
@@ -63,16 +52,25 @@ module MPDUI
     end
 
     private def drag_is_playlist_reorder?(event : Qt6::DropEvent) : Bool
-      row = @playlist_drag_source_row
-      @drag_source_type == :playlist && !!event.mime_data && !row.nil? && @queue_controller.size > 1
+      row = @drag_context.queue_source_row
+      @drag_context.queue? && !row.nil? && @queue_controller.size > 1
     end
 
     private def drag_is_external_uri_drop?(event : Qt6::DropEvent) : Bool
-      external_uri_drag_source? && !!event.mime_data && @dragged_database_uris.present?
+      external_uri_drag_source?
     end
 
     private def external_uri_drag_source? : Bool
-      @drag_source_type == :database || @drag_source_type == :stored_playlist
+      @drag_context.external_uri_source?
+    end
+
+    private def accept_external_uri_drop(event : Qt6::DropEvent) : Nil
+      if @drag_context.stored_playlist?
+        event.drop_action = Qt6::DropAction::CopyAction
+        event.accept
+      else
+        event.accept_proposed_action
+      end
     end
 
     private def move_selected_playlist_rows(insert_row : Int32) : Bool
@@ -82,28 +80,28 @@ module MPDUI
       plan = @queue_controller.move_plan(insert_row, queue.selected_rows)
       return false unless plan
 
-      current_ids = plan.current_ids
-      mpd_action do |client|
-        client.with_command_list do
-          plan.desired_ids.each_with_index do |id, desired_index|
-            current_index = current_ids.index(id)
-            next unless current_index
-            next if current_index == desired_index
+      host = @settings.host
+      port = @settings.port
+      set_status("Updating queue order…")
 
-            client.moveid(id, desired_index)
-            moved_id = current_ids.delete_at(current_index)
-            current_ids.insert(desired_index, moved_id)
-          end
+      run_background(
+        ->(_result : Nil) {
+          @just_moved_pos = plan.target_row
+          set_status("Queue order updated")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to update queue order")
+        }
+      ) do
+        with_mpd_client(host, port) do |client|
+          @queue_commands.move_to_plan(client, plan)
         end
+        nil
       end
 
-      @just_moved_pos = plan.target_row
-      set_status("Queue order updated")
       true
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      false
     end
 
     private def clear_queue : Nil
@@ -126,14 +124,23 @@ module MPDUI
       end
       return unless songs
 
+      selected_row = queue.focused? ? queue.current_rows.first? : nil
+      preserve_scroll = @preserve_queue_scroll_once
+      scroll_value = preserve_scroll ? queue.scroll_value : nil
+      @preserve_queue_scroll_once = false
+
       @syncing = true
       @queue_controller.replace(songs)
-      queue.render(songs) { |pos| playlist_indicator_icon(pos) }
+
+      queue.render(songs) { |pos| playlist_indicator_text(pos) }
+      queue.scroll_value = scroll_value if scroll_value
 
       if row = @just_moved_pos
         queue.select_row(row)
         @just_moved_pos = nil
-      elsif scroll_to_current
+      elsif selected_row && selected_row < queue.row_count
+        queue.select_row(selected_row, scroll: false)
+      elsif scroll_to_current && !preserve_scroll
         scroll_playlist_to_current_song
       end
     ensure
@@ -150,8 +157,8 @@ module MPDUI
 
     private def update_playlist_indicator(row : Int32) : Nil
       pos = @queue_controller.position_at(row)
-      icon = pos ? playlist_indicator_icon(pos) : nil
-      @queue_view.try(&.update_indicator(row, icon))
+      indicator = pos ? playlist_indicator_text(pos) : ""
+      @queue_view.try(&.update_indicator(row, indicator))
     end
 
     private def scroll_playlist_to_current_song : Nil
@@ -186,35 +193,48 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      positions = @queue_controller.positions_for_rows(queue.selected_rows)
-      return if positions.empty?
+      row_ranges = queue.selected_row_ranges
+      position_ranges = @queue_controller.position_ranges_for_row_ranges(row_ranges)
+      return if position_ranges.empty?
 
-      mpd_action do |client|
-        client.with_command_list do
-          positions.sort.reverse_each do |pos|
-            client.delete(pos)
-          end
+      @preserve_queue_scroll_once = true
+      selected_count = position_ranges.sum { |first, last| last - first + 1 }
+      host = @settings.host
+      port = @settings.port
+      suffix = selected_count == 1 ? "song" : "songs"
+      set_status("Removing #{selected_count} #{suffix} from Queue…")
+
+      run_background(
+        ->(_result : Nil) {
+          set_status("Removed #{selected_count} #{suffix} from Queue")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to remove songs from Queue")
+        }
+      ) do
+        with_mpd_client(host, port) do |client|
+          @queue_commands.delete_position_ranges(client, position_ranges, @queue_controller.size)
         end
+        nil
       end
-
-      suffix = positions.size == 1 ? "song" : "songs"
-      set_status("Removed #{positions.size} #{suffix} from Queue")
     end
 
     private def select_playlist_row(row : Int32) : Nil
       @queue_view.try(&.select_row(row))
     end
 
-    private def playlist_indicator_icon(pos : Int32) : Qt6::QIcon?
+    private def playlist_indicator_text(pos : Int32) : String
       playback = @playback_state
-      return unless pos == playback.song_position
+      return "" unless pos == playback.song_position
 
       if playback.playing?
-        @play_icon
+        "▶"
       elsif playback.paused?
-        @pause_icon
+        "Ⅱ"
       else
-        @stop_icon
+        "■"
       end
     end
   end

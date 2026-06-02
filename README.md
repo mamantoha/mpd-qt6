@@ -89,9 +89,14 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `app_layout_view.cr` arranges the player header, library/queue splitter, and compact spacer
   - `player_header_view.cr` owns the playback header widgets, visualizer widget, controls, volume popup, cover click handling, and progress tooltip
   - `visualizer_widget.cr` paints spectrum bars from `VisualizerService`
-  - `queue_view.cr` owns the queue `QTreeView`, model rendering, context menu, shortcuts, selection helpers, drop filter, and row indicators
+  - `queue_view.cr` owns the queue `QTreeView`, context menu, shortcuts, selection helpers, drop filter, and row indicators
   - `library_view.cr` owns the database browser tree, search panel, genre filter, custom item delegate, context menu, drag filter, and selected URI collection
-  - `playlists_view.cr` owns the saved playlist browser, playlist context menu, song preview, and playlist-song drag source
+  - `playlists_view.cr` owns the saved playlist tree, playlist/song context menus, and playlist-song drag source
+- Custom Qt models under `src/mpd_ui/models/` adapt domain data to Qt's model/view API:
+  - `queue_model.cr` exposes the current MPD queue as a flat `QAbstractItemModel` with drag/drop payloads and row indicator updates
+  - `library_model.cr` exposes the artist/album/song database tree without building thousands of `QStandardItem` objects
+  - `playlists_model.cr` exposes stored playlists and their songs as a tree model with playlist/song roles for context menus and drag/drop
+  - These models keep data in Crystal objects and let Qt query rows, parents, roles, tooltips, and MIME data on demand
 - Controller classes under `src/mpd_ui/controllers/` keep state transitions and queue calculations away from Qt widget setup:
   - `player_controller.cr` reads MPD status/current-song/playlist snapshots and converts them into `PlaybackState` transitions
   - `queue_controller.cr` tracks queue positions/ids and plans multi-row reorders
@@ -115,7 +120,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread
 - `Settings` wraps `QSettings` persistence for connection details, UI visibility preferences, visualizer configuration, layout size, and splitter state
-- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, tree views, standard item models, custom item delegates, event filters, shortcuts, and graphics effects
+- The UI uses Qt Widgets directly, including `QMainWindow`, menus/actions, push buttons, sliders, splitters, tree views, custom `QAbstractItemModel` models, custom item delegates, event filters, shortcuts, and graphics effects
 
 ## License
 

@@ -6,21 +6,26 @@ module MPDUI
 
     private def build_database_browser(parent : Qt6::Widget) : Qt6::Widget
       library = LibraryView.new(parent)
-      library.on_search_changed = -> { apply_database_filter }
+      @database_filter_timer = Qt6::QTimer.new(parent).tap do |timer|
+        timer.single_shot = true
+        timer.interval = 180
+        timer.on_timeout { apply_database_filter }
+      end
+
+      library.on_search_changed = -> { schedule_database_filter }
       library.on_search_closed = -> { hide_database_search }
       library.on_genre_changed = -> { apply_database_filter }
       library.on_add_to_queue = -> { add_selected_database_to_queue }
       library.on_selection_changed = -> {
-        @playlist_drag_source_row = nil
-        @dragged_database_uris = selected_database_uris
+        @drag_context.reset_selection
+        library.clear_drag_uris
       }
       library.on_mouse_press = -> {
-        @playlist_drag_source_row = nil
-        @dragged_database_uris.clear
-        @drag_source_type = :database
+        @drag_context.begin_database_drag
+        library.clear_drag_uris
       }
-      library.on_drag_enter = -> { @drag_source_type = :database }
-      library.on_drag_finished = -> { @drag_source_type = nil }
+      library.on_drag_enter = -> { @drag_context.begin_database_drag }
+      library.on_drag_finished = -> { @drag_context.finish_drag }
 
       @library_view = library
       setup_database_drag_source(library)
@@ -34,7 +39,6 @@ module MPDUI
     end
 
     private def add_selected_database_to_queue : Nil
-      @dragged_database_uris.clear
       append_selected_database_to_queue
     end
 
@@ -95,7 +99,7 @@ module MPDUI
           @database_loaded = true
           @database_loading = false
           @library_view.try(&.render_genres(result.genres))
-          apply_database_filter
+          apply_database_filter(force: true)
         },
         ->(ex : Exception) {
           @database_loaded = false
@@ -132,48 +136,109 @@ module MPDUI
     end
 
     private def apply_database_filter : Nil
+      apply_database_filter(force: false)
+    end
+
+    private def apply_database_filter(*, force : Bool) : Nil
       library = @library_view
-      return unless library
-
-      result = @library_index.filter(library.query, library.selected_genre)
-      library.render(result, expand_all: !library.query.empty?)
-      @dragged_database_uris.clear
-
-      if result.filtered
-        set_status("Database filter: #{result.songs_count} of #{@library_index.songs.size} songs")
-      else
-        set_status("Database loaded • #{@library_index.songs.size} songs") if @database_loaded
+      unless library
+        return
       end
+
+      query = library.as(LibraryView).query
+      genre = library.as(LibraryView).selected_genre
+      return if !force && query == @last_database_filter_query && genre == @last_database_filter_genre
+
+      @database_filter_timer.try(&.stop)
+      @last_database_filter_query = query
+      @last_database_filter_genre = genre
+
+      songs = @library_index.songs.dup
+      generation = @database_filter_generation.add(1) + 1
+
+      run_background(
+        ->(result : LibraryIndex::Result) {
+          if @database_filter_generation.get == generation
+            library = @library_view
+
+            if library && library.as(LibraryView).query == query && library.as(LibraryView).selected_genre == genre
+              library.as(LibraryView).render(result, expand_all: !query.empty?)
+
+              if result.filtered
+                set_status("Database filter: #{result.songs_count} of #{songs.size} songs")
+              else
+                set_status("Database loaded • #{songs.size} songs") if @database_loaded
+              end
+            end
+          end
+        },
+        ->(ex : Exception) {
+          if @database_filter_generation.get == generation
+            show_database_message("Failed to filter database")
+            set_status("Database filter failed: #{ex.message || ex}")
+          end
+        }
+      ) do
+        LibraryIndex.new(songs).filter(query, genre)
+      end
+    end
+
+    private def schedule_database_filter : Nil
+      @database_filter_timer.try(&.start)
     end
 
     private def selected_database_uris : Array(String)
       @library_view.try(&.selected_uris) || [] of String
     end
 
+    private def queue_source_uris : Array(String)
+      if @drag_context.stored_playlist?
+        selected_stored_playlist_song_uris
+      elsif @drag_context.database?
+        drag_uris = @library_view.try(&.drag_uris) || [] of String
+        drag_uris.empty? ? selected_database_uris : drag_uris.dup
+      else
+        selected_database_uris
+      end
+    end
+
     private def append_selected_database_to_queue(insert_row : Int32? = nil) : Bool
-      uris = @dragged_database_uris.empty? ? selected_database_uris : @dragged_database_uris.dup
+      uris = queue_source_uris
       return false if uris.empty?
 
-      mpd_action do |client|
-        client.with_command_list do
-          if base_position = @queue_controller.base_position_for_insert(insert_row)
-            uris.each_with_index do |uri, offset|
-              client.addid(uri, base_position + offset)
+      base_position = @queue_controller.base_position_for_insert(insert_row)
+      host = @settings.host
+      port = @settings.port
+      suffix = uris.size == 1 ? "song" : "songs"
+      action = insert_row ? "Inserting" : "Adding"
+      set_status("#{action} #{uris.size} #{suffix} from Database…")
+
+      run_background(
+        ->(_result : Nil) {
+          done_action = insert_row ? "Inserted" : "Added"
+          set_status("#{done_action} #{uris.size} #{suffix} from Database")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to add songs from Database")
+        }
+      ) do
+        with_mpd_client(host, port) do |client|
+          client.with_command_list do
+            if base_position
+              uris.each_with_index do |uri, offset|
+                client.addid(uri, base_position + offset)
+              end
+            else
+              uris.each { |uri| client.add(uri) }
             end
-          else
-            uris.each { |uri| client.add(uri) }
           end
         end
+        nil
       end
-      suffix = uris.size == 1 ? "song" : "songs"
-      action = insert_row ? "Inserted" : "Added"
-      set_status("#{action} #{uris.size} #{suffix} from Database")
-      @dragged_database_uris.clear
+
       true
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
-      false
     end
   end
 end
