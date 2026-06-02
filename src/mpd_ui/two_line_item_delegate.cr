@@ -104,8 +104,8 @@ module MPDUI
       case kind
       when "artist"   then ["user-identity", "avatar-default", "contact-new"]
       when "album"    then ["media-optical-audio", "media-optical"]
-      when "song"     then ["audio-x-generic", "audio-mpeg"]
-      when "playlist" then ["view-media-playlist", "format-list-unordered"]
+      when "song"     then ["audio-x-generic", "audio-mpeg", "music.note"]
+      when "playlist" then ["view-media-playlist", "format-list-unordered", "music.note.list"]
       else
         [] of String
       end
