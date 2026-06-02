@@ -89,6 +89,15 @@ module MPDUI
       @view.has_focus? || @view.viewport.has_focus?
     end
 
+    def scroll_value : Int32
+      @view.vertical_scroll_bar.value
+    end
+
+    def scroll_value=(value : Int32) : Int32
+      scrollbar = @view.vertical_scroll_bar
+      scrollbar.value = Math.min(value, scrollbar.maximum)
+    end
+
     def select_row(row : Int32, *, scroll : Bool = true) : Nil
       return if row < 0 || row >= @model.row_count
 

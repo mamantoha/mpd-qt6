@@ -85,6 +85,7 @@ module MPDUI
     @stop_icon : Qt6::QIcon?
     @playback_state : PlaybackState = PlaybackState.new
     @just_moved_pos : Int32? = nil
+    @preserve_queue_scroll_once : Bool = false
     @status_refresh_pending : Atomic(Bool) = Atomic(Bool).new(false)
     @status_retry_scheduled : Bool = false
     @waiting_for_mpd_status : Bool = false

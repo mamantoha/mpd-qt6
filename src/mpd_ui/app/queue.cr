@@ -35,6 +35,7 @@ module MPDUI
         elsif external_uri_drag_source? && drag_is_external_uri_drop?(drop_event)
           accept_external_uri_drop(drop_event)
           handled = append_selected_database_to_queue(queue.drop_row_for(drop_event))
+          @preserve_queue_scroll_once = true if handled
         end
 
         @drag_context.finish_drag
@@ -123,18 +124,22 @@ module MPDUI
       return unless songs
 
       selected_row = queue.focused? ? queue.current_rows.first? : nil
+      preserve_scroll = @preserve_queue_scroll_once
+      scroll_value = preserve_scroll ? queue.scroll_value : nil
+      @preserve_queue_scroll_once = false
 
       @syncing = true
       @queue_controller.replace(songs)
 
       queue.render(songs) { |pos| playlist_indicator_text(pos) }
+      queue.scroll_value = scroll_value if scroll_value
 
       if row = @just_moved_pos
         queue.select_row(row)
         @just_moved_pos = nil
       elsif selected_row && selected_row < queue.row_count
         queue.select_row(selected_row, scroll: false)
-      elsif scroll_to_current
+      elsif scroll_to_current && !preserve_scroll
         scroll_playlist_to_current_song
       end
     ensure
@@ -191,6 +196,7 @@ module MPDUI
       position_ranges = @queue_controller.position_ranges_for_row_ranges(row_ranges)
       return if position_ranges.empty?
 
+      @preserve_queue_scroll_once = true
       selected_count = position_ranges.sum { |first, last| last - first + 1 }
       host = @settings.host
       port = @settings.port
