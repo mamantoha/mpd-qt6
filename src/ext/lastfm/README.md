@@ -183,6 +183,6 @@ the caller through `LastFM::Error`.
 
 - The module uses Last.fm form-encoded POST requests with `format=json`.
 - API credentials are not embedded; pass them to `LastFM::Client`.
-- Background network calls are started with `Thread.new`.
+- Background network calls run in isolated Crystal execution contexts.
 - The module is currently embedded in `mpd-qt6`, but the public surface is small
   enough to extract into a separate shard later.
