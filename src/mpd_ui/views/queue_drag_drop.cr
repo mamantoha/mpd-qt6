@@ -5,6 +5,7 @@ module MPDUI
     property on_context_menu : Proc(Qt6::Widget, Qt6::PointF, Nil)?
     property on_double_click_row : Proc(Int32?, Nil)?
     property on_mouse_press_row : Proc(Int32?, Nil)?
+    property on_mouse_release : Proc(Nil)?
     property on_drag_enter : Proc(Qt6::DropEvent, Nil)?
     property on_drag_move : Proc(Qt6::DropEvent, Nil)?
     property on_drag_leave : Proc(Nil)?
@@ -33,6 +34,9 @@ module MPDUI
           mouse_event = event.mouse_event
           @on_double_click_row.try(&.call(row_at(mouse_event.position)))
           true
+        when Qt6::EventType::MouseButtonRelease
+          @on_mouse_release.try(&.call)
+          false
         when Qt6::EventType::DragEnter
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
           @on_drag_enter.try(&.call(drop_event))

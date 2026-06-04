@@ -29,6 +29,7 @@ module MPDUI
         end
       }
       queue.on_drag_leave = -> {
+        @drag_context.finish_drag
       }
       queue.on_drop = ->(drop_event : Qt6::DropEvent) {
         handled = false

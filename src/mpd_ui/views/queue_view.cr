@@ -50,6 +50,7 @@ module MPDUI
         end
       }
       @drag_drop.on_mouse_press_row = ->(row : Int32?) { @on_mouse_press_row.try(&.call(row)) }
+      @drag_drop.on_mouse_release = -> { @on_drag_leave.try(&.call) }
       @drag_drop.on_drag_enter = ->(event : Qt6::DropEvent) { @on_drag_enter.try(&.call(event)) }
       @drag_drop.on_drag_move = ->(event : Qt6::DropEvent) { @on_drag_move.try(&.call(event)) }
       @drag_drop.on_drag_leave = -> { @on_drag_leave.try(&.call) }
