@@ -66,6 +66,17 @@ module MPDUI
       index.data(@model, ItemRoles::PLAYLIST_NAME).as?(String)
     end
 
+    def current_index_info : Tuple(String?, Bool)
+      index = @view.current_index
+      begin
+        return {@last_selected_playlist_name, false} unless index.valid?
+
+        {playlist_name_for_index(index), song_index?(index)}
+      ensure
+        index.release
+      end
+    end
+
     def song_uri_for_index(index : Qt6::ModelIndex) : String?
       return unless song_index?(index)
 

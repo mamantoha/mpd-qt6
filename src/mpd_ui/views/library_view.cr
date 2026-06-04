@@ -15,6 +15,7 @@ module MPDUI
     property on_add_to_queue : Proc(Nil)?
     property on_selection_changed : Proc(Nil)?
     property on_mouse_press : Proc(Nil)?
+    property on_mouse_release : Proc(Nil)?
     property on_drag_enter : Proc(Nil)?
     property on_drag_finished : Proc(Nil)?
 
@@ -97,6 +98,9 @@ module MPDUI
           end
         when Qt6::EventType::DragEnter
           @on_drag_enter.try(&.call)
+          false
+        when Qt6::EventType::MouseButtonRelease
+          @on_mouse_release.try(&.call)
           false
         when Qt6::EventType::Drop
           @on_drag_finished.try(&.call)

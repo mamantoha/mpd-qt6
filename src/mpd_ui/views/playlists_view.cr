@@ -175,8 +175,12 @@ module MPDUI
     end
 
     private def update_action_buttons : Nil
-      playlist_selected = !!selected_playlist_name
-      song_selected = @selection.selected_song?
+      playlist_name, song_selected = @selection.current_index_info
+      playlist_selected = !!playlist_name
+      update_action_buttons(playlist_selected, song_selected)
+    end
+
+    private def update_action_buttons(playlist_selected : Bool, song_selected : Bool) : Nil
       @replace_queue_action.enabled = playlist_selected
       @add_to_queue_action.enabled = playlist_selected
       @rename_action.enabled = playlist_selected
@@ -209,7 +213,9 @@ module MPDUI
     end
 
     private def install_song_drag_filter : Nil
-      @drag_drop.on_song_mouse_press = -> { @on_song_mouse_press.try(&.call) }
+      @drag_drop.on_song_mouse_press = ->(_position : Qt6::PointF) {
+        @on_song_mouse_press.try(&.call)
+      }
       @drag_drop.on_song_drag_enter = -> { @on_song_drag_enter.try(&.call) }
       @drag_drop.on_song_drag_finished = -> { @on_song_drag_finished.try(&.call) }
       @drag_drop.on_move_songs = ->(name : String, moves : Array(Tuple(Int32, Int32))) { @on_move_songs.try(&.call(name, moves)) }
@@ -239,11 +245,10 @@ module MPDUI
 
     private def handle_current_index_changed : Nil
       @selection.mark_dirty
-      update_action_buttons
-      @on_song_selection_changed.try(&.call)
+      name, song_selected = @selection.current_index_info
+      update_action_buttons(!!name, song_selected)
       return if @syncing_selection
 
-      name = selected_playlist_name
       return if name == @selection.last_selected_playlist_name
 
       @selection.last_selected_playlist_name = name

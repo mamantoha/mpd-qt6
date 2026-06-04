@@ -25,6 +25,7 @@ module MPDUI
         library.clear_drag_uris
       }
       library.on_drag_enter = -> { @drag_context.begin_database_drag }
+      library.on_mouse_release = -> { @drag_context.finish_drag }
       library.on_drag_finished = -> { @drag_context.finish_drag }
 
       @library_view = library

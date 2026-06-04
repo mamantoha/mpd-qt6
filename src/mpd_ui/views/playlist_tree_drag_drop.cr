@@ -3,7 +3,7 @@ module MPDUI
     getter filter : Qt6::EventFilter?
     getter dragged_song_uris : Array(String) = [] of String
 
-    property on_song_mouse_press : Proc(Nil)?
+    property on_song_mouse_press : Proc(Qt6::PointF, Nil)?
     property on_song_drag_enter : Proc(Nil)?
     property on_song_drag_finished : Proc(Nil)?
     property on_move_songs : Proc(String, Array(Tuple(Int32, Int32)), Nil)?
@@ -12,6 +12,7 @@ module MPDUI
 
     @dragged_song_playlist_name : String?
     @dragged_song_positions : Array(Int32) = [] of Int32
+    @pending_drag_position : Tuple(Float64, Float64)?
     @playlist_controller = PlaylistController.new
 
     def initialize(@view : Qt6::TreeView, @model : PlaylistsModel, @selection : PlaylistTreeSelection)
@@ -30,13 +31,14 @@ module MPDUI
             false
           else
             if @selection.song_index_at?(mouse_event.position)
-              remember_dragged_song(mouse_event.position)
-              @on_song_mouse_press.try(&.call)
+              @pending_drag_position = {mouse_event.position.x, mouse_event.position.y}
+              @on_song_mouse_press.try(&.call(mouse_event.position))
             end
             false
           end
         when Qt6::EventType::DragEnter
           drop_event = Qt6::DropEvent.new(event.to_unsafe)
+          remember_pending_dragged_song
           if internal_song_drag?
             @on_song_drag_enter.try(&.call)
           elsif external_drop_target(drop_event.position)
@@ -70,6 +72,7 @@ module MPDUI
           end
         when Qt6::EventType::MouseButtonRelease
           clear_dragged_song
+          @on_song_drag_finished.try(&.call)
           false
         when Qt6::EventType::DragLeave
           false
@@ -86,6 +89,15 @@ module MPDUI
       @dragged_song_playlist_name = nil
       @dragged_song_positions.clear
       @dragged_song_uris.clear
+      @pending_drag_position = nil
+    end
+
+    private def remember_pending_dragged_song : Nil
+      position = @pending_drag_position
+      return unless position
+
+      @pending_drag_position = nil
+      remember_dragged_song(Qt6::PointF.new(position[0], position[1]))
     end
 
     private def remember_dragged_song(position : Qt6::PointF) : Nil
