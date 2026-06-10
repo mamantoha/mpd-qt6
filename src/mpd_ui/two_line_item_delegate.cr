@@ -69,14 +69,16 @@ module MPDUI
 
     private def self.text_rect(option : Qt6::StyleOptionViewItem, icon_kind : String?) : Qt6::RectF
       rect = option.text_rect
-      return rect unless icon_kind && !icon_kind.empty?
+      return rect unless icon_kind
+      return rect if icon_kind.empty?
 
       offset = ICON_SIZE + ICON_SPACING
       Qt6::RectF.new(rect.x + offset, rect.y, Math.max(0.0, rect.width - offset), rect.height)
     end
 
     private def self.draw_icon(painter : Qt6::QPainter, option : Qt6::StyleOptionViewItem, icon_kind : String?) : Nil
-      return unless icon_kind && !icon_kind.empty?
+      return unless icon_kind
+      return if icon_kind.empty?
 
       rect = option.text_rect
       icon_rect = Qt6::RectF.new(rect.x, rect.y + Math.max(0.0, (rect.height - ICON_SIZE) / 2.0), ICON_SIZE.to_f64, ICON_SIZE.to_f64)
