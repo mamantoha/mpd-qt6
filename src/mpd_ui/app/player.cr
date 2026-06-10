@@ -282,21 +282,29 @@ module MPDUI
       if bytes = cover.bytes
         pixmap = Qt6::QPixmap.from_data(bytes)
 
-        if pixmap.null?
-          clear_cover_art
-        else
-          art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
-          @mpris_adapter.try(&.art_url = art_url)
-          @cover_label.try(&.tool_tip = cover_art_tooltip(art_url, pixmap))
-          apply_cover_background(pixmap)
-          scaled = pixmap.scaled(
-            App::COVER_ART_SIZE,
-            App::COVER_ART_SIZE,
-            Qt6::AspectRatioMode::Keep,
-            Qt6::TransformationMode::Smooth
-          )
-          @cover_label.try(&.text = "")
-          @cover_label.try(&.pixmap = scaled)
+        begin
+          if pixmap.null?
+            clear_cover_art
+          else
+            art_url = cache_mpris_cover_art(cover.uri, cover.metadata, bytes)
+            @mpris_adapter.try(&.art_url = art_url)
+            @cover_label.try(&.tool_tip = cover_art_tooltip(art_url, pixmap))
+            apply_cover_background(pixmap)
+            scaled = pixmap.scaled(
+              App::COVER_ART_SIZE,
+              App::COVER_ART_SIZE,
+              Qt6::AspectRatioMode::Keep,
+              Qt6::TransformationMode::Smooth
+            )
+            begin
+              @cover_label.try(&.text = "")
+              @cover_label.try(&.pixmap = scaled)
+            ensure
+              scaled.release
+            end
+          end
+        ensure
+          pixmap.release
         end
       else
         clear_cover_art
@@ -337,21 +345,26 @@ module MPDUI
       height = 260
       scaled = pixmap.scaled(width, height, Qt6::AspectRatioMode::KeepByExpanding, Qt6::TransformationMode::Smooth)
       background = Qt6::QPixmap.new(width, height)
-      background.fill(Qt6::Color.new(0, 0, 0, 0))
-      Qt6::QPainter.paint(background) do |painter|
-        painter.draw_pixmap(Qt6::RectF.new(0, 0, width, height), scaled)
-        painter.fill_rect(Qt6::RectF.new(0, 0, width, height), Qt6::Color.new(0, 0, 0, 140))
-      end
-
-      @playback_header.try(&.style_sheet = "")
-      @playback_header_background.try do |label|
-        @playback_header.try do |header|
-          size = header.size
-          label.resize(size.width, size.height)
-          label.move(0, 0)
+      begin
+        background.fill(Qt6::Color.new(0, 0, 0, 0))
+        Qt6::QPainter.paint(background) do |painter|
+          painter.draw_pixmap(Qt6::RectF.new(0, 0, width, height), scaled)
+          painter.fill_rect(Qt6::RectF.new(0, 0, width, height), Qt6::Color.new(0, 0, 0, 140))
         end
-        label.pixmap = background
-        label.visible = true
+
+        @playback_header.try(&.style_sheet = "")
+        @playback_header_background.try do |label|
+          @playback_header.try do |header|
+            size = header.size
+            label.resize(size.width, size.height)
+            label.move(0, 0)
+          end
+          label.pixmap = background
+          label.visible = true
+        end
+      ensure
+        background.release
+        scaled.release
       end
     end
 

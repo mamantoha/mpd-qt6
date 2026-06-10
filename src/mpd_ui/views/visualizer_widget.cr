@@ -49,31 +49,35 @@ module MPDUI
       return unless width.positive? && height.positive?
 
       painter.antialiasing = true
-      painter.pen = Qt6::QPen.new(Qt6::Color.new(0, 0, 0, 0), 0).tap(&.style=(Qt6::PenStyle::NoPen))
+      no_pen = Qt6::QPen.new(Qt6::Color.new(0, 0, 0, 0), 0).tap(&.style=(Qt6::PenStyle::NoPen))
+      palette = @root.palette
+      begin
+        painter.pen = no_pen
+        shadow_color = palette_color(palette, Qt6::ColorRole::Shadow, 90)
+        highlight_color = palette_color(palette, Qt6::ColorRole::Highlight)
 
-      gap = 2.0
-      bar_width = {1.0, (width - gap * (levels.size - 1)) / levels.size}.max
+        gap = 2.0
+        bar_width = {1.0, (width - gap * (levels.size - 1)) / levels.size}.max
 
-      levels.each_with_index do |level, index|
-        bar_height = (level * height).clamp(1.0, height)
-        x = index * (bar_width + gap)
-        y = height - bar_height
+        levels.each_with_index do |level, index|
+          bar_height = (level * height).clamp(1.0, height)
+          x = index * (bar_width + gap)
+          y = height - bar_height
 
-        painter.brush = shadow_color
-        painter.draw_rounded_rect(Qt6::RectF.new(x, y + 1.0, bar_width, bar_height), 2.0, 2.0)
-        painter.brush = highlight_color
-        painter.draw_rounded_rect(Qt6::RectF.new(x, y, bar_width, bar_height), 2.0, 2.0)
+          painter.brush = shadow_color
+          painter.draw_rounded_rect(Qt6::RectF.new(x, y + 1.0, bar_width, bar_height), 2.0, 2.0)
+          painter.brush = highlight_color
+          painter.draw_rounded_rect(Qt6::RectF.new(x, y, bar_width, bar_height), 2.0, 2.0)
+        end
+      ensure
+        palette.release
+        no_pen.release
       end
     end
 
-    private def highlight_color : Qt6::Color
-      color = @root.palette.color(Qt6::ColorRole::Highlight)
-      Qt6::Color.new(color.red, color.green, color.blue)
-    end
-
-    private def shadow_color : Qt6::Color
-      color = @root.palette.color(Qt6::ColorRole::Shadow)
-      Qt6::Color.new(color.red, color.green, color.blue, 90)
+    private def palette_color(palette : Qt6::QPalette, role : Qt6::ColorRole, alpha : Int32 = 255) : Qt6::Color
+      color = palette.color(role)
+      Qt6::Color.new(color.red, color.green, color.blue, alpha)
     end
   end
 end
