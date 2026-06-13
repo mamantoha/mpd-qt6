@@ -36,11 +36,11 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 5. Add Lyrics Model
 
-- [ ] Add `LyricsModel < Qt6::AbstractListModel`.
-- [ ] Store all synced lyric lines in the model.
-- [ ] Return lyric text through the standard display role.
-- [ ] Expose timestamp data through an app-specific user role if needed.
-- [ ] Support clearing/replacing lyrics efficiently.
+- [x] Add `LyricsModel < Qt6::AbstractListModel`.
+- [x] Store all synced lyric lines in the model.
+- [x] Return lyric text through the standard display role.
+- [x] Expose timestamp data through an app-specific user role if needed.
+- [x] Support clearing/replacing lyrics efficiently.
 
 ## 6. Add Lyrics View
 
