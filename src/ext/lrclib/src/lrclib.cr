@@ -42,7 +42,7 @@ module LRCLIB
       @duration : Int32?,
       @instrumental : Bool,
       @plain_lyrics : String?,
-      @synced_lyrics : String?
+      @synced_lyrics : String?,
     )
     end
 
