@@ -44,7 +44,7 @@ module MPDUI
         @synced_lines : Array(CachedLine),
         @plain_text : String?,
         @instrumental : Bool,
-        @cached_at : Int64
+        @cached_at : Int64,
       )
       end
 

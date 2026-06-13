@@ -21,7 +21,7 @@ module MPDUI
     def initialize(
       @synced_lines : Array(LyricsLine) = [] of LyricsLine,
       @plain_text : String? = nil,
-      @instrumental : Bool = false
+      @instrumental : Bool = false,
     )
     end
 

@@ -20,7 +20,7 @@ module MPDUI
     def initialize(
       @client : LRCLIB::Client,
       @cache : LyricsCache,
-      @dispatcher : Proc(Proc(Nil), Nil) = ->(callback : Proc(Nil)) { callback.call }
+      @dispatcher : Proc(Proc(Nil), Nil) = ->(callback : Proc(Nil)) { callback.call },
     )
     end
 
@@ -105,7 +105,7 @@ module MPDUI
     private def deliver(request_id : Int32, update : Update, on_update : Update ->) : Nil
       return unless request_id == @generation.get
 
-      @dispatcher.call(->{
+      @dispatcher.call(-> {
         return unless request_id == @generation.get
 
         on_update.call(update)
