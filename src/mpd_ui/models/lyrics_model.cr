@@ -32,8 +32,8 @@ module MPDUI
       emit_row_changed(row)
     end
 
-    protected def model_row_count(parent : Qt6::ModelIndex) : Int32
-      parent.valid? ? 0 : @lines.size
+    protected def model_row_count : Int32
+      @lines.size
     end
 
     protected def model_data(index : Qt6::ModelIndex, role : Int32) : Qt6::ModelData
@@ -46,11 +46,9 @@ module MPDUI
       when Qt6::ItemDataRole::Display.value
         line.text
       when ItemRoles::LYRICS_TIME_MS.value
-        line.time.total_milliseconds.to_i64
+        line.time.total_milliseconds.to_i
       when Qt6::ItemDataRole::TextAlignment.value
         (Qt6::AlignmentFlag::HCenter | Qt6::AlignmentFlag::VCenter).value
-      when Qt6::ItemDataRole::Font.value
-        index.row == @active_row ? active_font : nil
       end
     end
 
@@ -58,12 +56,6 @@ module MPDUI
       return Qt6::ItemFlag::None unless index.valid?
 
       Qt6::ItemFlag::Enabled | Qt6::ItemFlag::Selectable
-    end
-
-    private def active_font : Qt6::QFont
-      font = Qt6::QFont.new
-      font.bold = true
-      font
     end
 
     private def emit_row_changed(row : Int32?) : Nil

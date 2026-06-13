@@ -1,5 +1,7 @@
 module MPDUI
   class LyricsService
+    Log = ::Log.for("mpd_ui.lyrics")
+
     enum Status
       Loading
       Found
@@ -36,18 +38,31 @@ module MPDUI
       album = song.album?
       duration = song.duration.try(&.to_i)
 
+      Log.info do
+        "lyrics lookup requested: artist=#{artist.inspect} title=#{title.inspect} album=#{album.inspect} duration=#{duration.inspect} file=#{song.file.inspect}"
+      end
+
       deliver(request_id, Update.new(request_id, Status::Loading), on_update)
 
       BackgroundRunner.run("mpd-ui-lyrics") do
         update =
           if entry = @cache.read(artist, title, duration)
+            Log.info do
+              "lyrics cache hit: status=#{entry.status} artist=#{artist.inspect} title=#{title.inspect} duration=#{duration.inspect}"
+            end
+
             update_from_cache(request_id, entry)
           else
+            Log.info do
+              "lyrics cache miss: fetching from LRCLIB artist=#{artist.inspect} title=#{title.inspect} album=#{album.inspect} duration=#{duration.inspect}"
+            end
+
             fetch_update(request_id, artist, title, album, duration)
           end
 
         deliver(request_id, update, on_update)
       rescue ex
+        Log.warn { "lyrics lookup failed: #{ex.message || ex}" }
         deliver(request_id, Update.new(request_id, Status::Failed, error: ex.message || ex.to_s), on_update)
       end
 
@@ -67,21 +82,48 @@ module MPDUI
     end
 
     private def fetch_update(request_id : Int32, artist : String, title : String, album : String?, duration : Int32?) : Update
-      lyrics = @client.get(
-        artist_name: artist,
-        track_name: title,
-        album_name: album,
-        duration: duration
-      )
+      lyrics = fetch_with_fallbacks(artist, title, album, duration)
 
       unless lyrics
+        Log.info do
+          "lyrics not found from LRCLIB: artist=#{artist.inspect} title=#{title.inspect} album=#{album.inspect} duration=#{duration.inspect}"
+        end
+
         @cache.write_not_found(artist, title, duration)
         return Update.new(request_id, Status::NotFound)
       end
 
       result = LyricsResult.from_lrclib(lyrics)
+      Log.info do
+        "lyrics found from LRCLIB: artist=#{lyrics.artist_name.inspect} title=#{lyrics.track_name.inspect} album=#{lyrics.album_name.inspect} synced_lines=#{result.synced_lines.size} plain=#{!result.plain_text.to_s.empty?} instrumental=#{result.instrumental}"
+      end
+
       @cache.write_found(artist, title, duration, result)
       Update.new(request_id, Status::Found, result: result)
+    end
+
+    private def fetch_with_fallbacks(artist : String, title : String, album : String?, duration : Int32?) : LRCLIB::Lyrics?
+      attempts = [] of Tuple(String, String?, Int32?)
+      attempts << {"metadata", album, duration}
+      attempts << {"without album", nil, duration} if album
+      attempts << {"without album/duration", nil, nil} if album || duration
+
+      attempts.each do |label, attempt_album, attempt_duration|
+        Log.info do
+          "lyrics LRCLIB attempt: #{label} artist=#{artist.inspect} title=#{title.inspect} album=#{attempt_album.inspect} duration=#{attempt_duration.inspect}"
+        end
+
+        lyrics = @client.get(
+          artist_name: artist,
+          track_name: title,
+          album_name: attempt_album,
+          duration: attempt_duration
+        )
+
+        return lyrics if lyrics
+      end
+
+      nil
     end
 
     private def deliver(request_id : Int32, update : Update, on_update : Update ->) : Nil

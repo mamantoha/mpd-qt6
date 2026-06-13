@@ -61,10 +61,10 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 8. Add UI Entry Point
 
-- [ ] Add a `Lyrics` between to `Library` and `Playlists`. (hidden by default)
-- [ ] Load lyrics for the current song when the tab is visible.
-- [ ] Continue syncing lyrics while the tab is visible.
-- [ ] Decide whether lyrics should be fetched eagerly on song change or lazily when the tab opens.
+- [x] Add a `Lyrics` between to `Library` and `Playlists`. (hidden by default)
+- [x] Load lyrics for the current song when the tab is visible.
+- [x] Continue syncing lyrics while the tab is visible.
+- [x] Decide whether lyrics should be fetched eagerly on song change or lazily when the tab opens.
 
 ## 9. Add Settings
 

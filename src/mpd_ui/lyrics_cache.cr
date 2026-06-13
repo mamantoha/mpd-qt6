@@ -3,6 +3,8 @@ require "json"
 
 module MPDUI
   class LyricsCache
+    CACHE_KEY_VERSION = "v2"
+
     enum Status
       Found
       NotFound
@@ -124,7 +126,7 @@ module MPDUI
     end
 
     private def cache_key(artist : String, title : String, duration : Int32?) : String
-      [artist.strip.downcase, title.strip.downcase, duration.to_s].join("\0")
+      [CACHE_KEY_VERSION, artist.strip.downcase, title.strip.downcase, duration.to_s].join("\0")
     end
 
     private def cache_dir : String

@@ -14,7 +14,7 @@ module MPDUI
       new(
         synced_lines: synced_lines,
         plain_text: normalize_text(lyrics.plain_lyrics),
-        instrumental: lyrics.instrumental
+        instrumental: lyrics.instrumental?
       )
     end
 

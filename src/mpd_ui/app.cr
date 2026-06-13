@@ -12,6 +12,7 @@ module MPDUI
     include AppQueue
     include AppDatabase
     include AppPlaylists
+    include AppLyrics
     include BackgroundTask
 
     WINDOW_TITLE             = Settings::DISPLAY_NAME
@@ -58,6 +59,10 @@ module MPDUI
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
     @library_view : LibraryView?
+    @lyrics_view : LyricsView?
+    @lyrics_service : LyricsService
+    @lyrics_tab_index : Int32?
+    @lyrics_song_key : String?
     @playlists_view : PlaylistsView?
     @library_index : LibraryIndex
     @database_loaded : Bool = false
@@ -113,6 +118,15 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @visualizer_service = VisualizerService.new
+      @lyrics_service = LyricsService.new(
+        LRCLIB::Client.new(user_agent: Settings::DISPLAY_NAME),
+        LyricsCache.new(Settings::CACHE_PREFIX),
+        ->(callback : Proc(Nil)) {
+          @qt_app.invoke_later do
+            callback.call unless @quitting
+          end
+        }
+      )
       @drag_context = DragContext.new
       apply_visualizer_settings
       @queue_controller = QueueController.new
@@ -156,10 +170,14 @@ module MPDUI
       queue_view = build_playlist(window)
       setup_queue_drop_target(queue_view)
       database_browser = build_database_browser(window)
+      lyrics_view = LyricsView.new(window)
       playlists = build_playlists(window)
       library_tabs = Qt6::TabWidget.new(window)
       library_tabs.add_tab(database_browser, "Library")
+      library_tabs.add_tab(lyrics_view.root, "Lyrics")
+      lyrics_tab_index = library_tabs.index_of(lyrics_view.root)
       library_tabs.add_tab(playlists.root, "Playlists")
+      library_tabs.on_current_index_changed { |index| handle_library_tab_changed(index) }
       layout = AppLayoutView.new(window, player_header, library_tabs, queue_view)
       restore_library_queue_splitter_sizes(layout.browsers)
 
@@ -169,6 +187,8 @@ module MPDUI
       @compact_spacer = layout.compact_spacer
       @database_panel = layout.database_panel
       @library_tabs = library_tabs
+      @lyrics_view = lyrics_view
+      @lyrics_tab_index = lyrics_tab_index
       @queue_view = queue_view
       @playlist_view = queue_view.view
       assign_player_header_references(player_header)
