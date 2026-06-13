@@ -84,7 +84,7 @@ describe LRCLIB do
   end
 end
 
-private def with_server(body : String, status_code : Int32 = 200, handler : Proc(HTTP::Server::Context, Nil)? = nil, &block : String ->)
+private def with_server(body : String, status_code : Int32 = 200, handler : Proc(HTTP::Server::Context, Nil)? = nil, & : String ->)
   server = HTTP::Server.new do |context|
     handler.try &.call(context)
     context.response.status_code = status_code

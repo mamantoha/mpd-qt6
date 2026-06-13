@@ -104,7 +104,7 @@ module LRCLIB
       end
 
       response = HTTP::Client.get(uri("/api/get", params), headers: headers)
-      return nil if response.status_code == 404
+      return if response.status_code == 404
 
       unless response.success?
         raise Error.new("LRCLIB request failed: HTTP #{response.status_code}")
