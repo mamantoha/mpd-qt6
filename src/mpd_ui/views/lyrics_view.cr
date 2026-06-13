@@ -67,6 +67,10 @@ module MPDUI
       show_message(message.empty? ? "Failed to load lyrics" : message)
     end
 
+    def show_disabled : Nil
+      show_message("Online lyrics are disabled")
+    end
+
     def render(result : LyricsResult) : Nil
       @result = result
 

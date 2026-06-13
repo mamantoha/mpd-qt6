@@ -472,6 +472,7 @@ module MPDUI
       if SettingsDialog.edit(parent, @settings)
         setup_lastfm
         apply_visualizer_settings
+        apply_lyrics_settings
         connect
       end
     end

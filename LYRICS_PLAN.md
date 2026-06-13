@@ -68,10 +68,10 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 9. Add Settings
 
-- [ ] Add setting to enable or disable online lyrics.
-- [ ] Add setting for synced lyrics auto-scroll if useful.
-- [ ] Keep LRCLIB as the default provider. (not neccessary, can be added later)
-- [ ] Leave room for future providers without changing the UI structure. (not neccessary, can be added later)
+- [x] Add setting to enable or disable online lyrics.
+- [x] Add setting for synced lyrics auto-scroll if useful.
+- [x] Keep LRCLIB as the default provider. (not neccessary, can be added later)
+- [x] Leave room for future providers without changing the UI structure. (not neccessary, can be added later)
 
 ## 10. Polish And Documentation
 

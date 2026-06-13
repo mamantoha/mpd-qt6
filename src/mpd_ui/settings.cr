@@ -22,6 +22,8 @@ module MPDUI
     LASTFM_SESSION_KEY     = "lastfm/session_key"
     VISUALIZER_ENABLED_KEY = "visualizer/enabled"
     VISUALIZER_FIFO_KEY    = "visualizer/fifo_path"
+    LYRICS_ENABLED_KEY     = "lyrics/enabled"
+    LYRICS_AUTO_SCROLL_KEY = "lyrics/auto_scroll"
 
     property host : String
     property port : Int32
@@ -38,6 +40,8 @@ module MPDUI
     property lastfm_session_key : String
     property? visualizer_enabled : Bool
     property visualizer_fifo_path : String
+    property? lyrics_enabled : Bool
+    property? lyrics_auto_scroll : Bool
 
     def initialize
       @host = "localhost"
@@ -55,6 +59,8 @@ module MPDUI
       @lastfm_session_key = ""
       @visualizer_enabled = true
       @visualizer_fifo_path = "/tmp/mpd.fifo"
+      @lyrics_enabled = true
+      @lyrics_auto_scroll = true
     end
 
     def self.load : Settings
@@ -75,6 +81,8 @@ module MPDUI
       settings.lastfm_session_key = store.value(LASTFM_SESSION_KEY, settings.lastfm_session_key).as?(String) || settings.lastfm_session_key
       settings.visualizer_enabled = read_bool(store, VISUALIZER_ENABLED_KEY, settings.visualizer_enabled?)
       settings.visualizer_fifo_path = store.value(VISUALIZER_FIFO_KEY, settings.visualizer_fifo_path).as?(String) || settings.visualizer_fifo_path
+      settings.lyrics_enabled = read_bool(store, LYRICS_ENABLED_KEY, settings.lyrics_enabled?)
+      settings.lyrics_auto_scroll = read_bool(store, LYRICS_AUTO_SCROLL_KEY, settings.lyrics_auto_scroll?)
       settings
     rescue
       new
@@ -97,6 +105,8 @@ module MPDUI
       store.set_value(LASTFM_SESSION_KEY, @lastfm_session_key)
       store.set_value(VISUALIZER_ENABLED_KEY, @visualizer_enabled)
       store.set_value(VISUALIZER_FIFO_KEY, @visualizer_fifo_path)
+      store.set_value(LYRICS_ENABLED_KEY, @lyrics_enabled)
+      store.set_value(LYRICS_AUTO_SCROLL_KEY, @lyrics_auto_scroll)
       store.sync
     rescue
       nil
