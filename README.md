@@ -16,6 +16,7 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 - Drag artists, albums, songs, or stored playlist tracks into the queue, including insertion at the drop position.
 - Saved playlist management: browse MPD playlists, preview songs, save the current queue, rename/delete playlists, append playlists to the queue, or replace the queue with a playlist.
 - Configurable MPD connection and optional Last.fm scrobbling.
+- Optional LRCLIB lyrics support with synced lyric highlighting, auto-scroll, plain-text fallback, local cache, and copy support.
 - MPD output management for enabling or disabling configured audio outputs.
 - Optional MPD FIFO spectrum visualizer in the playback header.
 - Linux desktop integration through MPRISv2 for media keys, desktop media widgets, metadata, position, volume, shuffle/repeat, and cover art.
@@ -70,6 +71,20 @@ Restart MPD after changing the config. In Garnetune, open Settings ->
 Visualizer, enable the visualizer, and set the FIFO path to the same value,
 for example `/tmp/mpd.fifo`.
 
+## Lyrics
+
+Garnetune can fetch lyrics from [LRCLIB](https://lrclib.net/) when the Lyrics
+tab is opened. Synced lyrics are shown as timestamped rows with the current line
+highlighted during playback. Unsynced lyrics are shown as read-only plain text.
+
+Lyrics are cached in the user's cache directory under Garnetune's application
+cache. The cache stores both found lyrics and "not found" results so the player
+does not repeatedly query LRCLIB for the same track. Some tracks may not have
+lyrics available, or may only have plain lyrics without timestamps.
+
+Open Settings -> Lyrics to enable or disable online lyrics and synced lyric
+auto-scroll.
+
 ## Dependencies
 
 | Shard | Purpose |
@@ -88,6 +103,8 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `song.cr` and `playback_state.cr` wrap MPD song metadata and current playback state
   - `cover_art_service.cr` fetches MPD cover art and handles the disk cover cache
   - `visualizer_service.cr` reads MPD's raw FIFO audio, tracks FIFO availability/playback state, and exposes normalized levels for the UI
+  - `lyrics_service.cr` fetches LRCLIB lyrics in the background, applies fallback lookup attempts, reads/writes the local lyrics cache, and ignores stale song requests
+  - `lyrics_cache.cr` stores found and not-found lyrics responses in the user's cache directory
   - `library_index.cr` handles database filtering, artist/album/song grouping, album sorting by year, and song sorting by disc/track
   - `background_task.cr` centralizes short worker-thread jobs and Qt-main-thread callbacks
 - `src/mpd_ui/dsp/` contains small audio-processing helpers:
@@ -100,10 +117,12 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `queue_view.cr` owns the queue `QTreeView`, context menu, shortcuts, selection helpers, drop filter, and row indicators
   - `library_view.cr` owns the database browser tree, search panel, genre filter, custom item delegate, context menu, drag filter, and selected URI collection
   - `playlists_view.cr` owns the saved playlist tree, playlist/song context menus, and playlist-song drag source
+  - `lyrics_view.cr` owns the lyrics tab, synced lyrics list, plain-text fallback, loading/error states, active-line sync, and copy action
 - Custom Qt models under `src/mpd_ui/models/` adapt domain data to Qt's model/view API:
   - `queue_model.cr` exposes the current MPD queue as a flat `QAbstractItemModel` with drag/drop payloads and row indicator updates
   - `library_model.cr` exposes the artist/album/song database tree without building thousands of `QStandardItem` objects
   - `playlists_model.cr` exposes stored playlists and their songs as a tree model with playlist/song roles for context menus and drag/drop
+  - `lyrics_model.cr` exposes synced lyrics as a list model with timestamp and active-line highlighting roles
   - These models keep data in Crystal objects and let Qt query rows, parents, roles, tooltips, and MIME data on demand
 - Controller classes under `src/mpd_ui/controllers/` keep state transitions and queue calculations away from Qt widget setup:
   - `player_controller.cr` reads MPD status/current-song/playlist snapshots and converts them into `PlaybackState` transitions
@@ -113,6 +132,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `queue.cr` wires `QueueView`/`QueueController` to MPD queue commands and database-to-queue drops
   - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, genre filtering, and add-to-queue behavior
   - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
+  - `lyrics.cr` wires the Lyrics tab to current playback state, lazy LRCLIB lookups, settings, and progress-based active-line sync
   - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
   - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
   - `outputs.cr` loads MPD audio outputs and applies output enable/disable commands from the UI
@@ -124,6 +144,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `lastfm_adapter.cr` owns Last.fm client/scrobbler construction and playback sync
 - `src/ext/mpris` contains a small Crystal MPRIS/DBus implementation kept separate from Qt-specific app code
 - `src/ext/lastfm` contains the Last.fm API client, request signing, scrobble timing, and retry cache
+- `src/ext/lrclib` contains the standalone LRCLIB API client and synced lyric parser
 - One MPD client handles commands and status reads
 - A separate callback-enabled MPD listener pushes live updates from the server
 - `EventBridge` marshals callback-thread updates safely onto the Qt main thread

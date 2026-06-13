@@ -53,19 +53,10 @@ module MPDUI
     end
 
     private def apply_lyrics_update(key : String, update : LyricsService::Update) : Nil
-      unless @lyrics_song_key == key
-        LyricsService::Log.info do
-          "lyrics update ignored: stale key current=#{@lyrics_song_key.inspect} update=#{key.inspect} status=#{update.status}"
-        end
-        return
-      end
+      return unless @lyrics_song_key == key
 
       view = @lyrics_view
       return unless view
-
-      LyricsService::Log.info do
-        "lyrics update applied: status=#{update.status} result=#{!!update.result}"
-      end
 
       case update.status
       when LyricsService::Status::Loading

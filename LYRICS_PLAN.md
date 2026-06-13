@@ -75,8 +75,8 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 10. Polish And Documentation
 
-- [ ] Update `README.md` feature list.
-- [ ] Document LRCLIB cache behavior.
-- [ ] Document that lyrics are fetched from LRCLIB and may be unavailable for some tracks.
-- [ ] Remove temporary debug output.
-- [ ] Build with `shards build -Dpreview_mt -Dexecution_context`.
+- [x] Update `README.md` feature list.
+- [x] Document LRCLIB cache behavior.
+- [x] Document that lyrics are fetched from LRCLIB and may be unavailable for some tracks.
+- [x] Remove temporary debug output.
+- [x] Build with `shards build -Dpreview_mt -Dexecution_context`.
