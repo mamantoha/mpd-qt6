@@ -30,7 +30,7 @@ module LRCLIB
     getter artist_name : String
     getter album_name : String?
     getter duration : Int32?
-    getter instrumental : Bool
+    getter? instrumental : Bool
     getter plain_lyrics : String?
     getter synced_lyrics : String?
 

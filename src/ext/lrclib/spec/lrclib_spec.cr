@@ -3,7 +3,7 @@ require "spec"
 require "../src/lrclib"
 
 describe LRCLIB do
-  json = <<-JSON
+  json = <<-'JSON'
     {
       "id": 123,
       "trackName": "Demo Track",
@@ -11,8 +11,8 @@ describe LRCLIB do
       "albumName": "Demo Album",
       "duration": 185,
       "instrumental": false,
-      "plainLyrics": "First line\\nSecond line",
-      "syncedLyrics": "[00:01.50] First line\\n[01:02.03] Second line"
+      "plainLyrics": "First line\nSecond line",
+      "syncedLyrics": "[00:01.50] First line\n[01:02.03] Second line"
     }
     JSON
 
@@ -25,7 +25,7 @@ describe LRCLIB do
       lyrics.artist_name.should eq("Demo Artist")
       lyrics.album_name.should eq("Demo Album")
       lyrics.duration.should eq(185)
-      lyrics.instrumental.should be_false
+      lyrics.instrumental?.should be_false
       lyrics.plain_lyrics.should eq("First line\nSecond line")
       lyrics.synced_lyrics.should eq("[00:01.50] First line\n[01:02.03] Second line")
       lyrics.has_lyrics?.should be_true
@@ -45,7 +45,7 @@ describe LRCLIB do
     it "handles instrumental responses without lyric text" do
       lyrics = LRCLIB::Lyrics.from_json(%({"trackName":"Demo","artistName":"Artist","instrumental":true}))
 
-      lyrics.instrumental.should be_true
+      lyrics.instrumental?.should be_true
       lyrics.has_lyrics?.should be_false
       lyrics.synced_lines.should be_empty
     end

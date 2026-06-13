@@ -30,7 +30,7 @@ if !synced_lines.empty?
   end
 elsif plain_lyrics = lyrics.plain_lyrics
   puts plain_lyrics
-elsif lyrics.instrumental
+elsif lyrics.instrumental?
   puts "Instrumental track"
 else
   puts "Lyrics response did not include lyric text"
