@@ -4,12 +4,12 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 1. Add LRCLIB External Module
 
-- [ ] Create `src/ext/lrclib/src/lrclib.cr`.
-- [ ] Add `LRCLIB::Client` for HTTP API access.
-- [ ] Add response objects for synced and plain lyrics.
-- [ ] Parse LRCLIB JSON responses into Crystal objects.
-- [ ] Keep this module independent from Garnetune app code so it can become a separate shard later.
-- [ ] Add `src/ext/lrclib/README.md` with basic usage and data flow.
+- [x] Create `src/ext/lrclib/src/lrclib.cr`.
+- [x] Add `LRCLIB::Client` for HTTP API access.
+- [x] Add response objects for synced and plain lyrics.
+- [x] Parse LRCLIB JSON responses into Crystal objects.
+- [x] Keep this module independent from Garnetune app code so it can become a separate shard later.
+- [x] Add `src/ext/lrclib/README.md` with basic usage and data flow.
 
 ## 2. Add Lyrics Domain Objects
 
