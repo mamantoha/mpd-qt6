@@ -88,7 +88,7 @@ module MPDUI
       attempts << {"without album", nil, duration} if album
       attempts << {"without album/duration", nil, nil} if album || duration
 
-      attempts.each do |label, attempt_album, attempt_duration|
+      attempts.each do |_, attempt_album, attempt_duration|
         lyrics = @client.get(
           artist_name: artist,
           track_name: title,
