@@ -27,12 +27,12 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 4. Add Lyrics Service
 
-- [ ] Add `LyricsService` for app-specific lookup logic.
-- [ ] Fetch lyrics in a background execution context.
-- [ ] Read from cache before calling LRCLIB.
-- [ ] Save successful LRCLIB responses to cache.
-- [ ] Notify UI when lyrics are loading, found, not found, or failed.
-- [ ] Cancel or ignore stale requests when the current song changes.
+- [x] Add `LyricsService` for app-specific lookup logic.
+- [x] Fetch lyrics in a background execution context.
+- [x] Read from cache before calling LRCLIB.
+- [x] Save successful LRCLIB responses to cache.
+- [x] Notify UI when lyrics are loading, found, not found, or failed.
+- [x] Cancel or ignore stale requests when the current song changes.
 
 ## 5. Add Lyrics Model
 
