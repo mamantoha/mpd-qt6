@@ -13,10 +13,10 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 2. Add Lyrics Domain Objects
 
-- [ ] Add app-level lyrics types, for example `LyricsLine` and `LyricsResult`.
-- [ ] Store synced lyrics as timestamped rows.
-- [ ] Store unsynced lyrics as plain text.
-- [ ] Keep LRCLIB-specific response details out of UI code.
+- [x] Add app-level lyrics types, for example `LyricsLine` and `LyricsResult`.
+- [x] Store synced lyrics as timestamped rows.
+- [x] Store unsynced lyrics as plain text.
+- [x] Keep LRCLIB-specific response details out of UI code.
 
 ## 3. Add Lyrics Cache
 
