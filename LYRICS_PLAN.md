@@ -54,10 +54,10 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 7. Wire Playback Position To Lyrics
 
-- [ ] Update active lyric row when playback position changes.
-- [ ] Avoid work when the active row did not change.
-- [ ] Reset highlighted line when playback stops or song changes.
-- [ ] Keep user interaction smooth during frequent progress updates.
+- [x] Update active lyric row when playback position changes.
+- [x] Avoid work when the active row did not change.
+- [x] Reset highlighted line when playback stops or song changes.
+- [x] Keep user interaction smooth during frequent progress updates.
 
 ## 8. Add UI Entry Point
 

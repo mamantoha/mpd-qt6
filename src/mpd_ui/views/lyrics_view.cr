@@ -10,6 +10,7 @@ module MPDUI
     @context_menu : Qt6::Menu
     @copy_action : Qt6::Action
     @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
+    @result : LyricsResult?
     @synced_text : String = ""
     @plain_text_value : String = ""
 
@@ -67,6 +68,8 @@ module MPDUI
     end
 
     def render(result : LyricsResult) : Nil
+      @result = result
+
       if result.synced?
         render_synced(result.synced_lines)
       elsif result.plain?
@@ -76,6 +79,20 @@ module MPDUI
       else
         show_not_found
       end
+    end
+
+    def sync_position(seconds : Float64, *, scroll : Bool = true) : Nil
+      result = @result
+      return reset_active_line unless result && result.synced?
+
+      row = result.active_line_index(seconds.seconds)
+      return if @model.active_row == row
+
+      set_active_line(row, scroll: scroll)
+    end
+
+    def reset_active_line : Nil
+      set_active_line(nil, scroll: false)
     end
 
     def set_active_line(row : Int32?, *, scroll : Bool = true) : Nil
@@ -111,6 +128,7 @@ module MPDUI
     end
 
     private def show_message(message : String) : Nil
+      @result = nil
       @model.clear
       @synced_text = ""
       @plain_text_value = ""
