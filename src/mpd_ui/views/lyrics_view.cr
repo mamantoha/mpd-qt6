@@ -158,12 +158,21 @@ module MPDUI
 
     private def configure_list_view : Nil
       @list_view.model = @model
-      @list_view.selection_mode = Qt6::ItemSelectionMode::SingleSelection
+      @list_view.selection_mode = Qt6::ItemSelectionMode::NoSelection
       @list_view.selection_behavior = Qt6::ItemSelectionBehavior::SelectRows
       @list_view.edit_triggers = Qt6::EditTrigger::NoEditTriggers
       @list_view.uniform_item_sizes = false
       @list_view.word_wrap = true
       @list_view.spacing = 6
+      palette = @list_view.palette
+      begin
+        @model.active_colors = {
+          palette.color(Qt6::ColorRole::Highlight),
+          palette.color(Qt6::ColorRole::HighlightedText),
+        }
+      ensure
+        palette.release
+      end
       @list_view.style_sheet = <<-CSS
         QListView {
           border: none;

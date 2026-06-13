@@ -2,6 +2,14 @@ module MPDUI
   class LyricsModel < Qt6::AbstractListModel
     @lines : Array(LyricsLine) = [] of LyricsLine
     @active_row : Int32? = nil
+    @active_background : Qt6::Color?
+    @active_foreground : Qt6::Color?
+
+    def active_colors=(colors : Tuple(Qt6::Color, Qt6::Color)) : Tuple(Qt6::Color, Qt6::Color)
+      @active_background = colors[0]
+      @active_foreground = colors[1]
+      colors
+    end
 
     def replace(lines : Array(LyricsLine)) : Nil
       begin_reset_model
@@ -49,6 +57,10 @@ module MPDUI
         line.time.total_milliseconds.to_i
       when Qt6::ItemDataRole::TextAlignment.value
         (Qt6::AlignmentFlag::HCenter | Qt6::AlignmentFlag::VCenter).value
+      when Qt6::ItemDataRole::Background.value
+        @active_background if index.row == @active_row
+      when Qt6::ItemDataRole::Foreground.value
+        @active_foreground if index.row == @active_row
       end
     end
 
