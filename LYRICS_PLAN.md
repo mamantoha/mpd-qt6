@@ -20,10 +20,10 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 3. Add Lyrics Cache
 
-- [ ] Store fetched lyrics in the app cache directory.
-- [ ] Use a stable cache key based on artist, title, and duration.
-- [ ] Cache both found lyrics and "not found" results to avoid repeated lookups.
-- [ ] Add a way to invalidate or ignore stale cache entries if needed later.
+- [x] Store fetched lyrics in the app cache directory.
+- [x] Use a stable cache key based on artist, title, and duration.
+- [x] Cache both found lyrics and "not found" results to avoid repeated lookups.
+- [x] Add a way to invalidate or ignore stale cache entries if needed later.
 
 ## 4. Add Lyrics Service
 
