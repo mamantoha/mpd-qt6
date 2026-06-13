@@ -44,13 +44,13 @@ Goal: add LRCLIB-backed lyrics support with caching and synced lyric display usi
 
 ## 6. Add Lyrics View
 
-- [ ] Add a `LyricsView` built around `QListView`.
-- [ ] Show all synced lyric rows.
-- [ ] Highlight the currently active lyric row.
-- [ ] Auto-scroll when the active line changes.
-- [ ] Add read-only plain text fallback for unsynced lyrics.
-- [ ] Add loading, empty, and error states.
-- [ ] Add `Copy Lyrics` context menu action and `Ctrl+C` support. (not neccessary, can be added later)
+- [x] Add a `LyricsView` built around `QListView`.
+- [x] Show all synced lyric rows.
+- [x] Highlight the currently active lyric row.
+- [x] Auto-scroll when the active line changes.
+- [x] Add read-only plain text fallback for unsynced lyrics.
+- [x] Add loading, empty, and error states.
+- [x] Add `Copy Lyrics` context menu action and `Ctrl+C` support. (not neccessary, can be added later)
 
 ## 7. Wire Playback Position To Lyrics
 
