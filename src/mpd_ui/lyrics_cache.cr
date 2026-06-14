@@ -60,7 +60,7 @@ module MPDUI
         LyricsResult.new(
           synced_lines: synced_lines.map(&.to_line),
           plain_text: plain_text,
-          instrumental: instrumental
+          instrumental: instrumental?
         )
       end
     end
