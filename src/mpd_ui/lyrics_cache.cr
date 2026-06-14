@@ -16,7 +16,7 @@ module MPDUI
       getter status : Status
       getter synced_lines : Array(CachedLine)
       getter plain_text : String?
-      getter instrumental : Bool
+      getter? instrumental : Bool
       getter cached_at : Int64
 
       def self.found(result : LyricsResult) : self
@@ -24,7 +24,7 @@ module MPDUI
           status: Status::Found,
           synced_lines: result.synced_lines.map { |line| CachedLine.new(line) },
           plain_text: result.plain_text,
-          instrumental: result.instrumental,
+          instrumental: result.instrumental?,
           cached_at: Time.utc.to_unix
         )
       end

@@ -78,7 +78,7 @@ module MPDUI
         render_synced(result.synced_lines)
       elsif result.plain?
         render_plain(result.plain_text.to_s)
-      elsif result.instrumental
+      elsif result.instrumental?
         show_message("Instrumental track")
       else
         show_not_found

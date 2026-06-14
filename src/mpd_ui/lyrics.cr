@@ -4,7 +4,7 @@ module MPDUI
   class LyricsResult
     getter synced_lines : Array(LyricsLine)
     getter plain_text : String?
-    getter instrumental : Bool
+    getter? instrumental : Bool
 
     def self.from_lrclib(lyrics : LRCLIB::Lyrics) : self
       synced_lines = lyrics.synced_lines.map do |line|
