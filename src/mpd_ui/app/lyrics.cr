@@ -1,14 +1,5 @@
 module MPDUI
   module AppLyrics
-    private def handle_library_tab_changed(index : Int32) : Nil
-      return unless index == @lyrics_tab_index
-
-      return show_lyrics_disabled unless @settings.lyrics_enabled?
-
-      request_lyrics_for_current_song
-      sync_lyrics_position
-    end
-
     private def sync_lyrics_for_playback(previous : PlaybackState, current : PlaybackState, song : Song?) : Nil
       return unless @settings.lyrics_enabled?
 
@@ -22,21 +13,21 @@ module MPDUI
       if previous.song.try(&.file) != song.file
         @lyrics_view.try(&.reset_active_line)
         @lyrics_song_key = nil
-        request_lyrics_for_current_song if lyrics_tab_visible?
+        request_lyrics_for_current_song if lyrics_panel_visible?
       end
 
       sync_lyrics_position
     end
 
     private def sync_lyrics_position : Nil
-      return unless lyrics_tab_visible?
+      return unless lyrics_panel_visible?
       return unless @settings.lyrics_enabled?
 
       @lyrics_view.try(&.sync_position(@playback_state.elapsed, scroll: @settings.lyrics_auto_scroll?))
     end
 
     private def request_lyrics_for_current_song : Nil
-      return unless lyrics_tab_visible?
+      return unless lyrics_panel_visible?
       return show_lyrics_disabled unless @settings.lyrics_enabled?
 
       song = @playback_state.song
@@ -75,10 +66,12 @@ module MPDUI
       end
     end
 
-    private def lyrics_tab_visible? : Bool
-      tabs = @library_tabs
-      index = @lyrics_tab_index
-      !!tabs && !!index && tabs.current_index == index
+    private def lyrics_panel_visible? : Bool
+      if browsers = @browsers
+        browsers.visible?
+      else
+        false
+      end
     end
 
     private def lyrics_song_key(song : Song) : String
@@ -92,7 +85,7 @@ module MPDUI
 
     private def apply_lyrics_settings : Nil
       if @settings.lyrics_enabled?
-        request_lyrics_for_current_song if lyrics_tab_visible?
+        request_lyrics_for_current_song if lyrics_panel_visible?
       else
         @lyrics_service.cancel
         @lyrics_song_key = nil
@@ -101,7 +94,7 @@ module MPDUI
     end
 
     private def show_lyrics_disabled : Nil
-      return unless lyrics_tab_visible?
+      return unless lyrics_panel_visible?
 
       @lyrics_view.try(&.show_disabled)
     end

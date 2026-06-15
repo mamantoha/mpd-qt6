@@ -73,9 +73,11 @@ for example `/tmp/mpd.fifo`.
 
 ## Lyrics
 
-Garnetune can fetch lyrics from [LRCLIB](https://lrclib.net/) when the Lyrics
-tab is opened. Synced lyrics are shown as timestamped rows with the current line
-highlighted during playback. Unsynced lyrics are shown as read-only plain text.
+Garnetune can fetch lyrics from [LRCLIB](https://lrclib.net/) and show them in
+the middle panel between the library/playlists browser and the play queue.
+Synced lyrics are shown as timestamped rows with the current line highlighted
+during playback. Unsynced lyrics use the same read-only row layout without
+timestamp synchronization.
 
 Lyrics are cached in the user's cache directory under Garnetune's application
 cache. The cache stores both found lyrics and "not found" results so the player
@@ -111,13 +113,13 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `spectrum_analyzer.cr` converts raw PCM frames into logarithmic FFT spectrum bands for the header visualizer
 - View classes under `src/mpd_ui/views/` own Qt widget construction and rendering:
   - `application_menu.cr` builds the main menu/actions and menu shortcuts
-  - `app_layout_view.cr` arranges the player header, library/queue splitter, and compact spacer
+  - `app_layout_view.cr` arranges the player header, browser/lyrics/queue splitter, and compact spacer
   - `player_header_view.cr` owns the playback header widgets, visualizer widget, controls, volume popup, cover click handling, and progress tooltip
   - `visualizer_widget.cr` paints spectrum bars from `VisualizerService`
   - `queue_view.cr` owns the queue `QTreeView`, context menu, shortcuts, selection helpers, drop filter, and row indicators
   - `library_view.cr` owns the database browser tree, search panel, genre filter, custom item delegate, context menu, drag filter, and selected URI collection
   - `playlists_view.cr` owns the saved playlist tree, playlist/song context menus, and playlist-song drag source
-  - `lyrics_view.cr` owns the lyrics tab, synced lyrics list, plain-text fallback, loading/error states, active-line sync, and copy action
+  - `lyrics_view.cr` owns the lyrics panel, synced lyrics list, plain-text fallback, loading/error states, active-line sync, and copy action
 - Custom Qt models under `src/mpd_ui/models/` adapt domain data to Qt's model/view API:
   - `queue_model.cr` exposes the current MPD queue as a flat `QAbstractItemModel` with drag/drop payloads and row indicator updates
   - `library_model.cr` exposes the artist/album/song database tree without building thousands of `QStandardItem` objects
@@ -132,7 +134,7 @@ Tested on Linux and macOS with Qt6. Windows are untested.
   - `queue.cr` wires `QueueView`/`QueueController` to MPD queue commands and database-to-queue drops
   - `database.cr` wires `LibraryView`/`LibraryIndex` to MPD database loading, searching, genre filtering, and add-to-queue behavior
   - `playlists.cr` wires `PlaylistsView` to MPD saved playlist commands
-  - `lyrics.cr` wires the Lyrics tab to current playback state, lazy LRCLIB lookups, settings, and progress-based active-line sync
+  - `lyrics.cr` wires the lyrics panel to current playback state, lazy LRCLIB lookups, settings, and progress-based active-line sync
   - `mpris.cr` connects Qt/MPD callbacks to the app-specific MPRIS adapter
   - `lastfm.cr` feeds playback snapshots into the app-specific Last.fm adapter
   - `outputs.cr` loads MPD audio outputs and applies output enable/disable commands from the UI

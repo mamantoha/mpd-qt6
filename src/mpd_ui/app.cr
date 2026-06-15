@@ -61,7 +61,6 @@ module MPDUI
     @library_view : LibraryView?
     @lyrics_view : LyricsView?
     @lyrics_service : LyricsService
-    @lyrics_tab_index : Int32?
     @lyrics_song_key : String?
     @playlists_view : PlaylistsView?
     @library_index : LibraryIndex
@@ -175,10 +174,7 @@ module MPDUI
       library_tabs = Qt6::TabWidget.new(window)
       library_tabs.add_tab(database_browser, "Library")
       library_tabs.add_tab(playlists.root, "Playlists")
-      library_tabs.add_tab(lyrics_view.root, "Lyrics")
-      lyrics_tab_index = library_tabs.index_of(lyrics_view.root)
-      library_tabs.on_current_index_changed { |index| handle_library_tab_changed(index) }
-      layout = AppLayoutView.new(window, player_header, library_tabs, queue_view)
+      layout = AppLayoutView.new(window, player_header, library_tabs, lyrics_view.root, queue_view)
       restore_library_queue_splitter_sizes(layout.browsers)
 
       @app_layout_view = layout
@@ -188,7 +184,6 @@ module MPDUI
       @database_panel = layout.database_panel
       @library_tabs = library_tabs
       @lyrics_view = lyrics_view
-      @lyrics_tab_index = lyrics_tab_index
       @queue_view = queue_view
       @playlist_view = queue_view.view
       assign_player_header_references(player_header)
@@ -399,7 +394,7 @@ module MPDUI
 
     private def restore_library_queue_splitter_sizes(splitter : Qt6::Splitter) : Nil
       sizes = @settings.library_queue_splitter_sizes
-      return unless sizes.size == 2 && sizes.all?(&.positive?)
+      return unless sizes.size == 3 && sizes.all?(&.positive?)
 
       splitter.set_sizes(sizes)
     end
@@ -426,7 +421,7 @@ module MPDUI
 
         if splitter = @browsers
           sizes = splitter.sizes
-          @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all?(&.>(0))
+          @settings.library_queue_splitter_sizes = sizes if sizes.size == 3 && sizes.all?(&.>(0))
         end
       elsif expanded_size = @expanded_interface_window_size
         @settings.expanded_window_maximized = false
