@@ -64,6 +64,13 @@ module MPDUI
       end
     end
 
+    private def seek_from_lyrics(seconds : Int32) : Nil
+      mpd_action do |client|
+        client.seekcur(seconds)
+        client.pause(false) if @playback_state.paused?
+      end
+    end
+
     private def refresh_status : Nil
       apply_status_refresh(@player_controller.fetch_status_refresh(@playback_state.playlist_version, @queue_controller.empty?))
     end

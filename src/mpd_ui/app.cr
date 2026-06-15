@@ -171,6 +171,7 @@ module MPDUI
       setup_queue_drop_target(queue_view)
       database_browser = build_database_browser(window)
       lyrics_view = LyricsView.new(window)
+      lyrics_view.on_seek = ->(seconds : Int32) { seek_from_lyrics(seconds) }
       playlists = build_playlists(window)
       library_tabs = Qt6::TabWidget.new(window)
       library_tabs.add_tab(database_browser, "Library")

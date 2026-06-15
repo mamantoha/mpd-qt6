@@ -5,6 +5,8 @@ module MPDUI
     getter model : LyricsModel
     getter plain_text : Qt6::PlainTextEdit
 
+    property on_seek : Proc(Int32, Nil)?
+
     @stack : Qt6::StackedWidget
     @message_text : Qt6::PlainTextEdit
     @context_menu : Qt6::Menu
@@ -210,12 +212,32 @@ module MPDUI
           else
             false
           end
+        when Qt6::EventType::MouseButtonDblClick
+          handle_synced_line_double_click(event.mouse_event.position)
+          true
         else
           false
         end
       end
 
       widget.install_event_filter(filter)
+    end
+
+    private def handle_synced_line_double_click(position : Qt6::PointF) : Nil
+      result = @result
+      return unless result && result.synced?
+
+      index = @list_view.index_at(position)
+      begin
+        return unless index.valid?
+
+        line = @model.line_at(index.row)
+        return unless line
+
+        @on_seek.try(&.call(line.time.total_seconds.to_i))
+      ensure
+        index.release
+      end
     end
 
     private def add_shortcut(shortcut : String, &block : ->) : Qt6::Shortcut
