@@ -123,11 +123,14 @@ module MPDUI
     end
 
     private def render_plain(text : String) : Nil
-      @model.clear
+      lines = text.each_line.map(&.strip).reject(&.empty?).map do |line|
+        LyricsLine.new(0.seconds, line)
+      end.to_a
+
+      @model.replace(lines)
       @plain_text_value = text
       @synced_text = ""
-      @plain_text.plain_text = text
-      @stack.current_widget = @plain_text
+      @stack.current_widget = @list_view
       update_copy_action
     end
 
