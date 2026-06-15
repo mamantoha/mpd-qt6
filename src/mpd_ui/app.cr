@@ -174,9 +174,9 @@ module MPDUI
       playlists = build_playlists(window)
       library_tabs = Qt6::TabWidget.new(window)
       library_tabs.add_tab(database_browser, "Library")
+      library_tabs.add_tab(playlists.root, "Playlists")
       library_tabs.add_tab(lyrics_view.root, "Lyrics")
       lyrics_tab_index = library_tabs.index_of(lyrics_view.root)
-      library_tabs.add_tab(playlists.root, "Playlists")
       library_tabs.on_current_index_changed { |index| handle_library_tab_changed(index) }
       layout = AppLayoutView.new(window, player_header, library_tabs, queue_view)
       restore_library_queue_splitter_sizes(layout.browsers)
