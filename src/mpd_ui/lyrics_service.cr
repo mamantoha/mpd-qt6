@@ -35,7 +35,6 @@ module MPDUI
       request_id = @generation.add(1) + 1
       artist = song.artist
       title = song.display_title
-      album = song.album?
       duration = song.duration.try(&.to_i)
 
       deliver(request_id, Update.new(request_id, Status::Loading), on_update)
@@ -45,7 +44,7 @@ module MPDUI
           if entry = @cache.read(artist, title, duration)
             update_from_cache(request_id, entry)
           else
-            fetch_update(request_id, artist, title, album, duration)
+            fetch_update(request_id, artist, title, duration)
           end
 
         deliver(request_id, update, on_update)
@@ -69,8 +68,8 @@ module MPDUI
       end
     end
 
-    private def fetch_update(request_id : Int32, artist : String, title : String, album : String?, duration : Int32?) : Update
-      lyrics = fetch_with_fallbacks(artist, title, album, duration)
+    private def fetch_update(request_id : Int32, artist : String, title : String, duration : Int32?) : Update
+      lyrics = fetch_with_fallbacks(artist, title, duration)
 
       unless lyrics
         @cache.write_not_found(artist, title, duration)
@@ -82,17 +81,15 @@ module MPDUI
       Update.new(request_id, Status::Found, result: result)
     end
 
-    private def fetch_with_fallbacks(artist : String, title : String, album : String?, duration : Int32?) : LRCLIB::Lyrics?
-      attempts = [] of Tuple(String, String?, Int32?)
-      attempts << {"metadata", album, duration}
-      attempts << {"without album", nil, duration} if album
-      attempts << {"without album/duration", nil, nil} if album || duration
+    private def fetch_with_fallbacks(artist : String, title : String, duration : Int32?) : LRCLIB::Lyrics?
+      attempts = [] of Int32?
+      attempts << duration
+      attempts << nil if duration
 
-      attempts.each do |_, attempt_album, attempt_duration|
+      attempts.each do |attempt_duration|
         lyrics = @client.get(
           artist_name: artist,
           track_name: title,
-          album_name: attempt_album,
           duration: attempt_duration
         )
 
