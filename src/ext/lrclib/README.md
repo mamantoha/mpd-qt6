@@ -1,23 +1,30 @@
 # LRCLIB
 
-Small Crystal wrapper around the public LRCLIB lyrics API.
+A small Crystal client for the public [LRCLIB](https://lrclib.net/) lyrics API.
 
-This directory is kept independent from Garnetune application code so it can
-later be extracted into a separate shard.
+It fetches plain lyrics, synced LRC lyrics, and parsed timestamped lyric lines
+from LRCLIB using track metadata.
 
-## Data Flow
+## Installation
 
-1. The player passes normalized song metadata to `LRCLIB::Client`.
-2. The client calls LRCLIB over HTTP and parses the JSON response.
-3. The client returns an `LRCLIB::Lyrics` object with plain lyrics, synced LRC
-   text, and parsed timestamped lines.
-4. The host application decides how to cache, display, and synchronize the
-   lyrics with playback.
+When used as a shard, add it to `shard.yml`:
 
-## Basic Usage
+```yaml
+dependencies:
+  lrclib:
+    github: your-org/lrclib
+```
+
+Then run:
+
+```sh
+shards install
+```
+
+## Usage
 
 ```crystal
-require "./src/lrclib"
+require "lrclib"
 
 client = LRCLIB::Client.new
 
@@ -39,7 +46,66 @@ else
 end
 ```
 
-`duration` is optional, but passing it helps LRCLIB choose a better match.
+`album_name` and `duration` are optional, but passing them can improve match
+quality when the metadata is accurate.
+
+## API
+
+### `LRCLIB::Client`
+
+```crystal
+client = LRCLIB::Client.new
+```
+
+Optional arguments:
+
+```crystal
+client = LRCLIB::Client.new(
+  base_url: "https://lrclib.net",
+  user_agent: "MyApp"
+)
+```
+
+### `Client#get`
+
+```crystal
+lyrics = client.get(
+  artist_name: "Muse",
+  track_name: "Starlight",
+  album_name: "Black Holes and Revelations",
+  duration: 240
+)
+```
+
+Returns `LRCLIB::Lyrics?`.
+
+Returns `nil` when LRCLIB has no match. Raises `LRCLIB::Error` for unexpected
+HTTP, JSON, or network failures.
+
+### `LRCLIB::Lyrics`
+
+Important fields:
+
+- `track_name`
+- `artist_name`
+- `album_name`
+- `duration`
+- `instrumental?`
+- `plain_lyrics`
+- `synced_lyrics`
+- `synced_lines`
+
+`synced_lines` returns parsed `LRCLIB::SyncedLine` values:
+
+```crystal
+lyrics.synced_lines.each do |line|
+  puts line.time
+  puts line.text
+end
+```
+
+## Notes
 
 Do not store copyrighted lyric text in source files or fixtures. Applications
-should fetch lyrics at runtime and cache them in the user's cache directory.
+should fetch lyrics at runtime and cache them in a user-specific cache
+directory when caching is needed.
