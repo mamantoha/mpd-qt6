@@ -241,6 +241,7 @@ module MPDUI
         menu.add_action(actions.reload_database)
         menu.add_separator
         menu.add_action(actions.show_library)
+        menu.add_action(actions.show_lyrics)
         menu.add_action(actions.expanded_interface)
         menu.add_action(actions.blurred_cover_background)
         menu.add_separator

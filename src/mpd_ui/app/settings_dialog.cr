@@ -32,6 +32,12 @@ module MPDUI
       visualizer_fifo_path = Qt6::LineEdit.new(settings.visualizer_fifo_path, dialog)
       visualizer_fifo_path.placeholder_text = "/tmp/mpd.fifo"
 
+      lyrics_enabled = Qt6::CheckBox.new(tr("Fetch lyrics from LRCLIB"), dialog)
+      lyrics_enabled.checked = settings.lyrics_enabled?
+
+      lyrics_auto_scroll = Qt6::CheckBox.new(tr("Auto-scroll synced lyrics"), dialog)
+      lyrics_auto_scroll.checked = settings.lyrics_auto_scroll?
+
       pending_lastfm_username = settings.lastfm_username
       pending_lastfm_session_key = settings.lastfm_session_key
       tabs = Qt6::TabWidget.new(dialog)
@@ -100,6 +106,8 @@ module MPDUI
             settings.lastfm_session_key = pending_lastfm_session_key
             settings.visualizer_enabled = visualizer_enabled.checked?
             settings.visualizer_fifo_path = visualizer_fifo_path.text.strip.empty? ? "/tmp/mpd.fifo" : visualizer_fifo_path.text.strip
+            settings.lyrics_enabled = lyrics_enabled.checked?
+            settings.lyrics_auto_scroll = lyrics_auto_scroll.checked?
             settings.save
             dialog.accept
           end
@@ -197,6 +205,39 @@ module MPDUI
       end
 
       tabs.add_tab(visualizer_page, tr("Visualizer"))
+
+      lyrics_page = Qt6::Widget.new(tabs)
+      lyrics_page.vbox do |lyrics_column|
+        lyrics_column.spacing = 10
+        lyrics_column.set_contents_margins(10, 10, 10, 10)
+
+        lyrics_group = Qt6::GroupBox.new(tr("Lyrics"), lyrics_page)
+        lyrics_group.vbox do |group_column|
+          group_column.spacing = 8
+          group_column.set_contents_margins(10, 10, 10, 10)
+
+          hint = Qt6::Label.new(
+            tr("Lyrics are fetched from LRCLIB and cached locally when available."),
+            lyrics_group
+          )
+          hint.word_wrap = true
+
+          form = Qt6::FormLayout.new
+          form.field_growth_policy = Qt6::FormLayoutFieldGrowthPolicy::AllNonFixedFieldsGrow
+          form.row_wrap_policy = Qt6::FormLayoutRowWrapPolicy::WrapLongRows
+          form.horizontal_spacing = 12
+          form.vertical_spacing = 8
+          form.add_row(lyrics_enabled)
+          form.add_row(lyrics_auto_scroll)
+          form.add_row(hint)
+          group_column.add(form)
+        end
+
+        lyrics_column << lyrics_group
+        lyrics_column.add_stretch
+      end
+
+      tabs.add_tab(lyrics_page, tr("Lyrics"))
 
       button_box = Qt6::DialogButtonBox.new(
         Qt6::DialogButtonBoxStandardButton::Ok | Qt6::DialogButtonBoxStandardButton::Cancel,

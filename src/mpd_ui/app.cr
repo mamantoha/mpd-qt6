@@ -12,6 +12,7 @@ module MPDUI
     include AppQueue
     include AppDatabase
     include AppPlaylists
+    include AppLyrics
     include BackgroundTask
 
     WINDOW_TITLE             = Settings::DISPLAY_NAME
@@ -54,10 +55,14 @@ module MPDUI
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
+    @lyrics_panel : Qt6::Widget?
     @library_tabs : Qt6::TabWidget?
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
     @library_view : LibraryView?
+    @lyrics_view : LyricsView?
+    @lyrics_service : LyricsService
+    @lyrics_song_key : String?
     @playlists_view : PlaylistsView?
     @library_index : LibraryIndex
     @database_loaded : Bool = false
@@ -113,6 +118,15 @@ module MPDUI
       @event_bridge = EventBridge.new(@qt_app)
       @player_controller = PlayerController.new(-> { @client })
       @visualizer_service = VisualizerService.new
+      @lyrics_service = LyricsService.new(
+        LRCLIB::Client.new(user_agent: Settings::DISPLAY_NAME),
+        LyricsCache.new(Settings::CACHE_PREFIX),
+        ->(callback : Proc(Nil)) {
+          @qt_app.invoke_later do
+            callback.call unless @quitting
+          end
+        }
+      )
       @drag_context = DragContext.new
       apply_visualizer_settings
       @queue_controller = QueueController.new
@@ -156,11 +170,13 @@ module MPDUI
       queue_view = build_playlist(window)
       setup_queue_drop_target(queue_view)
       database_browser = build_database_browser(window)
+      lyrics_view = LyricsView.new(window)
+      lyrics_view.on_seek = ->(seconds : Int32) { seek_from_lyrics(seconds) }
       playlists = build_playlists(window)
       library_tabs = Qt6::TabWidget.new(window)
       library_tabs.add_tab(database_browser, "Library")
       library_tabs.add_tab(playlists.root, "Playlists")
-      layout = AppLayoutView.new(window, player_header, library_tabs, queue_view)
+      layout = AppLayoutView.new(window, player_header, library_tabs, lyrics_view.root, queue_view)
       restore_library_queue_splitter_sizes(layout.browsers)
 
       @app_layout_view = layout
@@ -168,7 +184,9 @@ module MPDUI
       @browsers = layout.browsers
       @compact_spacer = layout.compact_spacer
       @database_panel = layout.database_panel
+      @lyrics_panel = layout.lyrics_panel
       @library_tabs = library_tabs
+      @lyrics_view = lyrics_view
       @queue_view = queue_view
       @playlist_view = queue_view.view
       assign_player_header_references(player_header)
@@ -205,6 +223,7 @@ module MPDUI
       actions.outputs.on_triggered { refresh_outputs_menu }
       actions.quit.on_triggered { quit_application }
       actions.show_library.on_toggled { |checked| set_library_panel_visible(checked) }
+      actions.show_lyrics.on_toggled { |checked| set_lyrics_panel_visible(checked) }
       actions.search_library.on_triggered { show_database_search }
       actions.reload_database.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
       actions.save_queue_as_playlist.on_triggered { save_queue_as_playlist }
@@ -274,6 +293,7 @@ module MPDUI
       end
 
       set_library_panel_visible(@settings.show_library?)
+      set_lyrics_panel_visible(@settings.show_lyrics?)
     end
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
@@ -379,7 +399,7 @@ module MPDUI
 
     private def restore_library_queue_splitter_sizes(splitter : Qt6::Splitter) : Nil
       sizes = @settings.library_queue_splitter_sizes
-      return unless sizes.size == 2 && sizes.all?(&.positive?)
+      return unless sizes.size == 3 && sizes.all?(&.positive?)
 
       splitter.set_sizes(sizes)
     end
@@ -406,7 +426,7 @@ module MPDUI
 
         if splitter = @browsers
           sizes = splitter.sizes
-          @settings.library_queue_splitter_sizes = sizes if sizes.size == 2 && sizes.all?(&.>(0))
+          @settings.library_queue_splitter_sizes = sizes if sizes.size == 3 && sizes.all?(&.>(0))
         end
       elsif expanded_size = @expanded_interface_window_size
         @settings.expanded_window_maximized = false
@@ -445,6 +465,25 @@ module MPDUI
       end
     end
 
+    private def set_lyrics_panel_visible(visible : Bool) : Nil
+      @lyrics_panel.try(&.visible = visible)
+
+      action = @app_actions.try(&.show_lyrics)
+      action.checked = visible if action && action.checked? != visible
+
+      if @settings.show_lyrics? != visible
+        @settings.show_lyrics = visible
+        @settings.save
+      end
+
+      if visible
+        apply_lyrics_settings
+        sync_lyrics_position
+      else
+        @lyrics_service.cancel
+      end
+    end
+
     private def open_settings_dialog : Nil
       parent = @window
       return unless parent
@@ -452,6 +491,7 @@ module MPDUI
       if SettingsDialog.edit(parent, @settings)
         setup_lastfm
         apply_visualizer_settings
+        apply_lyrics_settings
         connect
       end
     end

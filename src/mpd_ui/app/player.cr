@@ -14,6 +14,7 @@ module MPDUI
 
         @playback_state = @playback_state.with_elapsed(elapsed)
         update_progress
+        sync_lyrics_position
         sync_mpris_position
         sync_lastfm_state(@mpris_adapter.try(&.song))
       end
@@ -60,6 +61,13 @@ module MPDUI
         else
           client.play
         end
+      end
+    end
+
+    private def seek_from_lyrics(seconds : Int32) : Nil
+      mpd_action do |client|
+        client.seekcur(seconds)
+        client.pause(false) if @playback_state.paused?
       end
     end
 
@@ -120,6 +128,7 @@ module MPDUI
       sync_toggle_buttons
       update_volume_control(playback.volume)
       update_progress
+      sync_lyrics_for_playback(previous_playback, playback, song)
 
       if transition.playlist_changed
         if playlist = snapshot.playlist
@@ -188,6 +197,9 @@ module MPDUI
       sync_playback_controls
       sync_toggle_buttons
       update_progress
+      @lyrics_service.cancel
+      @lyrics_song_key = nil
+      @lyrics_view.try(&.show_empty)
       sync_mpris_state(nil)
 
       return if @status_retry_scheduled

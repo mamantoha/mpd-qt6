@@ -11,6 +11,7 @@ module MPDUI
     PORT_KEY               = "mpd/port"
     EXPANDED_INTERFACE_KEY = "ui/expanded_interface"
     SHOW_LIBRARY_KEY       = "ui/show_library"
+    SHOW_LYRICS_KEY        = "ui/show_lyrics"
     SHOW_MAIN_MENU_KEY     = "ui/show_main_menu"
     BLURRED_COVER_KEY      = "ui/blurred_cover_background"
     WINDOW_WIDTH_KEY       = "ui/expanded_window_width"
@@ -22,11 +23,14 @@ module MPDUI
     LASTFM_SESSION_KEY     = "lastfm/session_key"
     VISUALIZER_ENABLED_KEY = "visualizer/enabled"
     VISUALIZER_FIFO_KEY    = "visualizer/fifo_path"
+    LYRICS_ENABLED_KEY     = "lyrics/enabled"
+    LYRICS_AUTO_SCROLL_KEY = "lyrics/auto_scroll"
 
     property host : String
     property port : Int32
     property? expanded_interface : Bool
     property? show_library : Bool
+    property? show_lyrics : Bool
     property? show_main_menu : Bool
     property? blurred_cover_background : Bool
     property expanded_window_width : Int32?
@@ -38,12 +42,15 @@ module MPDUI
     property lastfm_session_key : String
     property? visualizer_enabled : Bool
     property visualizer_fifo_path : String
+    property? lyrics_enabled : Bool
+    property? lyrics_auto_scroll : Bool
 
     def initialize
       @host = "localhost"
       @port = 6600
       @expanded_interface = true
       @show_library = true
+      @show_lyrics = true
       @show_main_menu = true
       @blurred_cover_background = true
       @expanded_window_width = nil
@@ -55,6 +62,8 @@ module MPDUI
       @lastfm_session_key = ""
       @visualizer_enabled = true
       @visualizer_fifo_path = "/tmp/mpd.fifo"
+      @lyrics_enabled = true
+      @lyrics_auto_scroll = true
     end
 
     def self.load : Settings
@@ -64,6 +73,7 @@ module MPDUI
       settings.port = read_port(store, settings.port)
       settings.expanded_interface = read_bool(store, EXPANDED_INTERFACE_KEY, settings.expanded_interface?)
       settings.show_library = read_bool(store, SHOW_LIBRARY_KEY, settings.show_library?)
+      settings.show_lyrics = read_bool(store, SHOW_LYRICS_KEY, settings.show_lyrics?)
       settings.show_main_menu = read_bool(store, SHOW_MAIN_MENU_KEY, settings.show_main_menu?)
       settings.blurred_cover_background = read_bool(store, BLURRED_COVER_KEY, settings.blurred_cover_background?)
       settings.expanded_window_width = read_int(store, WINDOW_WIDTH_KEY)
@@ -75,6 +85,8 @@ module MPDUI
       settings.lastfm_session_key = store.value(LASTFM_SESSION_KEY, settings.lastfm_session_key).as?(String) || settings.lastfm_session_key
       settings.visualizer_enabled = read_bool(store, VISUALIZER_ENABLED_KEY, settings.visualizer_enabled?)
       settings.visualizer_fifo_path = store.value(VISUALIZER_FIFO_KEY, settings.visualizer_fifo_path).as?(String) || settings.visualizer_fifo_path
+      settings.lyrics_enabled = read_bool(store, LYRICS_ENABLED_KEY, settings.lyrics_enabled?)
+      settings.lyrics_auto_scroll = read_bool(store, LYRICS_AUTO_SCROLL_KEY, settings.lyrics_auto_scroll?)
       settings
     rescue
       new
@@ -86,6 +98,7 @@ module MPDUI
       store.set_value(PORT_KEY, @port)
       store.set_value(EXPANDED_INTERFACE_KEY, @expanded_interface)
       store.set_value(SHOW_LIBRARY_KEY, @show_library)
+      store.set_value(SHOW_LYRICS_KEY, @show_lyrics)
       store.set_value(SHOW_MAIN_MENU_KEY, @show_main_menu)
       store.set_value(BLURRED_COVER_KEY, @blurred_cover_background)
       store.set_value(WINDOW_WIDTH_KEY, @expanded_window_width) if @expanded_window_width
@@ -97,6 +110,8 @@ module MPDUI
       store.set_value(LASTFM_SESSION_KEY, @lastfm_session_key)
       store.set_value(VISUALIZER_ENABLED_KEY, @visualizer_enabled)
       store.set_value(VISUALIZER_FIFO_KEY, @visualizer_fifo_path)
+      store.set_value(LYRICS_ENABLED_KEY, @lyrics_enabled)
+      store.set_value(LYRICS_AUTO_SCROLL_KEY, @lyrics_auto_scroll)
       store.sync
     rescue
       nil
