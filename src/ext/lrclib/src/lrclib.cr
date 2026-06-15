@@ -97,10 +97,10 @@ module LRCLIB
     # `duration` is optional but improves match quality when available.
     def get(artist_name : String, track_name : String, album_name : String? = nil, duration : Int32? = nil) : Lyrics?
       params = URI::Params.build do |form|
-        form.add "artist_name", artist_name
-        form.add "track_name", track_name
-        form.add "album_name", album_name if album_name
-        form.add "duration", duration.to_s if duration
+        form.add("artist_name", artist_name)
+        form.add("track_name", track_name)
+        form.add("album_name", album_name) if album_name
+        form.add("duration", duration.to_s) if duration
       end
 
       response = HTTP::Client.get(uri("/api/get", params), headers: headers)
