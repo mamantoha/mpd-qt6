@@ -55,6 +55,7 @@ module MPDUI
     @expanded_interface_window_minimum_size : Qt6::Size?
     @expanded_interface_window_maximum_size : Qt6::Size?
     @database_panel : Qt6::Widget?
+    @lyrics_panel : Qt6::Widget?
     @library_tabs : Qt6::TabWidget?
     @tray_icon : Qt6::SystemTrayIcon?
     @tray_menu : Qt6::Menu?
@@ -182,6 +183,7 @@ module MPDUI
       @browsers = layout.browsers
       @compact_spacer = layout.compact_spacer
       @database_panel = layout.database_panel
+      @lyrics_panel = layout.lyrics_panel
       @library_tabs = library_tabs
       @lyrics_view = lyrics_view
       @queue_view = queue_view
@@ -220,6 +222,7 @@ module MPDUI
       actions.outputs.on_triggered { refresh_outputs_menu }
       actions.quit.on_triggered { quit_application }
       actions.show_library.on_toggled { |checked| set_library_panel_visible(checked) }
+      actions.show_lyrics.on_toggled { |checked| set_lyrics_panel_visible(checked) }
       actions.search_library.on_triggered { show_database_search }
       actions.reload_database.on_triggered { ensure_database_loaded(force: true, update_mpd: true) }
       actions.save_queue_as_playlist.on_triggered { save_queue_as_playlist }
@@ -289,6 +292,7 @@ module MPDUI
       end
 
       set_library_panel_visible(@settings.show_library?)
+      set_lyrics_panel_visible(@settings.show_lyrics?)
     end
 
     private def set_expanded_interface_visible(visible : Bool) : Nil
@@ -457,6 +461,25 @@ module MPDUI
       if @settings.show_library? != visible
         @settings.show_library = visible
         @settings.save
+      end
+    end
+
+    private def set_lyrics_panel_visible(visible : Bool) : Nil
+      @lyrics_panel.try(&.visible = visible)
+
+      action = @app_actions.try(&.show_lyrics)
+      action.checked = visible if action && action.checked? != visible
+
+      if @settings.show_lyrics? != visible
+        @settings.show_lyrics = visible
+        @settings.save
+      end
+
+      if visible
+        apply_lyrics_settings
+        sync_lyrics_position
+      else
+        @lyrics_service.cancel
       end
     end
 

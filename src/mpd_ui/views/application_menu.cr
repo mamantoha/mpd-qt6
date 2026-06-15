@@ -8,6 +8,7 @@ module MPDUI
       app_menu.add_separator
       app_menu.add_action(actions.expanded_interface)
       app_menu.add_action(actions.blurred_cover_background)
+      app_menu.add_action(actions.show_lyrics)
       app_menu.add_separator
       app_menu.add_action(actions.show_main_menu)
       app_menu.add_separator

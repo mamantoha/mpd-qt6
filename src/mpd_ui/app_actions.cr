@@ -6,6 +6,7 @@ module MPDUI
     getter outputs_menu : Qt6::Menu
     getter quit : Qt6::Action
     getter show_library : Qt6::Action
+    getter show_lyrics : Qt6::Action
     getter search_library : Qt6::Action
     getter reload_database : Qt6::Action
     getter expanded_interface : Qt6::Action
@@ -38,6 +39,12 @@ module MPDUI
         set_icon(action, "view-list-tree")
         action.checkable = true
         action.checked = settings.show_library?
+      end
+
+      @show_lyrics = Qt6::Action.new("Show Lyrics", window).tap do |action|
+        set_icon(action, "text-x-generic")
+        action.checkable = true
+        action.checked = settings.show_lyrics?
       end
 
       @search_library = Qt6::Action.new("Search Library", window).tap do |action|

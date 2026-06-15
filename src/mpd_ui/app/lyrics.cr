@@ -67,8 +67,8 @@ module MPDUI
     end
 
     private def lyrics_panel_visible? : Bool
-      if browsers = @browsers
-        browsers.visible?
+      if panel = @lyrics_panel
+        panel.visible?
       else
         false
       end
