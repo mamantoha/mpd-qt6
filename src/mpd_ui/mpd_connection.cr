@@ -166,13 +166,27 @@ module MPDUI
       end
     end
 
-    private def mpd_action(& : MPD::Client -> Nil) : Nil
+    private def mpd_action(&block : MPD::Client -> Nil) : Nil
       client = @client
       return unless client
-      yield client
-    rescue ex
-      @title_label.try(&.text = "Error")
-      @subtitle_label.try(&.text = (ex.message || ex.to_s))
+
+      BackgroundRunner.run("mpd-ui-command") do
+        begin
+          block.call(client)
+        rescue ex
+          next if @quitting
+
+          message = ex.message || ex.to_s
+          Log.warn { "mpd_ui: MPD command failed: #{message}" }
+          @qt_app.invoke_later do
+            next if @quitting
+
+            @title_label.try(&.text = "Error")
+            @subtitle_label.try(&.text = message)
+            set_status("MPD command failed")
+          end
+        end
+      end
     end
 
     private def with_mpd_client(host : String, port : Int32, & : MPD::Client -> T) : T forall T
