@@ -55,6 +55,7 @@ module MPDUI
 
     def show_loading : Nil
       show_message("Loading lyrics...")
+      scroll_to_top
     end
 
     def show_empty : Nil
@@ -121,6 +122,7 @@ module MPDUI
       @synced_text = lines.map(&.text).join('\n')
       @plain_text_value = ""
       @stack.current_widget = @list_view
+      scroll_to_top
       update_copy_action
     end
 
@@ -133,6 +135,7 @@ module MPDUI
       @plain_text_value = text
       @synced_text = ""
       @stack.current_widget = @list_view
+      scroll_to_top
       update_copy_action
     end
 
@@ -159,6 +162,10 @@ module MPDUI
 
     private def update_copy_action : Nil
       @copy_action.enabled = !lyrics_text.empty?
+    end
+
+    private def scroll_to_top : Nil
+      @list_view.scroll_to_top
     end
 
     private def configure_list_view : Nil
