@@ -84,6 +84,8 @@ module MPDUI
     end
 
     private def apply_lyrics_settings : Nil
+      @lyrics_view.try(&.auto_scroll_enabled = @settings.lyrics_auto_scroll?)
+
       if @settings.lyrics_enabled?
         request_lyrics_for_current_song if lyrics_panel_visible?
       else
@@ -91,6 +93,17 @@ module MPDUI
         @lyrics_song_key = nil
         show_lyrics_disabled
       end
+    end
+
+    private def set_lyrics_auto_scroll_enabled(enabled : Bool) : Nil
+      @lyrics_view.try(&.auto_scroll_enabled = enabled)
+
+      if @settings.lyrics_auto_scroll? != enabled
+        @settings.lyrics_auto_scroll = enabled
+        @settings.save
+      end
+
+      sync_lyrics_position if enabled
     end
 
     private def show_lyrics_disabled : Nil

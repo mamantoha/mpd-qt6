@@ -6,10 +6,12 @@ module MPDUI
     getter plain_text : Qt6::PlainTextEdit
 
     property on_seek : Proc(Int32, Nil)?
+    property on_auto_scroll_changed : Proc(Bool, Nil)?
 
     @stack : Qt6::StackedWidget
     @message_text : Qt6::PlainTextEdit
     @context_menu : Qt6::Menu
+    @auto_scroll_action : Qt6::Action
     @copy_action : Qt6::Action
     @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
     @result : LyricsResult?
@@ -33,10 +35,18 @@ module MPDUI
       @stack << @plain_text
 
       @context_menu = Qt6::Menu.new("Lyrics", @root)
+      @auto_scroll_action = Qt6::Action.new("Sync Lyrics with Playback", @root)
+      @auto_scroll_action.checkable = true
+      @auto_scroll_action.on_toggled do |checked|
+        @on_auto_scroll_changed.try(&.call(checked))
+      end
+
       @copy_action = Qt6::Action.new("Copy Lyrics", @root)
       copy_icon = Qt6::QIcon.from_theme("edit-copy")
       @copy_action.icon = copy_icon unless copy_icon.null?
       @copy_action.on_triggered { copy_lyrics }
+      @context_menu.add_action(@auto_scroll_action)
+      @context_menu.add_separator
       @context_menu.add_action(@copy_action)
 
       install_context_filter(@list_view.viewport)
@@ -100,6 +110,11 @@ module MPDUI
 
     def reset_active_line : Nil
       set_active_line(nil, scroll: false)
+    end
+
+    def auto_scroll_enabled=(enabled : Bool) : Bool
+      @auto_scroll_action.checked = enabled if @auto_scroll_action.checked? != enabled
+      enabled
     end
 
     def set_active_line(row : Int32?, *, scroll : Bool = true) : Nil
