@@ -74,6 +74,28 @@ describe LRCLIB do
       end
     end
 
+    it "fetches lyrics from the cached-only endpoint" do
+      request_resource = Channel(String).new(1)
+
+      handler = ->(context : HTTP::Server::Context) do
+        request_resource.send(context.request.resource)
+      end
+
+      with_server(json, handler: handler) do |base_url|
+        client = LRCLIB::Client.new(base_url, user_agent: "lrclib-spec")
+        lyrics = client.get_cached(
+          artist_name: "Demo Artist",
+          track_name: "Demo Track",
+          album_name: "Demo Album",
+          duration: 185
+        )
+
+        lyrics.should_not be_nil
+        lyrics.not_nil!.track_name.should eq("Demo Track")
+        request_resource.receive.should eq("/api/get-cached?artist_name=Demo+Artist&track_name=Demo+Track&album_name=Demo+Album&duration=185")
+      end
+    end
+
     it "returns nil when LRCLIB has no match" do
       with_server("", status_code: 404) do |base_url|
         client = LRCLIB::Client.new(base_url)

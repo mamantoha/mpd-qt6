@@ -82,6 +82,22 @@ Returns `LRCLIB::Lyrics?`.
 Returns `nil` when LRCLIB has no match. Raises `LRCLIB::Error` for unexpected
 HTTP, JSON, or network failures.
 
+### `Client#get_cached`
+
+```crystal
+lyrics = client.get_cached(
+  artist_name: "Muse",
+  track_name: "Starlight",
+  album_name: "Black Holes and Revelations",
+  duration: 240
+)
+```
+
+Returns `LRCLIB::Lyrics?`.
+
+This uses LRCLIB's `/api/get-cached` endpoint. It only searches LRCLIB's
+internal database and does not attempt external lyric sources.
+
 ### `LRCLIB::Lyrics`
 
 Important fields:

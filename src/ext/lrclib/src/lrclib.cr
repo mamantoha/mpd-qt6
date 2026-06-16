@@ -96,6 +96,18 @@ module LRCLIB
     #
     # `duration` is optional but improves match quality when available.
     def get(artist_name : String, track_name : String, album_name : String? = nil, duration : Int32? = nil) : Lyrics?
+      request("/api/get", artist_name, track_name, album_name, duration)
+    end
+
+    # Finds lyrics for a track using LRCLIB's cached-only endpoint.
+    #
+    # This endpoint only searches LRCLIB's internal database and does not query
+    # external sources.
+    def get_cached(artist_name : String, track_name : String, album_name : String, duration : Int32) : Lyrics?
+      request("/api/get-cached", artist_name, track_name, album_name, duration)
+    end
+
+    private def request(path : String, artist_name : String, track_name : String, album_name : String?, duration : Int32?) : Lyrics?
       params = URI::Params.build do |form|
         form.add("artist_name", artist_name)
         form.add("track_name", track_name)
@@ -103,7 +115,7 @@ module LRCLIB
         form.add("duration", duration.to_s) if duration
       end
 
-      response = HTTP::Client.get(uri("/api/get", params), headers: headers)
+      response = HTTP::Client.get(uri(path, params), headers: headers)
       return if response.status_code == 404
 
       unless response.success?
