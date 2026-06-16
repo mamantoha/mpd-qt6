@@ -12,6 +12,7 @@ module MPDUI
     @message_text : Qt6::PlainTextEdit
     @context_menu : Qt6::Menu
     @auto_scroll_action : Qt6::Action
+    @scroll_to_active_action : Qt6::Action
     @copy_action : Qt6::Action
     @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
     @result : LyricsResult?
@@ -41,11 +42,17 @@ module MPDUI
         @on_auto_scroll_changed.try(&.call(checked))
       end
 
+      @scroll_to_active_action = Qt6::Action.new("Scroll to Current Lyric", @root)
+      scroll_icon = Qt6::QIcon.from_theme("go-jump")
+      @scroll_to_active_action.icon = scroll_icon unless scroll_icon.null?
+      @scroll_to_active_action.on_triggered { scroll_to_active_line }
+
       @copy_action = Qt6::Action.new("Copy Lyrics", @root)
       copy_icon = Qt6::QIcon.from_theme("edit-copy")
       @copy_action.icon = copy_icon unless copy_icon.null?
       @copy_action.on_triggered { copy_lyrics }
       @context_menu.add_action(@auto_scroll_action)
+      @context_menu.add_action(@scroll_to_active_action)
       @context_menu.add_separator
       @context_menu.add_action(@copy_action)
 
@@ -119,6 +126,7 @@ module MPDUI
 
     def set_active_line(row : Int32?, *, scroll : Bool = true) : Nil
       @model.active_row = row
+      update_context_actions
       return unless scroll && row
 
       index = @model.index(row, 0)
@@ -138,7 +146,7 @@ module MPDUI
       @plain_text_value = ""
       @stack.current_widget = @list_view
       scroll_to_top
-      update_copy_action
+      update_context_actions
     end
 
     private def render_plain(text : String) : Nil
@@ -151,7 +159,7 @@ module MPDUI
       @synced_text = ""
       @stack.current_widget = @list_view
       scroll_to_top
-      update_copy_action
+      update_context_actions
     end
 
     private def show_message(message : String) : Nil
@@ -161,7 +169,7 @@ module MPDUI
       @plain_text_value = ""
       @message_text.plain_text = message
       @stack.current_widget = @message_text
-      update_copy_action
+      update_context_actions
     end
 
     private def copy_lyrics : Nil
@@ -175,12 +183,27 @@ module MPDUI
       @plain_text_value.empty? ? @synced_text : @plain_text_value
     end
 
-    private def update_copy_action : Nil
+    private def update_context_actions : Nil
       @copy_action.enabled = !lyrics_text.empty?
+      @scroll_to_active_action.enabled = !@model.active_row.nil?
     end
 
     private def scroll_to_top : Nil
       @list_view.scroll_to_top
+    end
+
+    private def scroll_to_active_line : Nil
+      row = @model.active_row
+      return unless row
+
+      index = @model.index(row, 0)
+      begin
+        return unless index.valid?
+
+        @list_view.scroll_to(index, Qt6::ScrollHint::PositionAtCenter)
+      ensure
+        index.release
+      end
     end
 
     private def configure_list_view : Nil
@@ -229,6 +252,7 @@ module MPDUI
         when Qt6::EventType::MouseButtonPress
           mouse_event = event.mouse_event
           if mouse_event.button == 2
+            update_context_actions
             @context_menu.exec_at(widget, mouse_event.position)
             true
           else
