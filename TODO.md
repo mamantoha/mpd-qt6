@@ -23,7 +23,6 @@ Planning reference for useful missing features and polish ideas.
 - [x] Reorder songs inside saved playlists.
 - [ ] Add more queue context menu actions.
 - [ ] Move selected queue songs to top or bottom.
-- [ ] Show song details from the queue context menu.
 - [x] Add selected queue songs to a saved playlist from the queue context menu.
 - [x] Play selected queue song now.
 - [x] Remove selected queue songs.
@@ -33,7 +32,6 @@ Planning reference for useful missing features and polish ideas.
 - [ ] Add more library context menu actions.
 - [ ] Play selected song/album/artist now.
 - [x] Replace queue with selected song/album/artist.
-- [ ] Show details for selected library item.
 - [x] Add selected library item to the queue.
 - [x] Add MPD output/device control for enabling and disabling outputs.
 - [ ] Extract the embedded MPRIS implementation in `src/ext/mpris` into a standalone shard.
@@ -45,13 +43,6 @@ Planning reference for useful missing features and polish ideas.
 
 ## User Workflow
 
-- [ ] Add song details dialog for selected or currently playing songs.
-- [ ] Show title, artist, album, date, and genre.
-- [ ] Show file path or URI.
-- [ ] Show duration.
-- [ ] Show track and disc number.
-- [ ] Show available audio details from MPD.
-- [ ] Add album/artist details summaries in the library.
 - [ ] Add named connection profiles for multiple MPD servers.
 - [ ] Add recently played history with quick re-add/play actions.
 - [ ] Add optional confirmation for destructive queue actions such as clearing the queue.
