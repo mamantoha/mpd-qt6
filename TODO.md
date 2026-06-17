@@ -5,7 +5,6 @@ Planning reference for useful missing features and polish ideas.
 ## High Value
 
 - [ ] Add queue search/filter for large playlists.
-- [ ] Add richer library navigation.
 - [ ] Collapse or expand all artists/albums.
 - [ ] Jump to the currently playing song in the library.
 - [ ] Remember expanded library tree nodes between reloads.
@@ -21,7 +20,6 @@ Planning reference for useful missing features and polish ideas.
 - [x] Replace the queue with a saved playlist.
 - [x] Drag queue songs into saved playlists.
 - [x] Reorder songs inside saved playlists.
-- [ ] Add more queue context menu actions.
 - [ ] Move selected queue songs to top or bottom.
 - [x] Add selected queue songs to a saved playlist from the queue context menu.
 - [x] Play selected queue song now.
@@ -29,7 +27,6 @@ Planning reference for useful missing features and polish ideas.
 - [x] Clear the current queue.
 - [x] Save the current queue as a playlist from the queue context menu.
 - [x] Scroll the queue to the current song.
-- [ ] Add more library context menu actions.
 - [ ] Play selected song/album/artist now.
 - [x] Replace queue with selected song/album/artist.
 - [x] Add selected library item to the queue.
@@ -46,14 +43,12 @@ Planning reference for useful missing features and polish ideas.
 - [ ] Add named connection profiles for multiple MPD servers.
 - [ ] Add recently played history with quick re-add/play actions.
 - [ ] Add optional confirmation for destructive queue actions such as clearing the queue.
-- [ ] Add Last.fm account polish.
 - [ ] Reset/disconnect the stored Last.fm session.
 - [ ] Show the last scrobble status in Settings or the status bar.
 - [x] Add a manual Last.fm authentication action.
 
 ## Keyboard And Input Polish
 
-- [ ] Add global app shortcuts.
 - [ ] Space for play/pause.
 - [ ] Left/Right for seeking.
 - [ ] Ctrl+Up/Ctrl+Down for volume.
