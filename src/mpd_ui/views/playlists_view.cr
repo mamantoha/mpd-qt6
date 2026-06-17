@@ -98,6 +98,10 @@ module MPDUI
       @selection.selected_playlist_name
     end
 
+    def playlist_names : Array(String)
+      @song_model.playlist_names
+    end
+
     def selected_song_uris : Array(String)
       dragged = @drag_drop.dragged_song_uris
       return dragged.dup unless dragged.empty?

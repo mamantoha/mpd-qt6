@@ -171,6 +171,17 @@ module MPDUI
       return false unless @drag_context.queue?
 
       uris = selected_queue_song_uris
+      add_queue_song_uris_to_stored_playlist(name, uris, position)
+    end
+
+    private def add_selected_queue_songs_to_stored_playlist_from_menu(name : String) : Nil
+      uris = selected_queue_song_uris
+      return if uris.empty?
+
+      add_queue_song_uris_to_stored_playlist(name, uris, nil)
+    end
+
+    private def add_queue_song_uris_to_stored_playlist(name : String, uris : Array(String), position : Int32?) : Bool
       return false if uris.empty?
 
       set_status("Adding #{uris.size} #{uris.size == 1 ? "song" : "songs"} to playlist #{name}…")

@@ -8,6 +8,8 @@ module MPDUI
     property on_remove_selected : Proc(Nil)?
     property on_clear_queue : Proc(Nil)?
     property on_save_as_playlist : Proc(Nil)?
+    property on_add_selected_to_playlist : Proc(String, Nil)?
+    property playlist_names_provider : Proc(Array(String))?
     property on_scroll_to_current : Proc(Nil)?
     property on_context_menu_open : Proc(Int32, Nil)?
     property on_mouse_press_row : Proc(Int32?, Nil)?
@@ -17,6 +19,7 @@ module MPDUI
     property on_drop : Proc(Qt6::DropEvent, Bool)?
 
     @context_menu : Qt6::Menu
+    @playlist_submenu : Qt6::Menu
     @play_now_action : Qt6::Action
     @selection : QueueSelection
     @drag_drop : QueueDragDrop
@@ -35,6 +38,9 @@ module MPDUI
       add_context_action("Clear Queue", "edit-clear") { @on_clear_queue.try(&.call) }
       @context_menu.add_separator
       add_context_action("Scroll to Current Song", "go-jump") { @on_scroll_to_current.try(&.call) }
+      @playlist_submenu = @context_menu.add_menu("Add Selected to Playlist")
+      playlist_icon = Qt6::QIcon.from_theme("list-add")
+      @playlist_submenu.menu_action.icon = playlist_icon unless playlist_icon.null?
       add_context_action("Save Queue as Playlist...", "document-save") { @on_save_as_playlist.try(&.call) }
       add_shortcut("Return") { @on_play_selected.try(&.call) }
       add_shortcut("Enter") { @on_play_selected.try(&.call) }
@@ -201,7 +207,26 @@ module MPDUI
       select_row(row) unless selected_row?(row)
       @on_context_menu_open.try(&.call(row))
       @play_now_action.enabled = selected_row_count == 1
+      rebuild_playlist_submenu
       @context_menu.exec_at(viewport, position)
+    end
+
+    private def rebuild_playlist_submenu : Nil
+      @playlist_submenu.clear
+      names = @playlist_names_provider.try(&.call) || [] of String
+      @playlist_submenu.menu_action.enabled = selected_row_count > 0 && !names.empty?
+
+      if names.empty?
+        action = @playlist_submenu.add_action("No saved playlists")
+        action.enabled = false
+        return
+      end
+
+      names.each do |name|
+        playlist_name = name
+        action = @playlist_submenu.add_action(playlist_name)
+        action.on_triggered { @on_add_selected_to_playlist.try(&.call(playlist_name)) }
+      end
     end
   end
 end
