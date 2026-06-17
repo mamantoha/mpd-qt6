@@ -32,7 +32,7 @@ Planning reference for useful missing features and polish ideas.
 - [x] Scroll the queue to the current song.
 - [ ] Add more library context menu actions.
 - [ ] Play selected song/album/artist now.
-- [ ] Replace queue with selected song/album/artist.
+- [x] Replace queue with selected song/album/artist.
 - [ ] Show details for selected library item.
 - [x] Add selected library item to the queue.
 - [x] Add MPD output/device control for enabling and disabling outputs.

@@ -13,6 +13,7 @@ module MPDUI
     property on_search_closed : Proc(Nil)?
     property on_genre_changed : Proc(Nil)?
     property on_add_to_queue : Proc(Nil)?
+    property on_replace_queue : Proc(Nil)?
     property on_selection_changed : Proc(Nil)?
     property on_mouse_press : Proc(Nil)?
     property on_mouse_release : Proc(Nil)?
@@ -57,6 +58,11 @@ module MPDUI
       add_to_queue_action.icon = add_icon unless add_icon.null?
       add_to_queue_action.on_triggered { @on_add_to_queue.try(&.call) }
       @context_menu.add_action(add_to_queue_action)
+      replace_queue_action = Qt6::Action.new("Replace Queue", @tree)
+      replace_icon = Qt6::QIcon.from_theme("media-playback-start")
+      replace_queue_action.icon = replace_icon unless replace_icon.null?
+      replace_queue_action.on_triggered { @on_replace_queue.try(&.call) }
+      @context_menu.add_action(replace_queue_action)
 
       @search_edit.on_text_changed { |_text| @on_search_changed.try(&.call) }
       close_search_button.on_clicked { @on_search_closed.try(&.call) }

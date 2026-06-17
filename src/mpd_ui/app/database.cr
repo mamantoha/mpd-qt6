@@ -16,6 +16,7 @@ module MPDUI
       library.on_search_closed = -> { hide_database_search }
       library.on_genre_changed = -> { apply_database_filter }
       library.on_add_to_queue = -> { add_selected_database_to_queue }
+      library.on_replace_queue = -> { replace_queue_with_selected_database }
       library.on_selection_changed = -> {
         @drag_context.reset_selection
         library.clear_drag_uris
@@ -41,6 +42,36 @@ module MPDUI
 
     private def add_selected_database_to_queue : Nil
       append_selected_database_to_queue
+    end
+
+    private def replace_queue_with_selected_database : Nil
+      uris = selected_database_uris
+      return if uris.empty?
+
+      host = @settings.host
+      port = @settings.port
+      suffix = uris.size == 1 ? "song" : "songs"
+      set_status("Replacing queue with #{uris.size} #{suffix} from Database…")
+
+      run_background(
+        ->(_result : Nil) {
+          @preserve_queue_scroll_once = true
+          set_status("Replaced queue with #{uris.size} #{suffix} from Database")
+        },
+        ->(ex : Exception) {
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = (ex.message || ex.to_s))
+          set_status("Failed to replace queue from Database")
+        }
+      ) do
+        with_mpd_client(host, port) do |client|
+          client.with_command_list do
+            client.clear
+            uris.each { |uri| client.add(uri) }
+          end
+        end
+        nil
+      end
     end
 
     private def show_database_search : Nil
