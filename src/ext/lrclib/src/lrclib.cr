@@ -107,6 +107,59 @@ module LRCLIB
       request("/api/get-cached", artist_name, track_name, album_name, duration)
     end
 
+    # Gets lyrics by LRCLIB record ID.
+    def get_by_id(id : Int32) : Lyrics?
+      response = HTTP::Client.get(uri("/api/get/#{id}", nil), headers: headers)
+      return if response.status_code == 404
+
+      unless response.success?
+        raise Error.new("LRCLIB request failed: HTTP #{response.status_code}")
+      end
+
+      Lyrics.from_json(response.body)
+    rescue ex : JSON::ParseException
+      raise Error.new("LRCLIB returned invalid JSON: #{ex.message}")
+    rescue ex : IO::Error | Socket::Error
+      raise Error.new("LRCLIB request failed: #{ex.message}")
+    end
+
+    # Searches lyrics records using a keyword matched against any field.
+    def search(*, q : String) : Array(Lyrics)
+      params = URI::Params.build do |form|
+        form.add("q", q)
+      end
+
+      search_request(params)
+    end
+
+    # Searches lyrics records using structured metadata.
+    def search(*, track_name : String, artist_name : String? = nil, album_name : String? = nil) : Array(Lyrics)
+      params = URI::Params.build do |form|
+        form.add("track_name", track_name)
+        form.add("artist_name", artist_name) if present?(artist_name)
+        form.add("album_name", album_name) if present?(album_name)
+      end
+
+      search_request(params)
+    end
+
+    private def search_request(params : String) : Array(Lyrics)
+      response = HTTP::Client.get(uri("/api/search", params), headers: headers)
+      return [] of Lyrics if response.status_code == 404
+
+      unless response.success?
+        raise Error.new("LRCLIB request failed: HTTP #{response.status_code}")
+      end
+
+      JSON.parse(response.body).as_a.map do |item|
+        Lyrics.from_json(item.to_json)
+      end
+    rescue ex : JSON::ParseException | TypeCastError
+      raise Error.new("LRCLIB returned invalid JSON: #{ex.message}")
+    rescue ex : IO::Error | Socket::Error
+      raise Error.new("LRCLIB request failed: #{ex.message}")
+    end
+
     private def request(path : String, artist_name : String, track_name : String, album_name : String?, duration : Int32?) : Lyrics?
       params = URI::Params.build do |form|
         form.add("artist_name", artist_name)
@@ -129,7 +182,7 @@ module LRCLIB
       raise Error.new("LRCLIB request failed: #{ex.message}")
     end
 
-    private def uri(path : String, query : String) : URI
+    private def uri(path : String, query : String?) : URI
       uri = URI.parse(@base_url)
       uri.path = path
       uri.query = query
@@ -138,6 +191,10 @@ module LRCLIB
 
     private def headers : HTTP::Headers
       HTTP::Headers{"User-Agent" => @user_agent}
+    end
+
+    private def present?(value : String?) : Bool
+      !value.to_s.strip.empty?
     end
   end
 end

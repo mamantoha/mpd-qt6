@@ -98,6 +98,38 @@ Returns `LRCLIB::Lyrics?`.
 This uses LRCLIB's `/api/get-cached` endpoint. It only searches LRCLIB's
 internal database and does not attempt external lyric sources.
 
+### `Client#get_by_id`
+
+```crystal
+lyrics = client.get_by_id(3396226)
+```
+
+Returns `LRCLIB::Lyrics?`.
+
+This is useful when an application stores LRCLIB record IDs and wants to fetch
+the exact record later.
+
+### `Client#search`
+
+```crystal
+results = client.search(q: "still alive portal")
+```
+
+Or search by structured fields:
+
+```crystal
+results = client.search(
+  track_name: "Starlight",
+  artist_name: "Muse",
+  album_name: "Black Holes and Revelations"
+)
+```
+
+Returns `Array(LRCLIB::Lyrics)`.
+
+LRCLIB currently returns a limited number of results and does not paginate
+search responses.
+
 ### `LRCLIB::Lyrics`
 
 Important fields:

@@ -96,11 +96,67 @@ describe LRCLIB do
       end
     end
 
+    it "fetches lyrics by ID" do
+      request_resource = Channel(String).new(1)
+
+      handler = ->(context : HTTP::Server::Context) do
+        request_resource.send(context.request.resource)
+      end
+
+      with_server(json, handler: handler) do |base_url|
+        client = LRCLIB::Client.new(base_url)
+        lyrics = client.get_by_id(123)
+
+        lyrics.should_not be_nil
+        lyrics.not_nil!.id.should eq(123)
+        request_resource.receive.should eq("/api/get/123")
+      end
+    end
+
+    it "searches lyrics by keyword" do
+      request_resource = Channel(String).new(1)
+
+      handler = ->(context : HTTP::Server::Context) do
+        request_resource.send(context.request.resource)
+      end
+
+      with_server("[#{json}]", handler: handler) do |base_url|
+        client = LRCLIB::Client.new(base_url)
+        results = client.search(q: "demo track")
+
+        results.size.should eq(1)
+        results[0].track_name.should eq("Demo Track")
+        request_resource.receive.should eq("/api/search?q=demo+track")
+      end
+    end
+
+    it "searches lyrics by structured fields" do
+      request_resource = Channel(String).new(1)
+
+      handler = ->(context : HTTP::Server::Context) do
+        request_resource.send(context.request.resource)
+      end
+
+      with_server("[#{json}]", handler: handler) do |base_url|
+        client = LRCLIB::Client.new(base_url)
+        results = client.search(
+          track_name: "Demo Track",
+          artist_name: "Demo Artist",
+          album_name: "Demo Album",
+        )
+
+        results.size.should eq(1)
+        request_resource.receive.should eq("/api/search?track_name=Demo+Track&artist_name=Demo+Artist&album_name=Demo+Album")
+      end
+    end
+
     it "returns nil when LRCLIB has no match" do
       with_server("", status_code: 404) do |base_url|
         client = LRCLIB::Client.new(base_url)
 
         client.get("Missing Artist", "Missing Track").should be_nil
+        client.get_by_id(404).should be_nil
+        client.search(track_name: "Missing Track").should be_empty
       end
     end
   end
