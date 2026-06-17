@@ -14,6 +14,12 @@ module MPDUI
       description_label = Qt6::Label.new("A Qt 6 desktop client for Music Player Daemon with queue management, database browsing, and playback controls.", dialog)
       description_label.word_wrap = true
 
+      build_label = Qt6::Label.new("Build", dialog)
+      build_label.style_sheet = "font-weight: bold;"
+
+      build_details = Qt6::Label.new(about_build_details, dialog)
+      build_details.word_wrap = true
+
       stats_label = Qt6::Label.new("MPD Server", dialog)
       stats_label.style_sheet = "font-weight: bold;"
 
@@ -27,6 +33,8 @@ module MPDUI
       dialog.vbox do |column|
         column << title_label
         column << description_label
+        column << build_label
+        column << build_details
         column << stats_label
         column << stats_view
         column << button_box
@@ -70,6 +78,14 @@ module MPDUI
       lines.join('\n')
     rescue ex
       "Host: #{@settings.host}\nPort: #{@settings.port}\nMPD statistics are unavailable.\nError: #{ex.message || ex.to_s}"
+    end
+
+    private def about_build_details : String
+      "Crystal: #{crystal_build_version}\nQt: #{Qt6.runtime_version}"
+    end
+
+    private def crystal_build_version : String
+      Crystal::DESCRIPTION.lines.first? || Crystal::VERSION
     end
   end
 end
