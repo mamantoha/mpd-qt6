@@ -206,7 +206,7 @@ module MPDUI
       row = row_at(position)
       return unless row
 
-      select_row(row) unless selected_row?(row)
+      select_row(row, scroll: false) unless selected_row?(row)
       @on_context_menu_open.try(&.call(row))
       @play_now_action.enabled = selected_row_count == 1
       rebuild_playlist_submenu
