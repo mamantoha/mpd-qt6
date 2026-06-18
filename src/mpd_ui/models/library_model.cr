@@ -97,6 +97,13 @@ module MPDUI
       uris.uniq!
     end
 
+    def index_for_file(file : String) : Qt6::ModelIndex?
+      node = @nodes.values.find { |candidate| candidate.kind == NodeKind::Song && candidate.file == file }
+      return unless node
+
+      index_for_node(node)
+    end
+
     protected def model_row_count(parent : Qt6::ModelIndex) : Int32
       children_for(parent).size
     end
@@ -213,6 +220,23 @@ module MPDUI
       return unless index.valid?
 
       @nodes[index.internal_id]?
+    end
+
+    private def index_for_node(node : Node) : Qt6::ModelIndex?
+      parent_id = node.parent_id
+      return index(node.row, 0) unless parent_id
+
+      parent = @nodes[parent_id]?
+      return unless parent
+
+      parent_index = index_for_node(parent)
+      return unless parent_index
+
+      begin
+        index(node.row, 0, parent_index)
+      ensure
+        parent_index.release
+      end
     end
 
     private def draggable_index?(index : Qt6::ModelIndex) : Bool

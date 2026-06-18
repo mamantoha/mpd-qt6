@@ -6,7 +6,7 @@ Planning reference for useful missing features and polish ideas.
 
 - [ ] Add queue search/filter for large playlists.
 - [ ] Collapse or expand all artists/albums.
-- [ ] Jump to the currently playing song in the library.
+- [x] Locate selected queue song in the library.
 - [ ] Remember expanded library tree nodes between reloads.
 - [x] Add MPD saved playlist support.
 - [x] List saved playlists.

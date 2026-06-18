@@ -186,6 +186,24 @@ module MPDUI
       @model.uris_for_index(index)
     end
 
+    def scroll_to_file(file : String) : Bool
+      index = @model.index_for_file(file)
+      return false unless index
+
+      begin
+        expand_parents(index)
+        if selection_model = @tree.selection_model
+          selection_model.set_current_index(index, Qt6::SelectionFlag::ClearAndSelect)
+        else
+          @tree.current_index = index
+        end
+        @tree.scroll_to(index, Qt6::ScrollHint::PositionAtCenter)
+        true
+      ensure
+        index.release
+      end
+    end
+
     def drag_uris : Array(String)
       @model.drag_uris
     end
@@ -219,6 +237,20 @@ module MPDUI
           padding: 0px;
         }
         CSS
+    end
+
+    private def expand_parents(index : Qt6::ModelIndex) : Nil
+      parents = [] of Qt6::ModelIndex
+      current = index.parent(@model)
+
+      while current.valid?
+        parents << current
+        current = current.parent(@model)
+      end
+
+      parents.reverse_each { |parent_index| @tree.expand(parent_index) }
+      current.release
+      parents.each(&.release)
     end
 
     private def show_context_menu(viewport : Qt6::Widget, position : Qt6::PointF) : Nil

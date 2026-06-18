@@ -74,6 +74,28 @@ module MPDUI
       end
     end
 
+    private def locate_selected_queue_song_in_library : Nil
+      queue = @queue_view
+      return unless queue
+
+      row = queue.current_rows.first? || queue.selected_rows.first?
+      return unless row
+
+      file = queue.model.song_at(row).try(&.file)
+      return if file.nil? || file.empty?
+
+      scroll_library_to_file(file)
+    end
+
+    private def scroll_library_to_file(file : String) : Nil
+      library = @library_view
+      return unless library
+
+      unless library.scroll_to_file(file)
+        set_status("Selected queue song is not visible in the library")
+      end
+    end
+
     private def show_database_search : Nil
       return unless @settings.expanded_interface?
       return unless @settings.show_library?

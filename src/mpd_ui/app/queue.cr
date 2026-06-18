@@ -9,6 +9,7 @@ module MPDUI
       queue.playlist_names_provider = -> { @playlists_view.try(&.playlist_names) || [] of String }
       queue.on_add_selected_to_playlist = ->(name : String) { add_selected_queue_songs_to_stored_playlist_from_menu(name) }
       queue.on_scroll_to_current = -> { scroll_playlist_to_current_song }
+      queue.on_locate_in_library = -> { locate_selected_queue_song_in_library }
       queue.on_mouse_press_row = ->(row : Int32?) {
         @drag_context.begin_queue_drag(row)
       }

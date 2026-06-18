@@ -11,6 +11,7 @@ module MPDUI
     property on_add_selected_to_playlist : Proc(String, Nil)?
     property playlist_names_provider : Proc(Array(String))?
     property on_scroll_to_current : Proc(Nil)?
+    property on_locate_in_library : Proc(Nil)?
     property on_context_menu_open : Proc(Int32, Nil)?
     property on_mouse_press_row : Proc(Int32?, Nil)?
     property on_drag_enter : Proc(Qt6::DropEvent, Nil)?
@@ -38,6 +39,7 @@ module MPDUI
       add_context_action("Clear Queue", "edit-clear") { @on_clear_queue.try(&.call) }
       @context_menu.add_separator
       add_context_action("Scroll to Current Song", "go-jump") { @on_scroll_to_current.try(&.call) }
+      add_context_action("Locate in Library", "edit-find") { @on_locate_in_library.try(&.call) }
       @playlist_submenu = @context_menu.add_menu("Add Selected to Playlist")
       playlist_icon = Qt6::QIcon.from_theme("list-add")
       @playlist_submenu.menu_action.icon = playlist_icon unless playlist_icon.null?
