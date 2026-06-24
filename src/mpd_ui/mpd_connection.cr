@@ -74,36 +74,34 @@ module MPDUI
       port = @settings.port
 
       BackgroundRunner.run("mpd-ui-callbacks") do
+        Log.debug { "mpd_ui: starting MPD callback listener for #{host}:#{port}" }
+        cb = MPD::Client.new(host, port, with_callbacks: true, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
+        cb.callbacks_timeout = 200.milliseconds
+        cb.reconnect_interval = 1.second
+        @callback_client = cb if @callback_generation.get == generation
 
-          Log.debug { "mpd_ui: starting MPD callback listener for #{host}:#{port}" }
-          cb = MPD::Client.new(host, port, with_callbacks: true, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
-          cb.callbacks_timeout = 200.milliseconds
-          cb.reconnect_interval = 1.second
-          @callback_client = cb if @callback_generation.get == generation
+        cb.on_connection_error do |error|
+          next unless @callback_generation.get == generation
 
-          cb.on_connection_error do |error|
-            next unless @callback_generation.get == generation
+          Log.warn { "mpd_ui: MPD callback listener connection error: #{error.message || error}" }
+          @event_bridge.request_connection_lost
+          @event_bridge.request_refresh
+        end
 
-            Log.warn { "mpd_ui: MPD callback listener connection error: #{error.message || error}" }
-            @event_bridge.request_connection_lost
-            @event_bridge.request_refresh
-          end
+        cb.on_reconnect do
+          next unless @callback_generation.get == generation
 
-          cb.on_reconnect do
-            next unless @callback_generation.get == generation
+          Log.info { "mpd_ui: MPD callback listener reconnected to #{host}:#{port}" }
+          @event_bridge.request_connection_restored
+        end
 
-            Log.info { "mpd_ui: MPD callback listener reconnected to #{host}:#{port}" }
-            @event_bridge.request_connection_restored
-          end
+        cb.on_callback do |event, value|
+          next unless @callback_generation.get == generation
 
-          cb.on_callback do |event, value|
-            next unless @callback_generation.get == generation
-
-            handle_mpd_status_event(event, value)
-          end
-        rescue ex
-          Log.warn { "mpd_ui: MPD callback listener failed: #{ex.message || ex}" }
-
+          handle_mpd_status_event(event, value)
+        end
+      rescue ex
+        Log.warn { "mpd_ui: MPD callback listener failed: #{ex.message || ex}" }
       end
     end
 
@@ -112,38 +110,36 @@ module MPDUI
       port = @settings.port
 
       BackgroundRunner.run("mpd-ui-idle") do
+        Log.debug { "mpd_ui: starting MPD idle listener for #{host}:#{port}" }
+        idle_client = MPD::Client.new(host, port, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
+        idle_client.reconnect_interval = 1.second
+        @stored_playlist_idle_client = idle_client if @callback_generation.get == generation
+        @event_bridge.request_stored_playlists_refresh
+        @event_bridge.request_outputs_refresh
 
-          Log.debug { "mpd_ui: starting MPD idle listener for #{host}:#{port}" }
-          idle_client = MPD::Client.new(host, port, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
-          idle_client.reconnect_interval = 1.second
-          @stored_playlist_idle_client = idle_client if @callback_generation.get == generation
-          @event_bridge.request_stored_playlists_refresh
-          @event_bridge.request_outputs_refresh
+        idle_client.on_connection_error do |error|
+          next unless @callback_generation.get == generation
 
-          idle_client.on_connection_error do |error|
-            next unless @callback_generation.get == generation
+          Log.warn { "mpd_ui: MPD idle listener connection error: #{error.message || error}" }
+          @event_bridge.request_connection_lost
+          @event_bridge.request_refresh
+        end
 
-            Log.warn { "mpd_ui: MPD idle listener connection error: #{error.message || error}" }
-            @event_bridge.request_connection_lost
-            @event_bridge.request_refresh
-          end
+        idle_client.on_reconnect do
+          next unless @callback_generation.get == generation
 
-          idle_client.on_reconnect do
-            next unless @callback_generation.get == generation
+          Log.info { "mpd_ui: MPD idle listener reconnected to #{host}:#{port}" }
+          @event_bridge.request_connection_restored
+        end
 
-            Log.info { "mpd_ui: MPD idle listener reconnected to #{host}:#{port}" }
-            @event_bridge.request_connection_restored
-          end
+        idle_client.on_idle(["stored_playlist", "output"]) do |events|
+          next unless @callback_generation.get == generation
 
-          idle_client.on_idle(["stored_playlist", "output"]) do |events|
-            next unless @callback_generation.get == generation
-
-            @event_bridge.request_stored_playlists_refresh if events.includes?("stored_playlist")
-            @event_bridge.request_outputs_refresh if events.includes?("output")
-          end
-        rescue ex
-          Log.warn { "mpd_ui: MPD idle listener failed: #{ex.message || ex}" }
-
+          @event_bridge.request_stored_playlists_refresh if events.includes?("stored_playlist")
+          @event_bridge.request_outputs_refresh if events.includes?("output")
+        end
+      rescue ex
+        Log.warn { "mpd_ui: MPD idle listener failed: #{ex.message || ex}" }
       end
     end
 
@@ -171,21 +167,19 @@ module MPDUI
       return unless client
 
       BackgroundRunner.run("mpd-ui-command") do
+        block.call(client)
+      rescue ex
+        next if @quitting
 
-          block.call(client)
-        rescue ex
+        message = ex.message || ex.to_s
+        Log.warn { "mpd_ui: MPD command failed: #{message}" }
+        @qt_app.invoke_later do
           next if @quitting
 
-          message = ex.message || ex.to_s
-          Log.warn { "mpd_ui: MPD command failed: #{message}" }
-          @qt_app.invoke_later do
-            next if @quitting
-
-            @title_label.try(&.text = "Error")
-            @subtitle_label.try(&.text = message)
-            set_status("MPD command failed")
-          end
-
+          @title_label.try(&.text = "Error")
+          @subtitle_label.try(&.text = message)
+          set_status("MPD command failed")
+        end
       end
     end
 
