@@ -74,7 +74,7 @@ module MPDUI
       port = @settings.port
 
       BackgroundRunner.run("mpd-ui-callbacks") do
-        begin
+
           Log.debug { "mpd_ui: starting MPD callback listener for #{host}:#{port}" }
           cb = MPD::Client.new(host, port, with_callbacks: true, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
           cb.callbacks_timeout = 200.milliseconds
@@ -103,7 +103,7 @@ module MPDUI
           end
         rescue ex
           Log.warn { "mpd_ui: MPD callback listener failed: #{ex.message || ex}" }
-        end
+
       end
     end
 
@@ -112,7 +112,7 @@ module MPDUI
       port = @settings.port
 
       BackgroundRunner.run("mpd-ui-idle") do
-        begin
+
           Log.debug { "mpd_ui: starting MPD idle listener for #{host}:#{port}" }
           idle_client = MPD::Client.new(host, port, reconnect_policy: MPD::Client::ReconnectPolicy::Forever)
           idle_client.reconnect_interval = 1.second
@@ -143,7 +143,7 @@ module MPDUI
           end
         rescue ex
           Log.warn { "mpd_ui: MPD idle listener failed: #{ex.message || ex}" }
-        end
+
       end
     end
 
@@ -171,7 +171,7 @@ module MPDUI
       return unless client
 
       BackgroundRunner.run("mpd-ui-command") do
-        begin
+
           block.call(client)
         rescue ex
           next if @quitting
@@ -185,7 +185,7 @@ module MPDUI
             @subtitle_label.try(&.text = message)
             set_status("MPD command failed")
           end
-        end
+
       end
     end
 

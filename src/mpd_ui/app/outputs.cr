@@ -27,17 +27,15 @@ module MPDUI
         action.checked = output.enabled
         action.tool_tip = output.plugin ? "ID #{output.id} • #{output.plugin}" : "ID #{output.id}"
         action.on_toggled do |enabled|
-          begin
-            set_mpd_output_enabled(output, enabled)
-            refresh_outputs_menu
-            state = enabled ? "Enabled" : "Disabled"
-            message = "#{state} output #{output.name}"
-            set_status(message)
-            show_tray_message(message)
-          rescue ex
-            refresh_outputs_menu
-            Qt6::MessageBox.warning(@window, title: "Output Change Failed", text: ex.message || ex.to_s) if @window
-          end
+          set_mpd_output_enabled(output, enabled)
+          refresh_outputs_menu
+          state = enabled ? "Enabled" : "Disabled"
+          message = "#{state} output #{output.name}"
+          set_status(message)
+          show_tray_message(message)
+        rescue ex
+          refresh_outputs_menu
+          Qt6::MessageBox.warning(@window, title: "Output Change Failed", text: ex.message || ex.to_s) if @window
         end
         menu.add_action(action)
         @output_actions << action
