@@ -13,6 +13,7 @@ module MPDUI
       app_menu.add_action(actions.show_main_menu)
       app_menu.add_separator
       app_menu.add_action(actions.settings)
+      app_menu.add_action(actions.cache_information)
       app_menu.add_menu(actions.outputs_menu)
       app_menu.add_separator
       app_menu.add_action(actions.quit)

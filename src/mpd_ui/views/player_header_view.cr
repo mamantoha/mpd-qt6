@@ -236,6 +236,7 @@ module MPDUI
 
       options_menu = Qt6::Menu.new("Options", options_button).tap do |menu|
         menu.add_action(actions.settings)
+        menu.add_action(actions.cache_information)
         menu.add_action(actions.outputs)
         menu.add_action(actions.search_library)
         menu.add_action(actions.reload_database)

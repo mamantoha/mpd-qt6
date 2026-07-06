@@ -1,6 +1,7 @@
 module MPDUI
   class AppActions
     getter about : Qt6::Action
+    getter cache_information : Qt6::Action
     getter settings : Qt6::Action
     getter outputs : Qt6::Action
     getter outputs_menu : Qt6::Menu
@@ -18,6 +19,10 @@ module MPDUI
     def initialize(window : Qt6::MainWindow, settings : Settings)
       @about = Qt6::Action.new("About", window).tap do |action|
         set_icon(action, "help-about")
+      end
+
+      @cache_information = Qt6::Action.new("Cache Information", window).tap do |action|
+        set_icon(action, "document-properties")
       end
 
       @settings = Qt6::Action.new("Settings", window).tap do |action|

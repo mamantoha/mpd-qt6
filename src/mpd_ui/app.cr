@@ -8,6 +8,7 @@ module MPDUI
     include AppLastFM
     include AppOutputs
     include AppAboutDialog
+    include AppCacheDialog
     include AppPlayer
     include AppQueue
     include AppDatabase
@@ -222,6 +223,7 @@ module MPDUI
         end
       end
       actions.settings.on_triggered { open_settings_dialog }
+      actions.cache_information.on_triggered { open_cache_dialog }
       actions.outputs.on_triggered { refresh_outputs_menu }
       actions.quit.on_triggered { quit_application }
       actions.show_library.on_toggled { |checked| set_library_panel_visible(checked) }
