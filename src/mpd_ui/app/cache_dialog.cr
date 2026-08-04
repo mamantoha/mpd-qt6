@@ -68,28 +68,24 @@ module MPDUI
       end
 
       cache_table.on_current_cell_changed do
-        begin
-          row = cache_table.current_row
-          delete_button.enabled = row >= 0 && row < entries.size
-        rescue ex
-          Log.warn { "mpd_ui: failed to update cache selection: #{ex.message || ex}" }
-        end
+        row = cache_table.current_row
+        delete_button.enabled = row >= 0 && row < entries.size
+      rescue ex
+        Log.warn { "mpd_ui: failed to update cache selection: #{ex.message || ex}" }
       end
 
       delete_button.on_clicked do
-        begin
-          row = cache_table.current_row
-          next unless row >= 0 && row < entries.size
+        row = cache_table.current_row
+        next unless row >= 0 && row < entries.size
 
-          entry = entries[row]
-          next unless confirm_cache_delete(dialog, entry)
+        entry = entries[row]
+        next unless confirm_cache_delete(dialog, entry)
 
-          CacheInfo.delete(entry)
-          refresh.call
-        rescue ex
-          Log.warn { "mpd_ui: failed to delete cache: #{ex.message || ex}" }
-          show_cache_dialog_message(dialog, "Delete Cache Failed", ex.message || ex.to_s)
-        end
+        CacheInfo.delete(entry)
+        refresh.call
+      rescue ex
+        Log.warn { "mpd_ui: failed to delete cache: #{ex.message || ex}" }
+        show_cache_dialog_message(dialog, "Delete Cache Failed", ex.message || ex.to_s)
       end
 
       close_button.on_clicked { dialog.accept }
