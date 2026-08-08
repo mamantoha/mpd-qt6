@@ -222,12 +222,19 @@ module LastFM
   # scrobbler.update(nil, "stop", 0.0, 0.0)
   # ```
   class Scrobbler
+    RETRY_INTERVAL = 30.seconds
+
+    # Keep network work bounded while DNS or Last.fm is unavailable. Creating
+    # one isolated execution context per attempt can exhaust process resources.
+    @@background_context = Fiber::ExecutionContext::Parallel.new("lastfm", 2)
+
     @mutex = Sync::Mutex.new
     @current : Track?
     @last_elapsed : Float64 = 0.0
     @now_playing_sent : Bool = false
     @scrobble_sent : Bool = false
     @flushing_queue : Bool = false
+    @retry_flush_after : Time::Instant?
     @queue : Array(PendingScrobble)
     @stopped = Atomic(Bool).new(false)
 
@@ -391,6 +398,7 @@ module LastFM
       pending = @mutex.synchronize do
         next [] of PendingScrobble if @flushing_queue
         next [] of PendingScrobble if @queue.empty?
+        next [] of PendingScrobble if @retry_flush_after.try { |retry_after| Time.instant < retry_after }
 
         @flushing_queue = true
         @queue.dup
@@ -415,11 +423,15 @@ module LastFM
         @mutex.synchronize do
           @queue = failed
           @flushing_queue = false
+          @retry_flush_after = failed.empty? ? nil : Time.instant + RETRY_INTERVAL
         end
         save_queue
       rescue ex
         Log.debug { "failed to flush scrobble cache: #{ex.message || ex}" }
-        @mutex.synchronize { @flushing_queue = false }
+        @mutex.synchronize do
+          @flushing_queue = false
+          @retry_flush_after = Time.instant + RETRY_INTERVAL
+        end
       end
     end
 
@@ -428,13 +440,14 @@ module LastFM
     end
 
     private def run_background(name : String, block : Proc(Nil)) : Nil
-      Fiber::ExecutionContext::Isolated.new(name) { block.call }
+      @@background_context.spawn(name: name) { block.call }
     end
 
     private def cache_failed_scrobble(track : Track) : Nil
       @mutex.synchronize do
         item = PendingScrobble.new(track)
         @queue << item unless @queue.any? { |queued| queued.timestamp == item.timestamp && queued.artist == item.artist && queued.title == item.title }
+        @retry_flush_after = Time.instant + RETRY_INTERVAL
       end
 
       save_queue

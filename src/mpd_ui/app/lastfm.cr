@@ -5,6 +5,7 @@ module MPDUI
     end
 
     private def setup_lastfm : Nil
+      @lastfm_adapter.try(&.stop)
       @lastfm_adapter = LastfmAdapter.new(
         Settings::CACHE_PREFIX,
         -> { @settings.lastfm_enabled? },
