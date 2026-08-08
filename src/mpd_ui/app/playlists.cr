@@ -31,7 +31,16 @@ module MPDUI
         return
       end
 
-      name = Qt6::InputDialog.get_text(@window, title: "Save Playlist", label: "Playlist name:")
+      playlist_names = @playlists_view.try(&.playlist_names) || [] of String
+      name = Qt6::InputDialog.get_item(
+        @window,
+        title: "Save Playlist",
+        label: "Playlist name:",
+        items: playlist_names,
+        editable: true
+      ) do |dialog|
+        dialog.text_value = ""
+      end
       return unless name
 
       playlist_name = name.strip
