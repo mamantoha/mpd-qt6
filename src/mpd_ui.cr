@@ -74,6 +74,10 @@ module MPDUI
   def self.run : Nil
     Log.setup_from_env(backend: Log::IOBackend.new(STDERR, dispatcher: Log::DispatchMode::Sync))
 
-    App.new.run
+    # Qt objects and its event loop must stay on the same OS thread, even when
+    # a callback yields during socket I/O or mutex contention.
+    Fiber::ExecutionContext::Isolated.new("mpd-ui") do
+      App.new.run
+    end.wait
   end
 end
