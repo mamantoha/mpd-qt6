@@ -25,7 +25,7 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 
 ## Requirements
 
-- Crystal >= 1.19.1
+- Crystal >= 1.21.1
 - Garnetune must be built with Crystal's multithreaded execution context flags:
   `-Dpreview_mt -Dexecution_context`
 - Qt6 Widgets development packages
