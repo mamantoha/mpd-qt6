@@ -10,10 +10,35 @@ module MPDUI
       menu = @app_actions.try(&.outputs_menu)
       return unless menu
 
+      client = @client
+      unless client
+        clear_outputs_menu("Disconnected")
+        return
+      end
+
+      clear_outputs_menu("Loading outputs…")
+      run_background(
+        ->(outputs : Array(MpdOutput)) {
+          render_outputs_menu(outputs) if @client == client
+        },
+        ->(ex : Exception) {
+          if @client == client
+            clear_outputs_menu("Unable to load outputs")
+            @output_actions.each { |action| action.tool_tip = ex.message || ex.to_s }
+          end
+        }
+      ) do
+        mpd_outputs(client)
+      end
+    end
+
+    private def render_outputs_menu(outputs : Array(MpdOutput)) : Nil
+      menu = @app_actions.try(&.outputs_menu)
+      return unless menu
+
       @output_actions.clear
       menu.clear
 
-      outputs = mpd_outputs
       if outputs.empty?
         action = menu.add_action("No outputs")
         action.enabled = false
@@ -27,24 +52,10 @@ module MPDUI
         action.checked = output.enabled
         action.tool_tip = output.plugin ? "ID #{output.id} • #{output.plugin}" : "ID #{output.id}"
         action.on_toggled do |enabled|
+          action.enabled = false
           set_mpd_output_enabled(output, enabled)
-          refresh_outputs_menu
-          state = enabled ? "Enabled" : "Disabled"
-          message = "#{state} output #{output.name}"
-          set_status(message)
-          show_tray_message(message)
-        rescue ex
-          refresh_outputs_menu
-          Qt6::MessageBox.warning(@window, title: "Output Change Failed", text: ex.message || ex.to_s) if @window
         end
         menu.add_action(action)
-        @output_actions << action
-      end
-    rescue ex
-      action = menu.try(&.add_action("Unable to load outputs"))
-      if action
-        action.enabled = false
-        action.tool_tip = ex.message || ex.to_s
         @output_actions << action
       end
     end
@@ -61,10 +72,7 @@ module MPDUI
       @output_actions << action
     end
 
-    private def mpd_outputs : Array(MpdOutput)
-      client = @client
-      return [] of MpdOutput unless client
-
+    private def mpd_outputs(client : MPD::Client) : Array(MpdOutput)
       raw_outputs = client.outputs
       objects = [] of MPD::Object
       case raw_outputs
@@ -91,12 +99,34 @@ module MPDUI
 
     private def set_mpd_output_enabled(output : MpdOutput, enabled : Bool) : Nil
       client = @client
-      raise "Not connected to MPD" unless client
+      unless client
+        clear_outputs_menu("Disconnected")
+        return
+      end
 
-      if enabled
-        client.enableoutput(output.id)
-      else
-        client.disableoutput(output.id)
+      run_background(
+        ->(_result : Nil) {
+          if @client == client
+            refresh_outputs_menu
+            state = enabled ? "Enabled" : "Disabled"
+            message = "#{state} output #{output.name}"
+            set_status(message)
+            show_tray_message(message)
+          end
+        },
+        ->(ex : Exception) {
+          if @client == client
+            refresh_outputs_menu
+            Qt6::MessageBox.warning(@window, title: "Output Change Failed", text: ex.message || ex.to_s) if @window
+          end
+        }
+      ) do
+        if enabled
+          client.enableoutput(output.id)
+        else
+          client.disableoutput(output.id)
+        end
+        nil
       end
     end
   end
