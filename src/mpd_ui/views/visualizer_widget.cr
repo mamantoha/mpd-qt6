@@ -27,6 +27,9 @@ module MPDUI
 
     def enabled=(value : Bool) : Bool
       @enabled = value
+
+      value ? @timer.start : @timer.stop
+
       refresh
       value
     end

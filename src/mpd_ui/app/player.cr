@@ -114,7 +114,7 @@ module MPDUI
       transition = @player_controller.transition_from_status(status, song, previous_playback, @queue_controller.empty?)
       playback = transition.playback
       @playback_state = playback
-      @visualizer_service.playback_active = !playback.stopped?
+      @visualizer_service.playback_active = playback.playing?
       if playback.stopped? || previous_playback.song_position != playback.song_position
         @player_header_view.try(&.cancel_progress_drag)
       end
