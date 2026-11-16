@@ -16,21 +16,9 @@ module MPDUI
       end
     end
 
-    def delete_position_ranges(client : MPD::Client, ranges : Array(Tuple(Int32, Int32)), queue_size : Int32) : Nil
-      selected_count = ranges.sum { |first, last| last - first + 1 }
-      if selected_count >= queue_size
-        client.clear
-        return
-      end
-
+    def delete_ids(client : MPD::Client, ids : Array(Int32)) : Nil
       client.with_command_list do
-        ranges.sort_by { |first, _last| first }.reverse_each do |first, last|
-          if first == last
-            client.delete(first)
-          else
-            client.delete(first..last)
-          end
-        end
+        ids.each { |id| client.deleteid(id) }
       end
     end
   end

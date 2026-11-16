@@ -198,12 +198,11 @@ module MPDUI
       queue = @queue_view
       return unless queue
 
-      row_ranges = queue.selected_row_ranges
-      position_ranges = @queue_controller.position_ranges_for_row_ranges(row_ranges)
-      return if position_ranges.empty?
+      ids = queue.selected_rows.compact_map { |row| queue.model.song_at(row).try(&.id) }.uniq!
+      return if ids.empty?
 
       @preserve_queue_scroll_once = true
-      selected_count = position_ranges.sum { |first, last| last - first + 1 }
+      selected_count = ids.size
       host = @settings.host
       port = @settings.port
       suffix = selected_count == 1 ? "song" : "songs"
@@ -220,7 +219,7 @@ module MPDUI
         }
       ) do
         with_mpd_client(host, port) do |client|
-          @queue_commands.delete_position_ranges(client, position_ranges, @queue_controller.size)
+          @queue_commands.delete_ids(client, ids)
         end
         nil
       end
