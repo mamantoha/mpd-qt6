@@ -24,7 +24,7 @@ module MPDUI
         ->(ex : Exception) {
           if @client == client
             clear_outputs_menu("Unable to load outputs")
-            @output_actions.each { |action| action.tool_tip = ex.message || ex.to_s }
+            @output_actions.each(&.tool_tip=(ex.message || ex.to_s))
           end
         }
       ) do
