@@ -492,7 +492,7 @@ module MPDUI
       parent = @window
       return unless parent
 
-      if SettingsDialog.edit(parent, @settings)
+      if SettingsDialog.edit(parent, @settings, -> { @lastfm_adapter.try(&.scrobbler.last_scrobble_status) })
         setup_lastfm
         apply_visualizer_settings
         apply_lyrics_settings

@@ -44,7 +44,7 @@ Planning reference for useful missing features and polish ideas.
 - [ ] Add recently played history with quick re-add/play actions.
 - [ ] Add optional confirmation for destructive queue actions such as clearing the queue.
 - [ ] Reset/disconnect the stored Last.fm session.
-- [ ] Show the last scrobble status in Settings or the status bar.
+- [x] Show the last scrobble status in Settings or the status bar.
 - [x] Add a manual Last.fm authentication action.
 
 ## Keyboard And Input Polish

@@ -1,6 +1,8 @@
+require "html"
+
 module MPDUI
   class SettingsDialog
-    def self.edit(parent : Qt6::Widget, settings : Settings) : Bool
+    def self.edit(parent : Qt6::Widget, settings : Settings, scrobble_status : Proc(LastFM::Scrobbler::ScrobbleStatus?) = -> { nil }) : Bool
       dialog = Qt6::Dialog.new(parent)
       dialog.window_title = tr("Settings")
       dialog.resize(680, 340)
@@ -25,6 +27,23 @@ module MPDUI
       lastfm_status = Qt6::Label.new(settings.lastfm_session_key.empty? ? tr("Not authenticated") : tr("Authenticated"))
       lastfm_status.word_wrap = true
       authenticate_lastfm_button = Qt6::PushButton.new(tr("Authenticate"), dialog)
+
+      last_scrobble = Qt6::Label.new("", dialog)
+      last_scrobble.word_wrap = true
+      refresh_scrobble_status = -> {
+        text = if status = scrobble_status.call
+                 result = status.error ? tr("Failed: %1").sub("%1", status.error.not_nil!) : tr("Submitted")
+                 "#{status.attempted_at.to_s("%Y-%m-%d %H:%M:%S")} — #{result}\n#{status.artist} — #{status.title}"
+               else
+                 tr("No scrobbles submitted this session")
+               end
+        last_scrobble.text = "<span>#{HTML.escape(text).gsub("\n", "<br>")}</span>"
+      }
+      refresh_scrobble_status.call
+      scrobble_status_timer = Qt6::QTimer.new(dialog)
+      scrobble_status_timer.interval = 1000
+      scrobble_status_timer.on_timeout { refresh_scrobble_status.call }
+      scrobble_status_timer.start
 
       visualizer_enabled = Qt6::CheckBox.new(tr("Show visualizer"), dialog)
       visualizer_enabled.checked = settings.visualizer_enabled?
@@ -163,6 +182,7 @@ module MPDUI
           form.add_row(tr("Username"), lastfm_username)
           form.add_row(tr("Password"), password_field)
           form.add_row(lastfm_status)
+          form.add_row(tr("Last scrobble"), last_scrobble)
           group_column.add(form)
         end
 
@@ -256,6 +276,7 @@ module MPDUI
 
       dialog.exec == Qt6::DialogCode::Accepted
     ensure
+      scrobble_status_timer.try(&.stop)
       dialog.try(&.release)
     end
 

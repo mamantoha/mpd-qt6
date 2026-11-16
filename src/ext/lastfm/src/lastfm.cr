@@ -222,6 +222,12 @@ module LastFM
   # scrobbler.update(nil, "stop", 0.0, 0.0)
   # ```
   class Scrobbler
+    record ScrobbleStatus,
+      artist : String,
+      title : String,
+      attempted_at : Time,
+      error : String? = nil
+
     RETRY_INTERVAL = 30.seconds
 
     # Keep network work bounded while DNS or Last.fm is unavailable. Creating
@@ -229,6 +235,7 @@ module LastFM
     @@background_context = Fiber::ExecutionContext::Parallel.new("lastfm", 2)
 
     @mutex = Sync::Mutex.new
+    @last_scrobble_status : ScrobbleStatus?
     @current : Track?
     @last_elapsed : Float64 = 0.0
     @now_playing_sent : Bool = false
@@ -242,6 +249,18 @@ module LastFM
     # without rebuilding this object for every update.
     def initialize(@cache_name : String, @enabled : -> Bool, @session_key : -> String, @client : Client)
       @queue = load_queue
+    end
+
+    def last_scrobble_status : ScrobbleStatus?
+      @mutex.synchronize { @last_scrobble_status }
+    end
+
+    def last_scrobble_status=(status : ScrobbleStatus?) : Nil
+      @mutex.synchronize { @last_scrobble_status = status }
+    end
+
+    private def record_scrobble_status(track : Track, error : String? = nil) : Nil
+      self.last_scrobble_status = ScrobbleStatus.new(track.artist, track.title, Time.local, error)
     end
 
     # Main entrypoint from the player.
@@ -385,8 +404,10 @@ module LastFM
         next if @stopped.get
 
         @client.scrobble(track, @session_key.call)
+        record_scrobble_status(track)
         Log.info { "scrobbled: #{track.artist} - #{track.title}" }
       rescue ex
+        record_scrobble_status(track, ex.message || ex.to_s)
         Log.info { "failed to scrobble #{track.artist} - #{track.title}: #{ex.message || ex}" }
         cache_failed_scrobble(track)
       end
@@ -415,7 +436,9 @@ module LastFM
           track = item.to_track
           begin
             @client.scrobble(track, @session_key.call)
-          rescue
+            record_scrobble_status(track)
+          rescue ex
+            record_scrobble_status(track, ex.message || ex.to_s)
             failed << item
           end
         end
