@@ -1,7 +1,7 @@
 module MPDUI
   class LyricsModel < Qt6::AbstractListModel
     @lines : Array(LyricsLine) = [] of LyricsLine
-    @active_row : Int32? = nil
+    getter active_row : Int32? = nil
     @active_background : Qt6::Color?
     @active_foreground : Qt6::Color?
 
@@ -24,10 +24,6 @@ module MPDUI
 
     def line_at(row : Int32) : LyricsLine?
       @lines[row]?
-    end
-
-    def active_row : Int32?
-      @active_row
     end
 
     def active_row=(row : Int32?) : Nil
