@@ -6,6 +6,7 @@ module MPDUI
 
     @timer : Qt6::QTimer
     @enabled : Bool = true
+    @levels : Array(Float64) = [] of Float64
 
     def initialize(parent : Qt6::Widget, @service : VisualizerService)
       @root = Qt6::EventWidget.new(parent).tap do |widget|
@@ -37,11 +38,17 @@ module MPDUI
     private def refresh : Nil
       visible = @enabled && @service.available?
       @root.visible = visible if @root.visible? != visible
-      @root.update if visible
+      return unless visible
+
+      levels = @service.levels
+      return if levels == @levels
+
+      @levels = levels
+      @root.update
     end
 
     private def paint(painter : Qt6::QPainter) : Nil
-      levels = @service.levels
+      levels = @levels
       return if levels.empty?
 
       width = @root.width.to_f
