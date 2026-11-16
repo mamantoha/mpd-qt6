@@ -46,7 +46,7 @@ module MPDUI
       @queue_panel.vbox do |queue_column|
         queue_column.spacing = 4
         queue_column.set_contents_margins(0, 0, 0, 0)
-        queue_column << queue_view.view
+        queue_column << queue_view.root
       end
 
       @browsers << @database_panel

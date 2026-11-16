@@ -10,6 +10,7 @@ A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://cr
 
 - Playback controls with progress seeking, shuffle/repeat, volume control, and current song metadata.
 - Album art support, including a full-size cover preview and optional blurred cover background in the playback header.
+- Queue search by title, artist, album, and file path, with case-insensitive multiword matching. Press Escape to clear the filter.
 - Queue management with multi-select, drag-and-drop reordering, keyboard playback, row removal, and context menu actions.
 - Library browser grouped by artist, album, and song, with natural album/year and disc/track sorting.
 - Library search by artist, album, title, and file path, plus genre filtering from MPD's database tags.

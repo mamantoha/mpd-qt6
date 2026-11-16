@@ -4,7 +4,7 @@ Planning reference for useful missing features and polish ideas.
 
 ## High Value
 
-- [ ] Add queue search/filter for large playlists.
+- [x] Add queue search/filter for large playlists.
 - [ ] Collapse or expand all artists/albums.
 - [x] Locate selected queue song in the library.
 - [ ] Remember expanded library tree nodes between reloads.

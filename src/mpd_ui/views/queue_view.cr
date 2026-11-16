@@ -1,5 +1,6 @@
 module MPDUI
   class QueueView
+    getter root : Qt6::Widget
     getter view : Qt6::TreeView
     getter model : QueueModel
     getter drop_filter : Qt6::EventFilter?
@@ -19,6 +20,8 @@ module MPDUI
     property on_drag_leave : Proc(Nil)?
     property on_drop : Proc(Qt6::DropEvent, Bool)?
 
+    @search_edit : Qt6::LineEdit
+    @search_status : Qt6::Label
     @context_menu : Qt6::Menu
     @playlist_submenu : Qt6::Menu
     @play_now_action : Qt6::Action
@@ -27,7 +30,14 @@ module MPDUI
     @shortcuts : Array(Qt6::Shortcut) = [] of Qt6::Shortcut
 
     def initialize(parent : Qt6::Widget)
-      @view = Qt6::TreeView.new(parent)
+      @root = Qt6::Widget.new(parent)
+      @search_edit = Qt6::LineEdit.new("", @root)
+      @search_edit.placeholder_text = "Search queue…"
+      @search_edit.clear_button_enabled = true
+      @search_edit.tool_tip = "Search by title, artist, album, or file path"
+      @search_status = Qt6::Label.new("", @root)
+      @search_status.visible = false
+      @view = Qt6::TreeView.new(@root)
       @model = QueueModel.new(@view)
       configure_view
       @selection = QueueSelection.new(@view)
@@ -47,6 +57,38 @@ module MPDUI
       add_shortcut("Return") { @on_play_selected.try(&.call) }
       add_shortcut("Enter") { @on_play_selected.try(&.call) }
       add_shortcut("Delete") { @on_remove_selected.try(&.call) }
+
+      @search_edit.on_text_changed do |_text|
+        @view.clear_selection
+        index = Qt6::ModelIndex.new
+        begin
+          @view.current_index = index
+        ensure
+          index.release
+        end
+        apply_search
+      end
+      @search_edit.on_return_pressed do
+        if row = (0...row_count).find { |candidate| !@view.row_hidden?(candidate) }
+          select_row(row)
+          @view.set_focus
+        end
+      end
+      escape = Qt6::Shortcut.new("Esc", @root)
+      escape.context = Qt6::ShortcutContext::WidgetWithChildrenShortcut
+      escape.on_activated do
+        @search_edit.clear
+        @view.set_focus
+      end
+      @shortcuts << escape
+
+      @root.vbox do |column|
+        column.spacing = 4
+        column.set_contents_margins(4, 4, 4, 0)
+        column << @search_edit
+        column << @search_status
+        column << @view
+      end
     end
 
     def install_drop_filter : Nil
@@ -70,6 +112,7 @@ module MPDUI
     def render(songs : Array(Song), &indicator_for : Int32 -> String) : Nil
       @model.replace(songs) { |pos| indicator_for.call(pos) }
       configure_header
+      apply_search
     end
 
     def update_indicator(row : Int32, value : String) : Nil
@@ -79,7 +122,7 @@ module MPDUI
     end
 
     def selected_rows : Array(Int32)
-      @selection.selected_rows
+      @selection.selected_rows.reject { |row| @view.row_hidden?(row) }
     end
 
     def selected_row_ranges : Array(Tuple(Int32, Int32))
@@ -87,15 +130,15 @@ module MPDUI
     end
 
     def selected_row_count : Int32
-      @selection.selected_row_count
+      selected_rows.size
     end
 
     def selected_row?(row : Int32) : Bool
-      @selection.selected_row?(row)
+      !@view.row_hidden?(row) && @selection.selected_row?(row)
     end
 
     def current_rows : Array(Int32)
-      @selection.current_rows
+      @selection.current_rows.reject { |row| @view.row_hidden?(row) }
     end
 
     def focused? : Bool
@@ -113,6 +156,7 @@ module MPDUI
 
     def select_row(row : Int32, *, scroll : Bool = true) : Nil
       return if row < 0 || row >= @model.row_count
+      return if @view.row_hidden?(row)
 
       index = @model.index(row, 1)
       begin
@@ -141,6 +185,24 @@ module MPDUI
 
     def empty? : Bool
       row_count <= 0
+    end
+
+    private def apply_search : Nil
+      terms = @search_edit.text.downcase.split
+      matches = 0
+      row_count.times do |row|
+        song = @model.song_at(row)
+        next unless song
+
+        visible = terms.empty? || begin
+          haystack = [song.title?, song.artist?, song.album?, song.file].compact.join(" ").downcase
+          terms.all? { |term| haystack.includes?(term) }
+        end
+        @view.set_row_hidden(row, !visible)
+        matches += 1 if visible
+      end
+      @search_status.text = "#{matches} of #{row_count} tracks"
+      @search_status.visible = !terms.empty?
     end
 
     private def configure_view : Nil
