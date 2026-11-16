@@ -3,9 +3,9 @@ module MPDUI
     HEIGHT = 34
 
     getter root : Qt6::EventWidget
+    getter? enabled : Bool = true
 
     @timer : Qt6::QTimer
-    @enabled : Bool = true
     @levels : Array(Float64) = [] of Float64
 
     def initialize(parent : Qt6::Widget, @service : VisualizerService)
@@ -32,10 +32,6 @@ module MPDUI
 
       refresh
       value
-    end
-
-    def enabled? : Bool
-      @enabled
     end
 
     private def refresh : Nil
